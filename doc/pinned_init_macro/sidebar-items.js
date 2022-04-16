@@ -1,0 +1,1 @@
+initSidebarItems({"attr":[["manual_init","Use this attribute on a struct with named fields to ensure safer pinned initialization of all the fields marked with `#[init]`."],["pinned_init","Use this attribute on a struct with named fields to ensure safe pinned initialization of all the fields marked with `#[init]`."]]});

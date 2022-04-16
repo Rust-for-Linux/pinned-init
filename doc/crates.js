@@ -1,0 +1,1 @@
+window.ALL_CRATES = ["pin_project","pin_project_internal","pinned_init","pinned_init_macro","proc_macro2","proc_macro_error","proc_macro_error_attr","quote","syn","unicode_xid"];

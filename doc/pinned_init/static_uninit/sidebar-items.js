@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["StaticUninit","This type is similar to [`MaybeUninit`], but it provides a safe interface for initialization which can then be used statically. It represents a Value which is"]]});
