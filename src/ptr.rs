@@ -37,3 +37,8 @@ where
     /// `Self == Self::Ptr<T>`
     type Ptr<U: ?Sized>: DerefMut<Target = U>;
 }
+
+#[cfg(feature = "alloc")]
+unsafe impl<T: ?Sized> OwnedUniquePtr<T> for alloc::boxed::Box<T> {
+    type Ptr<U: ?Sized> = alloc::boxed::Box<U>;
+}
