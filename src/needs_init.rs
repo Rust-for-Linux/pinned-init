@@ -63,12 +63,24 @@ use core::{mem, pin::Pin};
 /// This pointer does **not** implement [`Deref`] or [`DerefMut`], instead you
 /// should only use [`NeedsPinnedInit::begin_init`] on this type to begin safe
 /// initialization of the inner `T`.
+///
+/// # Invariants and assumptions
+///
+/// - When the `'init` lifetime expires, the value this pointer pointed to, will
+/// be initialized and have changed its type to `T::Initialized`.
+/// - From the construction of a [`NeedsPinnedInit<'init, T>`] until the end of
+/// `'init` it assumes full control over the pointee. This means that no one
+/// else is allowed to access the underlying value.
 #[repr(transparent)]
-pub struct NeedsPinnedInit<'init, T: ?Sized> {
+pub struct NeedsPinnedInit<'init, T: PinnedInit> {
+    // need option here, otherwise `mem::forget`ing `self` in `begin_init` is
+    // not possible, because we would need to borrow `self` for `'init`, but
+    // `'init` ends only after we have been dropped.
     inner: Option<Pin<&'init mut T>>,
 }
 
-impl<'init, T: ?Sized> Drop for NeedsPinnedInit<'init, T> {
+#[cfg(not(pinned_init_unsafe_no_enforce_init))]
+impl<'init, T: PinnedInit> Drop for NeedsPinnedInit<'init, T> {
     fn drop(&mut self) {
         if_cfg! {
             if (debug_assertions) {
@@ -89,41 +101,35 @@ impl<'init, T: ?Sized> Drop for NeedsPinnedInit<'init, T> {
     }
 }
 
-impl<'init, T: ?Sized> NeedsPinnedInit<'init, T> {
+impl<'init, T: PinnedInit> NeedsPinnedInit<'init, T> {
     /// Construct a new `NeedsPinnedInit` from the given [`Pin`].
     ///
     /// # Safety
     ///
-    /// When the `'init` lifetime expires, the value at `inner` has been
-    /// initialized and thus changed type from `T` to `T::Initialized`.
-    /// The caller needs to guarantee that no pointers to `inner` exist that are
-    /// unaware of the call to this function. An aware pointer will change its
-    /// pointee type to `T::Initialized` when `'init` expires.
+    /// - When the `'init` lifetime expires, the value at `inner` will be
+    /// initialized and have changed type to `T::Initialized`.
+    /// - From the moment this function is called until the end of `'init` the
+    /// produced [`NeedsPinnedInit`] becomes the only valid way to access the
+    /// underlying value.
+    /// - The caller needs to guarantee, that the pointer from which `inner` was
+    /// derived changes its pointee type to `T::Initialized`, when `'init` ends.
     #[inline]
-    pub unsafe fn new_unchecked(inner: Pin<&'init mut T>) -> Self
-    where
-        T: PinnedInit,
-    {
+    pub unsafe fn new_unchecked(inner: Pin<&'init mut T>) -> Self {
         Self { inner: Some(inner) }
     }
 
     /// Begin to initialize the value behind this `NeedsPinnedInit`.
     #[inline]
-    pub fn begin_init(mut self) -> <T as BeginInit>::OngoingInit<'init>
-    where
-        T: PinnedInit,
-    {
+    pub fn begin_init(mut self) -> <T as BeginInit>::OngoingInit<'init> {
         let res = if let Some(inner) = self.inner.take() {
             unsafe { inner.__begin_init() }
         } else {
-            if_cfg! {
-                if (feature = "mark-unreachable") {
-                    unsafe {
-                        core::hint::unreachable_unchecked();
-                    }
-                } else {
-                    unreachable!();
-                }
+            unsafe {
+                // SAFETY: self.inner is never `take`n anywhere else. Because
+                // this function takes `self` by value, we know, that the option
+                // is populated, because we only create `NeedsPinnedInit` with
+                // inner set to `Some`.
+                core::hint::unreachable_unchecked();
             }
         };
         mem::forget(self);
@@ -140,13 +146,24 @@ impl<'init, T: ?Sized> NeedsPinnedInit<'init, T> {
     /// - it is pinned.
     /// - you may only generate a `*mut T` or `&mut T` if the value of `T` is
     /// wrapped in an [`UnsafeCell`].
+    /// - dereferencing the pointer outside of the initialization process of `T`,
+    /// while `'init` has not expired, is illegal (this would violate an invariant
+    /// of [`NeedsPinnedInit`]).
     /// - this pointer needs to be aware, that the type of the value pointed to
     /// will change from `T` to `T::Initialized` when `'init` expires.
     ///
     /// Storing this pointer inside of the `T` itself for example is sound.
     #[inline]
     pub unsafe fn as_ptr(&self) -> *const T {
-        (&*self.inner.as_ref().unwrap().as_ref()) as *const T
+        let ptr: Pin<&T> = unsafe {
+            // SAFETY: self.inner can only be None, if `begin_init` was called,
+            // which takes `self` by value, so this function cannot be called.
+            // `NeedsPinnedInit` is only initialized with Some, so inner is
+            // populated.
+            self.inner.as_ref().unwrap_unchecked()
+        }
+        .as_ref();
+        (&*ptr) as *const T
     }
 
     /// Get a raw mutable pointer to the value behind this `NeedsPinnedInit`.
@@ -159,27 +176,55 @@ impl<'init, T: ?Sized> NeedsPinnedInit<'init, T> {
     /// - it is pinned.
     /// - you may only call this function if the value of `T` is wrapped in an
     /// [`UnsafeCell`].
+    /// - dereferencing the pointer outside of the initialization process of `T`,
+    /// while `'init` has not expired, is illegal (this would violate an invariant
+    /// of [`NeedsPinnedInit`]).
     /// - this pointer needs to be aware, that the type of the value pointed to
     /// will change from `T` to `T::Initialized` when `'init` expires.
     ///
     /// Storing this pointer inside of the `T` itself for example is sound.
     #[inline]
     pub unsafe fn as_ptr_mut(&mut self) -> *mut T {
-        unsafe { self.inner.as_mut().unwrap().as_mut().get_unchecked_mut() as *mut T }
+        let ptr: Pin<&mut T> = unsafe {
+            // SAFETY: self.inner can only be None, if `begin_init` was called,
+            // which takes `self` by value, so this function cannot be called.
+            // `NeedsPinnedInit` is only initialized with Some, so inner is
+            // populated.
+            self.inner.as_mut().unwrap_unchecked()
+        }
+        .as_mut();
+        unsafe {
+            // SAFETY: the caller is responsible to handle this pointer as a
+            // pinned pointer.
+            ptr.get_unchecked_mut() as *mut T
+        }
     }
 }
+
 /// A pointer to data that needs to be initialized.
 /// When this pointer is neglected and not initialized, it will
 /// - panic on drop (when debug assertions are enabled)
 /// - produce a link time error (when debug assertions are disabled)
 /// This is to prevent partial initialization and guarantee statically (when
-/// used without debug assertions) that the type `T` is fully initialized and
-/// may be transmuted to its initialized form.
+/// used without debug assertions) that the type `T` is fully initialized.
+///
+/// This pointer does **not** implement [`Deref`] or [`DerefMut`], instead you
+/// should only use [`NeedsInit::init`] on this type to safely initialize
+/// the inner `T`.
+///
+/// # Invariants and assumptions
+///
+/// - When the `'init` lifetime expires, the value this pointer pointed to, will
+/// be initialized.
+/// - From the construction of a [`NeedsInit<'init, T>`] until the end of
+/// `'init` it assumes full control over the pointee. This means that no one
+/// else is allowed to access the underlying value.
 #[repr(transparent)]
 pub struct NeedsInit<'init, T: ?Sized> {
     inner: &'init mut T,
 }
 
+#[cfg(not(pinned_init_unsafe_no_enforce_init))]
 impl<'init, T: ?Sized> Drop for NeedsInit<'init, T> {
     fn drop(&mut self) {
         if_cfg! {
@@ -201,32 +246,30 @@ impl<'init, T: ?Sized> Drop for NeedsInit<'init, T> {
     }
 }
 
-impl<'init, T: ?Sized> NeedsInit<'init, T> {
+impl<'init, T> NeedsInit<'init, StaticUninit<T, false>> {
     /// Construct a new `NeedsInit` from the given pointer.
     ///
     /// # Safety
     ///
-    /// When the `'init` lifetime expires, the value at `inner` has been
-    /// initialized and thus changed type from `T` to `T::Initialized`.
-    /// The caller needs to guarantee that no pointers to `inner` exist that are
-    /// unaware of the call to this function. An aware pointer will change its
-    /// pointee type to `T::Initialized` when `'init` expires.
-    /// From the moment this function is called, this function may assume full
-    /// control over the pointee until `'init` expires.
+    /// - When the `'init` lifetime expires, the value at `inner` will be
+    /// initialized and have changed type to `StaticUninit<T, true>`.
+    /// - From the moment this function is called until the end of `'init` the
+    /// produced [`NeedsInit`] becomes the only valid way to access the
+    /// underlying value.
+    /// - The caller needs to guarantee, that the pointer from which `inner` was
+    /// derived changes its pointee type to `StaticUninit<T, true>`, when `'init` ends.
     #[inline]
     pub unsafe fn new_unchecked(inner: &'init mut T) -> Self {
         Self { inner }
     }
-}
 
-impl<'init, T> NeedsInit<'init, StaticUninit<T, false>> {
     /// Initializes the value behind this pointer with the supplied value
     pub fn init(self, value: T) {
         unsafe {
             // SAFETY: We have been constructed by [`NeedsInit::new_unchecked`]
             // and thus have full control over the pointee, we now change its
             // type and never access it again (we are consumed). When `'init`
-            // expires and all accesses to the pointee are made through
+            // expires all accesses to the pointee will be made through
             // [`StaticUninit<T, true>`] which is the initialized variant.
             //
             // This satisfies the contract of [`StaticUninit::as_uninit_mut`].
