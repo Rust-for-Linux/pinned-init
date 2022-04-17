@@ -45,6 +45,17 @@ pub struct StaticUninit<T, const INIT: bool> {
     inner: MaybeUninit<T>,
 }
 
+impl<T, const INIT: bool> Drop for StaticUninit<T, INIT> {
+    fn drop(&mut self) {
+        if INIT {
+            unsafe {
+                // SAFETY: we are statically known to be initialized, so drop our value
+                self.inner.assume_init_drop();
+            }
+        }
+    }
+}
+
 impl<T> Deref for StaticUninit<T, true> {
     type Target = T;
 
@@ -117,7 +128,7 @@ impl<T> StaticUninit<T, true> {
     pub fn into_inner(self) -> T {
         unsafe {
             // SAFETY: we are statically known to be initialized.
-            self.inner.assume_init()
+            self.inner.assume_init_read()
         }
     }
 
