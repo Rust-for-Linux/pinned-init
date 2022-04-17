@@ -1,10 +1,12 @@
-//! Using [`MaybeUninit<T>`] requires unsafe, but this is often not necessary.
-//! This module provides [`StaticUninit<T, INIT>`] a safer alternative using
+//! Using [`MaybeUninit<T>`] requires unsafe, but this is often not necessary,
+//! because the type system can statically determine the initialization status.
+//!
+//! This module provides [`StaticUninit<T, INIT>`] a safe alternative using
 //! static type checking to ensure one cannot use an uninitialized value as an
 //! initialized and to prevent leaking values when initializing a value twice
 //! without dropping the contents.
 
-use core::{mem::*, ops::*};
+use core::{mem::MaybeUninit, ops::{Deref, DerefMut}, borrow::{Borrow, BorrowMut}};
 
 /// This type is similar to [`MaybeUninit`], but it provides a safe interface
 /// for initialization which can then be used statically.
@@ -57,6 +59,34 @@ impl<T> DerefMut for StaticUninit<T, true> {
             // SAFETY: we are statically known to be initialized.
             self.inner.assume_init_mut()
         }
+    }
+}
+
+impl<T> Borrow<T> for StaticUninit<T, true> {
+    #[inline]
+    fn borrow(&self) -> &T {
+        &*self
+    }
+}
+
+impl<T> BorrowMut<T> for StaticUninit<T, true> {
+    #[inline]
+    fn borrow_mut(&mut self) -> &mut T {
+        &mut *self
+    }
+}
+
+impl<T> AsRef<T> for StaticUninit<T, true> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        &*self
+    }
+}
+
+impl<T> AsMut<T> for StaticUninit<T, true> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut T {
+        &mut *self
     }
 }
 
