@@ -263,6 +263,8 @@
 //! #     buf: [T; 64],
 //! #     #[init]
 //! #     ptr: StaticUninit<*const T>,
+//! #     #[init]
+//! #     end: StaticUninit<*const T>,
 //! # }
 //! impl<T> PinnedInit for PtrBufUninit<T> {
 //!     type Initialized = PtrBuf<T>;
@@ -271,8 +273,10 @@
 //!         let PtrBufOngoingInit {
 //!             ptr,
 //!             buf,
+//!             end,
 //!         } = this.begin_init();
 //!         ptr.init(&*buf as *const T);
+//!         end.init(buf.last().unwrap() as *const T);
 //!     }
 //! }
 //!
@@ -281,6 +285,65 @@
 //!         Self {
 //!             buf,
 //!             ptr: StaticUninit::uninit(),
+//!             end: StaticUninit::uninit(),
+//!         }
+//!     }
+//! }
+//! ```
+//! Now implementing the `next` method is rather staight forward:
+//! ```rust
+//! # #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+//! # use pinned_init::prelude::*;
+//! # use core::pin::Pin;
+//! # #[manual_init]
+//! # pub struct PtrBuf<T> {
+//! #     buf: [T; 64],
+//! #     #[init]
+//! #     ptr: StaticUninit<*const T>,
+//! #     #[init]
+//! #     end: StaticUninit<*const T>,
+//! # }
+//! # impl<T> PinnedInit for PtrBufUninit<T> {
+//! #     type Initialized = PtrBuf<T>;
+//! #     fn init_raw(this: NeedsPinnedInit<Self>) {
+//! #         let PtrBufOngoingInit {
+//! #             ptr,
+//! #             buf,
+//! #             end,
+//! #         } = this.begin_init();
+//! #         ptr.init(&*buf as *const T);
+//! #         end.init(buf.last().unwrap() as *const T);
+//! #     }
+//! # }
+//! # impl<T> From<[T; 64]> for PtrBufUninit<T> {
+//! #     fn from(buf: [T; 64]) -> Self {
+//! #         Self {
+//! #             buf,
+//! #             ptr: StaticUninit::uninit(),
+//! #             end: StaticUninit::uninit(),
+//! #         }
+//! #     }
+//! # }
+//! impl<T> PtrBuf<T> {
+//!     pub fn next(self: Pin<&mut Self>) -> Option<&T> {
+//!         let this = self.project();
+//!         if **this.ptr > **this.end {
+//!             None
+//!         } else {
+//!             let res = unsafe {
+//!                 // SAFETY: we were correctly initialized and checked bounds
+//!                 // so this.ptr points to somewhere in buf.
+//!                 &***this.ptr
+//!             };
+//!             **this.ptr = unsafe {
+//!                 // SAFETY: the resulting pointer is either one byte after buf, or
+//!                 // inside buf.
+//!                 // An offset of 1 cannot overflow, because we allocated `[T;
+//!                 // 64]` before. the allocation also does not wrap around the
+//!                 // address space.
+//!                 this.ptr.offset(1)
+//!             };
+//!             Some(res)
 //!         }
 //!     }
 //! }
@@ -329,33 +392,71 @@
 //! Without this library you would need to resort to `unsafe` for all such
 //! initializations.
 //!
-//! For example the `PtrBuf` from above without this library could look like
-//! this:
+//! For example the `PtrBuf` from above without this library and without
+//! [pin_project] could look like this:
 //! ```rust
-//! use core::{mem::MaybeUninit, pin::Pin};
+//! use core::{mem::MaybeUninit, pin::Pin, ptr};
 //!
 //! pub struct PtrBuf<T> {
 //!     buf: [T; 64],
-//!     ptr: MaybeUninit<*const T>,
+//!     ptr: *const T,
+//!     end: *const T,
 //! }
 //!
 //! impl<T> PtrBuf<T> {
 //!     /// Construct a new PtrBuf.
 //!     ///
 //!     /// # Safety
+//!     ///
 //!     /// The caller needs to call [`PtrBuf::init`] before using this PtrBuf
 //!     pub unsafe fn new(buf: [T; 64]) -> Self {
 //!         Self {
 //!             buf,
-//!             ptr: MaybeUninit::uninit(),
+//!             ptr: ptr::null(),
+//!             end: ptr::null(),
 //!         }
 //!     }
 //!
+//!     /// Initializes this PtrBuf
+//!     ///
+//!     /// # Safety
+//!     ///
+//!     /// The caller needs to guarantee that this function is only called
+//!     /// once.
 //!     pub unsafe fn init(self: Pin<&mut Self>) {
 //!         let ptr = &self.buf as *const T;
 //!         unsafe {
 //!             // SAFETY: we do not move the data behind this pointer.
 //!             self.get_unchecked_mut().ptr.write(ptr);
+//!         }
+//!     }
+//!
+//!     /// Fetches the next value, if present.
+//!     ///
+//!     /// # Safety
+//!     /// The caller needs to call [`PtrBuf::init`] before calling this
+//!     /// function.
+//!     pub unsafe fn next(self: Pin<&mut Self>) -> Option<&T> {
+//!         let this = unsafe {
+//!             // SAFETY: We never move out of this pointer
+//!             self.get_unchecked_mut()
+//!         };
+//!         debug_assert!(!ptr.is_null());
+//!         if this.ptr > this.end {
+//!             None
+//!         } else {
+//!             let res = unsafe {
+//!                 // SAFETY: we checked bounds before and the caller
+//!                 // guarantees, that they called `init`.
+//!                 &*this.ptr
+//!             };
+//!             // SAFETY: the resulting pointer is either one byte after buf, or
+//!             // inside buf.
+//!             // An offset of 1 cannot overflow, because we allocated `[T;
+//!             // 64]` before. the allocation also does not wrap around the
+//!             // address space.
+//!             this.ptr = this.ptr.offset(1);
+//!             Some(res)
 //!         }
 //!     }
 //! }
