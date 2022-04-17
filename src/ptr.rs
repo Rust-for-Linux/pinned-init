@@ -64,6 +64,7 @@ where
 unsafe impl<T: ?Sized> OwnedUniquePtr<T> for alloc::boxed::Box<T> {
     type Ptr<U: ?Sized> = alloc::boxed::Box<U>;
 
+    #[inline]
     unsafe fn transmute_pointee_pinned<U>(this: Pin<Self>) -> Pin<Self::Ptr<U>>
     where
         T: TransmuteInto<U>,

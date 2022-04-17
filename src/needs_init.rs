@@ -226,6 +226,7 @@ pub struct NeedsInit<'init, T: ?Sized> {
 
 #[cfg(not(pinned_init_unsafe_no_enforce_init))]
 impl<'init, T: ?Sized> Drop for NeedsInit<'init, T> {
+    #[inline]
     fn drop(&mut self) {
         if_cfg! {
             if (debug_assertions) {
@@ -264,6 +265,7 @@ impl<'init, T> NeedsInit<'init, StaticUninit<T, false>> {
     }
 
     /// Initializes the value behind this pointer with the supplied value
+    #[inline]
     pub fn init(self, value: T) {
         unsafe {
             // SAFETY: We have been constructed by [`NeedsInit::new_unchecked`]

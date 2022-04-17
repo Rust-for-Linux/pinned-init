@@ -585,6 +585,7 @@ pub mod transmute {
         ///
         /// - `T` and `Self` must have the same layout.
         /// - All invariants of `T` need to be satisfied by `self`.
+        #[inline]
         unsafe fn transmute(self) -> T {
             unsafe {
                 let ptr = &self as *const Self;
@@ -611,6 +612,7 @@ pub mod transmute {
     where
         T: TransmuteInto<U>,
     {
+        #[inline]
         unsafe fn transmute_ptr(this: *const Self) -> *const Pin<U> {
             unsafe {
                 // SAFETY: `T: TransmuteInto<U>` guarantees that we can
@@ -668,6 +670,7 @@ pub trait SafePinnedInit<T: PinnedInit>: sealed::Sealed<T> + Sized {
 impl<T: PinnedInit, P: OwnedUniquePtr<T>> SafePinnedInit<T> for Pin<P> {
     type Initialized = Pin<P::Ptr<T::Initialized>>;
 
+    #[inline]
     fn init(mut self) -> Self::Initialized {
         unsafe {
             // SAFETY: `self` implements `OwnedUniquePtr`, thus giving us unique
