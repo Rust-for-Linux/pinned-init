@@ -60,6 +60,7 @@ unsafe impl<T: ?Sized> OwnedUniquePtr<T> for alloc::boxed::Box<T> {
     where
         T: TransmuteInto<U>,
     {
+        #[cfg(not(feature = "std"))]
         use alloc::boxed::Box;
         unsafe {
             // SAFETY: we later repin the pointer and in between never move
