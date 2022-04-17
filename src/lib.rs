@@ -18,7 +18,9 @@
 //!
 //! ## What `PtrBuf` defines
 //!
-//! ```rust,ignore
+//! ```rust
+//! # #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+//! use pinned_init::prelude::*;
 //! #[manual_init]
 //! pub struct PtrBuf<T> {
 //!     idx: *const T,
@@ -26,7 +28,14 @@
 //! }
 //! ```
 //! To create a `PtrBuf` the crate provides the following implementation:
-//! ```rust,ignore
+//! ```rust
+//! # #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+//! # use pinned_init::prelude::*;
+//! # #[manual_init]
+//! # pub struct PtrBuf<T> {
+//! #     idx: *const T,
+//! #     buf: [T; 64],
+//! # }
 //! impl<T> From<[T; 64]> for PtrBufUninit<T> {
 //!     fn from(arr: [T; 64]) -> Self { todo!() }
 //! }
@@ -40,6 +49,9 @@
 //! To begin the creation process of a `PtrBuf` we first must create a
 //! `PtrBufUninit`:
 //! ```rust
+//! # #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+//! # use pinned_init::prelude::*;
+//! # use core::pin::Pin;
 //! # #[pinned_init]
 //! # struct PtrBuf<T> {
 //! #     buf: [T; 64],
@@ -64,6 +76,9 @@
 //! data, if your pointer type supports it you could also create it first and
 //! then pin it later, but in many cases this is not necessary.
 //! ```rust
+//! # #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+//! # use core::pin::Pin;
+//! # use pinned_init::prelude::*;
 //! # #[pinned_init]
 //! # struct PtrBuf<T> {
 //! #     buf: [T; 64],
@@ -81,6 +96,9 @@
 //! is implemented for [`Pin<P>`] when `P` is pointer with support for this
 //! library.
 //! ```rust
+//! # #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+//! # use core::pin::Pin;
+//! use pinned_init::prelude::*;
 //! # #[pinned_init]
 //! # struct PtrBuf<T> {
 //! #     buf: [T; 64],
@@ -97,6 +115,9 @@
 //!
 //! Full code:
 //! ```rust
+//! #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+//! # use core::pin::Pin;
+//! use pinned_init::prelude::*;
 //! # #[pinned_init]
 //! # struct PtrBuf<T> {
 //! #     buf: [T; 64],
@@ -116,9 +137,18 @@
 //! [`pinned_init`] as an attribute to your struct and marking each field, that
 //! requires initialization with `#[init]`:
 //! ```rust
+//! #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+//! use pinned_init::prelude::*;
 //! # #[pinned_init]
 //! # struct PtrBuf<T> {
 //! #   buf: [T; 64],
+//! # }
+//! # impl<T> From<[T; 64]> for PtrBufUninit<T> {
+//! #     fn from(buf: [T; 64]) -> Self {
+//! #         Self {
+//! #             buf
+//! #         }
+//! #     }
 //! # }
 //! #[pinned_init]
 //! pub struct WithPtrBuf<'a, T> {
@@ -133,7 +163,7 @@
 //!     pub fn new(info: String, msgs: [&'a str; 64], values: [T; 64]) -> Self {
 //!         Self {
 //!             msgs: msgs.into(),
-//!             values: value.into(),
+//!             values: values.into(),
 //!             info,
 //!         }
 //!     }
@@ -142,54 +172,104 @@
 //! And that is it.
 //!
 //! # Declaration of a type with field types not supported by this library
+//!
 //! When using a field with a type which is not supported (for example an
 //! uninitialized type or something that requires custom logic) you will not be
 //! able to use [`pinned_init`]. Instead you will use [`manual_init`] and
-//! additionally manually implement [`PinnedInit`].
+//! additionally manually implement [`PinnedInit`]. The ussage of [`manual_init`]
+//! is similar to [`pinned_init`], you mark fields that need initialization with
+//! `#[init]`. However you need to specify `#[pin]` manually, if you want that
+//! field to be structually pinned. When you want to initalize a field only
+//! after pinning and that fields type does not implement [`PinnedInit`], you
+//! need to use [`StaticUninit<T, INIT>`] here the `PtrBuf` example:
+//! ```rust
+//! #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+//! use pinned_init::prelude::*;
+//! #[manual_init]
+//! pub struct PtrBuf<T> {
+//!     buf: [T; 64],
+//!     #[init]
+//!     ptr: StaticUninit<*const T>,
+//! }
+//! ```
+//! Now we also need to implement a way to construct a `PtrBufUninit` and
+//! implement PinnedInit:
+//! ```rust
+//! #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+//! use pinned_init::prelude::*;
+//! # #[manual_init]
+//! # pub struct PtrBuf<T> {
+//! #     buf: [T; 64],
+//! #     #[init]
+//! #     ptr: StaticUninit<*const T>,
+//! # }
+//! impl<T> PinnedInit for PtrBufUninit<T> {
+//!     type Initialized = PtrBuf<T>;
+//!
+//!     fn init_raw(this: NeedsPinnedInit<Self>) {
+//!         let PtrBufOngoingInit {
+//!             ptr,
+//!             buf,
+//!         } = this.begin_init();
+//!         ptr.init(&*buf as *const T);
+//!     }
+//! }
+//!
+//! impl<T> From<[T; 64]> for PtrBufUninit<T> {
+//!     fn from(buf: [T; 64]) -> Self {
+//!         Self {
+//!             buf,
+//!             ptr: StaticUninit::uninit(),
+//!         }
+//!     }
+//! }
+//! ```
 //!
 //! # Implementing support for a custom pointer type
 //!
+//! For a pointer to be supported by this library, it needs to implement
+//! [`OwnedUniquePtr<T>`].
 //!
+//! This example shows the [`OwnedUniquePtr`] implementation for [`Box<T>`]:
+//! ```rust,ignore
+//! #![feature(generic_associated_types)]
+//! use pinned_init::{ptr::OwnedUniquePtr, transmute::TransmuteInto};
+//! use core::{marker::PhantomData, ops::{Deref, DerefMut}, pin::Pin};
 //!
+//! // SAFETY:
+//! // - Box owns its data.
+//! // - Box knows statically to have the only pointer that points to its
+//! // value.
+//! // - we provided the same pointer type for `Self::Ptr`.
+//! unsafe impl<T: ?Sized> OwnedUniquePtr<T> for Box<T> {
+//!     type Ptr<U: ?Sized> = Box<U>;
 //!
-//! The process of initialization follows the following steps:
-//! 1. You create a `FooUninit<...>` (an alias for `Foo<..., false>`)
-//! 2. You move the `FooUninit<...>` behind a unique owning pointer (here named
-//!     `SomePtr<FooUninit<...>>`)
-//! 3. You use the `init()` function of `SomePtr<FooUninit<...>>` provided by
-//!     the `SafeInit` trait, to initialize the contents
-//! 3a. This library creates a `NeedsPinnedInit<FooUninit<...>>` from the
-//!    `SomePtr<FooUninit<...>>`.
-//! 3b. This library uses the `NeedsPinnedInit<FooUninit<...>>` to call the
-//!     init_raw function of `FooUninit<...>` which initializes it.
-//! 3c. This library transmutes the `SomePtr<FooUninit<...>>` to
-//!     `SomePtr<Foo<...>>` and returns that.
-//!
-//! This library aims to make it ergonomic and safe to not only write code using
-//! pinned initialized types, but also to create them.
-//! When you embed a pinned init type within another struct, you can use the
-//! `#[pinned_init]` macro to turn the outer struct into a pin initialized type and
-//! automatically initializes the inner type.
-//!
-//! When you have more compilcated requirements (for example you need a self
-//! referential struct) you probably cannot avoit writing unsafe code, but the
-//! pinned initialization part will probably not require any unsafe if you
-//! follow these guidelines:
-//! 1. use `#[manual_init]` to add the minimal comapability for this libarary,
-//! this will:
-//! - put `#[pin_project]` your struct, you will have to manually add `#[pin]`
-//! whenever you desire structual pinning
-//! - derive some traits from this lib: transmute and manualinithelper
-//! 2. implement PinnedInit for your type and use the begin_init() function of
-//!    NeedsPinnedInit to access the fields you need for initialization, when you
-//!    need access to other fields of the type, then TODO
-#![no_std]
+//!     unsafe fn transmute_pointee_pinned<U>(this: Pin<Self>) ->
+//!         Pin<Self::Ptr<U>>
+//!     where
+//!         T: TransmuteInto<U>,
+//!     {
+//!         unsafe {
+//!             // SAFETY: we later repin the pointer and in between never move
+//!             // the data behind it.
+//!             let this = Pin::into_inner_unchecked(this);
+//!             // this is safe, due to the requriements of this function
+//!             let this: Box<U> = Box::from_raw(Box::into_raw(this));
+//!             Pin::new_unchecked(this)
+//!         }
+//!     }
+//! }
+//! ```
+#![cfg_attr(not(feature = "std") ,no_std)]
 #![feature(generic_associated_types)]
 #![deny(unsafe_op_in_unsafe_fn, missing_docs)]
 use crate::{
     needs_init::NeedsPinnedInit, private::BeginInit, ptr::OwnedUniquePtr, transmute::TransmuteInto,
 };
 use core::pin::Pin;
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 macro_rules! if_cfg {
     (if $cfg:tt {$($body:tt)*} else {$($els:tt)*}) => {
@@ -216,7 +296,9 @@ pub mod prelude {
     pub use crate::{
         manual_init,
         needs_init::{NeedsInit, NeedsPinnedInit},
-        pinned_init, PinnedInit, SafePinnedInit,
+        pinned_init,
+        static_uninit::StaticUninit,
+        PinnedInit, SafePinnedInit,
     };
 }
 
@@ -224,7 +306,6 @@ pub mod prelude {
 pub mod __private {
     pub use pin_project::pin_project;
 }
-
 
 #[doc(hidden)]
 pub mod private {
@@ -252,12 +333,19 @@ pub mod transmute {
     use core::{mem, pin::Pin};
 
     /// Marks and allows easier unsafe transmutation between types.
-    /// When implementing this type manually, which should only be done for
-    /// custom pointer types which also implement
-    /// [`crate::ptr::OwnedUniquePtr`].
+    /// This trait should **not** be implemented manually.
+    ///
+    /// When implementing this type manually (despite being told not to!), you
+    /// must ensure, that `Self` is indeed transmutible to `T`, review the
+    /// current [unsafe code guidelines]()
+    /// to ensure that `Self` and `T` will also be transmutible in future
+    /// versions of the compiler.
+    ///
     /// When you use the proc macro attributes [`pinned_init`] and
     /// [`manual_init`] this trait will be implemented automatically to
     /// transmute from the uninitialized to the initialized variant.
+    /// This is accompanied with static compile checks, that the layout of both
+    /// types is the same.
     ///
     /// When using this trait, it is not required to use one of the provided
     /// functions, you may [`mem::transmute`] a value of `Self` to `T`, you may
@@ -269,7 +357,8 @@ pub mod transmute {
     /// # Safety
     ///
     /// When implementing this type the following conditions must be true:
-    /// - `T` and `Self` have the same layout.
+    /// - `T` and `Self` have the same layout, compiler version updates must not
+    /// break this invariant.
     /// - transmutation is only sound, if all invariants of `T` are satisfied by
     /// all values of `Self` transmuted with this trait.
     pub unsafe trait TransmuteInto<T>: Sized {
@@ -305,17 +394,6 @@ pub mod transmute {
             unsafe { mem::transmute(this) }
         }
     }
-
-    // TODO figure out if this actually is unsafe, because box is repr(Rust)
-    #[cfg(feature = "alloc")]
-    unsafe impl<T, U> TransmuteInto<alloc::boxed::Box<U>> for alloc::boxed::Box<T>
-    where
-        T: TransmuteInto<U>,
-    {
-        unsafe fn transmute_ptr(this: *const Self) -> *const alloc::boxed::Box<U> {
-            unsafe { mem::transmute(this) }
-        }
-    }
 }
 
 /// Facilitates pinned initialization.
@@ -343,10 +421,7 @@ mod sealed {
 
     pub trait Sealed<T: PinnedInit> {}
 
-    impl<T: PinnedInit, P: OwnedUniquePtr<T>> Sealed<T> for Pin<P> where
-        Pin<P>: TransmuteInto<Pin<P::Ptr<T::Initialized>>>
-    {
-    }
+    impl<T: PinnedInit, P: OwnedUniquePtr<T>> Sealed<T> for Pin<P> {}
 }
 
 /// Sealed trait to facilitate safe initialization of the types supported by
@@ -354,9 +429,7 @@ mod sealed {
 ///
 /// Use this traits [`Self::init`] method to initialize the T contained in `self`.
 /// This trait is implemented only for [`Pin<P>`] `where P:` [`OwnedUniquePtr<T>`] `, T:` [`PinnedInit`].
-pub trait SafePinnedInit<T: PinnedInit>:
-    sealed::Sealed<T> + TransmuteInto<Self::Initialized> + Sized
-{
+pub trait SafePinnedInit<T: PinnedInit>: sealed::Sealed<T> + Sized {
     /// The type that represents the initialized version of `self`.
     type Initialized;
 
@@ -364,22 +437,19 @@ pub trait SafePinnedInit<T: PinnedInit>:
     fn init(self) -> Self::Initialized;
 }
 
-impl<T: PinnedInit, P: OwnedUniquePtr<T>> SafePinnedInit<T> for Pin<P>
-where
-    Pin<P>: TransmuteInto<Pin<P::Ptr<T::Initialized>>>,
-{
+impl<T: PinnedInit, P: OwnedUniquePtr<T>> SafePinnedInit<T> for Pin<P> {
     type Initialized = Pin<P::Ptr<T::Initialized>>;
 
     fn init(mut self) -> Self::Initialized {
         unsafe {
-            // SAFETY: `self` implements `OwnedPinnedPtr`, thus giving us unique
+            // SAFETY: `self` implements `OwnedUniquePtr`, thus giving us unique
             // access to the data behind `self`. Because we call `T::init_raw`
-            // and `Self::transmute` below, the contract of
+            // and `P::transmute_pointee_pinned` below, the contract of
             // `NeedsPinnedInit::new_unchecked` is fullfilled (all pointers to
             // the data are aware of the new_unchecked call).
             let this = NeedsPinnedInit::new_unchecked(self.as_mut());
             T::init_raw(this);
-            Self::transmute(self)
+            P::transmute_pointee_pinned(self)
         }
     }
 }

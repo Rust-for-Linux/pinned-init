@@ -2,7 +2,8 @@
 //! allow safe transmuation of data without forgetting to change other pointer
 //! types.
 
-use core::ops::DerefMut;
+use crate::transmute::TransmuteInto;
+use core::{ops::DerefMut, pin::Pin};
 
 mod sealed {
     #[doc(hidden)]
@@ -36,9 +37,37 @@ where
     /// Access the same underlying pointer type with a different pointee type.
     /// `Self == Self::Ptr<T>`
     type Ptr<U: ?Sized>: DerefMut<Target = U>;
+
+    /// Transmute the type behind this pointer while being pinned.
+    ///
+    /// # Safety
+    ///
+    /// This function does not
+    /// - move the pointee.
+    /// - mutate the pointee.
+    /// The caller needs to guarantee, that it is safe to transmute `T` to `U` (or
+    /// equivalently, that it is safe to call [`TransmuteInto::transmute_ptr`]).
+    unsafe fn transmute_pointee_pinned<U>(this: Pin<Self>) -> Pin<Self::Ptr<U>>
+    where
+        T: TransmuteInto<U>;
 }
 
 #[cfg(feature = "alloc")]
 unsafe impl<T: ?Sized> OwnedUniquePtr<T> for alloc::boxed::Box<T> {
     type Ptr<U: ?Sized> = alloc::boxed::Box<U>;
+
+    unsafe fn transmute_pointee_pinned<U>(this: Pin<Self>) -> Pin<Self::Ptr<U>>
+    where
+        T: TransmuteInto<U>,
+    {
+        use alloc::boxed::Box;
+        unsafe {
+            // SAFETY: we later repin the pointer and in between never move
+            // the data behind it.
+            let this = Pin::into_inner_unchecked(this);
+            // this is safe, due to the requriements of this function
+            let this: Box<U> = Box::from_raw(Box::into_raw(this) as *mut U);
+            Pin::new_unchecked(this)
+        }
+    }
 }
