@@ -1,6 +1,6 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![feature(get_mut_unchecked, generic_associated_types)]
-use core::{mem, ops::*, pin::*};
+use core::{ops::*, pin::*};
 use pinned_init::{ptr::OwnedUniquePtr, transmute::TransmuteInto};
 use std::sync::*;
 
