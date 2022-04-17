@@ -6,7 +6,12 @@
 //! initialized and to prevent leaking values when initializing a value twice
 //! without dropping the contents.
 
-use core::{mem::MaybeUninit, ops::{Deref, DerefMut}, borrow::{Borrow, BorrowMut}};
+use core::{
+    borrow::{Borrow, BorrowMut},
+    mem::MaybeUninit,
+    ops::{Deref, DerefMut},
+    ptr::addr_of_mut,
+};
 
 /// This type is similar to [`MaybeUninit`], but it provides a safe interface
 /// for initialization which can then be used statically.
@@ -113,6 +118,25 @@ impl<T> StaticUninit<T, true> {
         unsafe {
             // SAFETY: we are statically known to be initialized.
             self.inner.assume_init()
+        }
+    }
+
+    /// Gets a mutable pointer to the initialized value. This avoids creating a reference, allowing
+    /// mutable aliasing using `*mut`. This function is inspired by
+    /// [raw_get](https://doc.rust-lang.org/std/cell/struct.UnsafeCell.html#method.raw_get) from UnsafeCell.
+    ///
+    /// # Safety
+    ///
+    /// The supplied pointer must be valid.
+    ///
+    /// When casting the returned pointer to
+    /// - `&mut T` the caller needs to ensure that no other references exist.
+    /// - `&T` the caller needs to ensure that no mutable references exist.
+    pub unsafe fn raw_get(this: *mut Self) -> *mut T {
+        unsafe {
+            // SAFETY: this is a valid pointer and we are initialized.
+            // `MaybeUninit` is `repr(transparent)`, so we can cast the pointer to `T`.
+            addr_of_mut!((*this).inner) as *mut T
         }
     }
 }
