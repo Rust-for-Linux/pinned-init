@@ -8,6 +8,7 @@
 
 use core::{
     borrow::{Borrow, BorrowMut},
+    cmp, hash,
     mem::MaybeUninit,
     ops::{Deref, DerefMut},
     ptr::addr_of_mut,
@@ -19,8 +20,8 @@ use core::{
 /// - uninitialized iff INIT == false
 /// - initialized iff INIT == true
 ///
-/// `StaticUninit<T, true>` behaves like `T`, as it implements [`DerefMut`] and
-/// allows taking the value directly [`StaticUninit::into_inner`].
+/// `StaticUninit<T, true>` behaves like `T`, as it implements [`DerefMut<Target = T>`],
+/// [`BorrowMut<T>`] and more, you can also take the value directly with [`StaticUninit::into_inner`].
 ///
 /// It also gives access to an unsafe interface allowing arbitrary modifications
 /// of the underlying [`MaybeUninit`] if there are more complex initialization
@@ -110,6 +111,65 @@ impl<T> From<T> for StaticUninit<T, true> {
     #[inline]
     fn from(data: T) -> Self {
         Self::new(data)
+    }
+}
+
+impl<T: Clone> Clone for StaticUninit<T, true> {
+    fn clone(&self) -> Self {
+        StaticUninit::new((**self).clone())
+    }
+
+    fn clone_from(&mut self, src: &Self) {
+        unsafe {
+            // SAFETY: `src` and `self` are initialized, so dropping the value in self and cloning
+            // the value in src are valid. we also immediatly populate `self` with a value without
+            // invoking a function that can panic.
+            let new = src.inner.assume_init_ref().clone();
+            let drop_later = self.inner.assume_init_read();
+            self.inner.write(new);
+            // drop here to prevent an invalid state in self
+            drop(drop_later);
+        }
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<StaticUninit<U, true>> for StaticUninit<T, true> {
+    fn eq(&self, other: &StaticUninit<U, true>) -> bool {
+        **self == **other
+    }
+
+    fn ne(&self, other: &StaticUninit<U, true>) -> bool {
+        **self != **other
+    }
+}
+
+impl<T: Eq> Eq for StaticUninit<T, true> {}
+
+impl<T: PartialOrd<U>, U> PartialOrd<StaticUninit<U, true>> for StaticUninit<T, true> {
+    fn partial_cmp(&self, other: &StaticUninit<U, true>) -> Option<cmp::Ordering> {
+        (**self).partial_cmp(&**other)
+    }
+
+    fn lt(&self, other: &StaticUninit<U, true>) -> bool {
+        **self < **other
+    }
+
+    fn gt(&self, other: &StaticUninit<U, true>) -> bool {
+        **self > **other
+    }
+
+    fn le(&self, other: &StaticUninit<U, true>) -> bool {
+        **self <= **other
+    }
+
+    fn ge(&self, other: &StaticUninit<U, true>) -> bool {
+        **self >= **other
+    }
+}
+
+impl<T: hash::Hash> hash::Hash for StaticUninit<T, true> {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        (**self).hash(state)
     }
 }
 
