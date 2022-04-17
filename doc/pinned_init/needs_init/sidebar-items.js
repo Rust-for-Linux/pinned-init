@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["NeedsInit","A pointer to data that needs to be initialized. When this pointer is neglected and not initialized, it will"],["NeedsPinnedInit","A pointer to pinned data that needs to be initialized while pinned. When this pointer is neglected and not initialized, it will"]]});
