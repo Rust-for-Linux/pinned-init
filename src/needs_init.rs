@@ -259,7 +259,7 @@ impl<'init, T> NeedsInit<'init, StaticUninit<T, false>> {
     /// - The caller needs to guarantee, that the pointer from which `inner` was
     /// derived changes its pointee type to `StaticUninit<T, true>`, when `'init` ends.
     #[inline]
-    pub unsafe fn new_unchecked(inner: &'init mut T) -> Self {
+    pub unsafe fn new_unchecked(inner: &'init mut StaticUninit<T, false>) -> Self {
         Self { inner }
     }
 
