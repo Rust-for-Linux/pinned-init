@@ -10,5 +10,6 @@ pin-project = "1"
 pinned-init-macro = { path = "pinned-init-macro" }
 
 [features]
-default = ["assert_init"]
-assert_init = []
+default = ["std"]
+std = ["alloc"]
+alloc = []
