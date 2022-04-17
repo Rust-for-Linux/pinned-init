@@ -1,27 +1,35 @@
 //! Module providing a special pointer trait used to transfer owned data and to
-//! allow safe transmuation of data without forgetting to change other pointer
+//! allow safer transmuation of data without forgetting to change other pointer
 //! types.
+//!
+//! Pointer types need to implement the trait in this module, if they want to
+//! support this library.
+//!
+//! The type system is used to enforce as much as possible, but implementors
+//! still need to pay attention, that their type can implemen [`OwnedUniquePtr<T>`].
 
 use crate::transmute::TransmuteInto;
 use core::{ops::DerefMut, pin::Pin};
 
+// used to dissallow other crates implementing TypesEq.
 mod sealed {
-    #[doc(hidden)]
     pub struct Sealed;
 }
 
 #[doc(hidden)]
-pub trait TypesEq<T> {
+pub trait TypesEq<T: ?Sized> {
     fn __no_impls_outside_this_crate(_: sealed::Sealed);
 }
 
-#[doc(hidden)]
-impl<T> TypesEq<T> for T {
+impl<T: ?Sized> TypesEq<T> for T {
     fn __no_impls_outside_this_crate(_: sealed::Sealed) {}
 }
 
 /// A (smart) unique pointer which owns its data (e.g. [`alloc::boxed::Box`]).
 /// This pointer provides access to T via [`DerefMut`].
+///
+/// Transmuting the pointee is also supported, if it implements
+/// [`TransmuteInto<U>`] for some `U`.
 ///
 /// # Safety
 ///
@@ -63,8 +71,7 @@ unsafe impl<T: ?Sized> OwnedUniquePtr<T> for alloc::boxed::Box<T> {
         #[cfg(not(feature = "std"))]
         use alloc::boxed::Box;
         unsafe {
-            // SAFETY: we later repin the pointer and in between never move
-            // the data behind it.
+            // SAFETY: we later repin the pointer and never move the data behind it.
             let this = Pin::into_inner_unchecked(this);
             // this is safe, due to the requriements of this function
             let this: Box<U> = Box::from_raw(Box::into_raw(this) as *mut U);
