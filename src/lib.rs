@@ -461,6 +461,17 @@
 //!     }
 //! }
 //! ```
+//! Ugh.
+//!
+//! The worst thing about this way of performing pinned initialization is, that
+//! users of the `PtrBuf` library will have to use unsafe to initialize and
+//! use `PtrBuf`. It is very easy to forget a call to `init` if one creates a
+//! `PtrBuf` and only later pins it. When the types are designed to be both used
+//! before and after pinning, then this becomes even more of a problem source.
+//!
+//! Using unsafe for these invariants just results in rust code that is arguably
+//! less ergonomic the same code in C.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(generic_associated_types)]
 #![deny(unsafe_op_in_unsafe_fn, missing_docs)]
