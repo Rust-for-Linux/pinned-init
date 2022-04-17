@@ -568,13 +568,18 @@ pub mod transmute {
     ///
     /// # Safety
     ///
-    /// When implementing this type the following conditions must be true:
+    /// When implementing this trait the following conditions must be true:
     /// - `T` and `Self` have the same layout, compiler version updates must not
     /// break this invariant.
     /// - transmutation is only sound, if all invariants of `T` are satisfied by
     /// all values of `Self` transmuted with this trait.
+    ///
+    /// Again: **DO NOT IMPLEMENT THIS MANUALLY** as this requires very strict
+    /// invariants to be upheld, that concern layout of types. The behaviour of
+    /// the compiler has not yet been fully specified, so you need to take extra
+    /// care to ensure future compiler compatiblity.
     pub unsafe trait TransmuteInto<T>: Sized {
-        /// Unsafely transmutes `self` to `T`
+        /// Unsafely transmutes `self` to `T`.
         ///
         /// # Safety
         ///
@@ -598,12 +603,22 @@ pub mod transmute {
         unsafe fn transmute_ptr(this: *const Self) -> *const T;
     }
 
+    // SAFETY: [`Pin`] is `repr(transparent)`, thus permitting transmutations between
+    // `Pin<P> <-> P`. Because T permits transmuting `T -> U`, transmuting
+    // `Pin<T> -> Pin<U>` is also permitted (effectively `Pin<T> -> T -> U
+    // ->`Pin<U>`).
     unsafe impl<T, U> TransmuteInto<Pin<U>> for Pin<T>
     where
         T: TransmuteInto<U>,
     {
         unsafe fn transmute_ptr(this: *const Self) -> *const Pin<U> {
-            unsafe { mem::transmute(this) }
+            unsafe {
+                // SAFETY: `T: TransmuteInto<U>` guarantees that we can
+                // transmute `T -> U`. The caller needs to guarantee, that the
+                // invariants of `U` are upheld when this `T` is transmuted to
+                // `U`.
+                mem::transmute(this)
+            }
         }
     }
 }
@@ -628,6 +643,7 @@ pub trait PinnedInit: TransmuteInto<Self::Initialized> + BeginInit {
     fn init_raw(this: NeedsPinnedInit<Self>);
 }
 
+// used to prevent accidental/mailicious implementations of `SafePinnedInit`
 mod sealed {
     use super::*;
 
