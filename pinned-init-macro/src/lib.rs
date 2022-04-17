@@ -33,10 +33,10 @@ use syn::*;
 #[proc_macro_error]
 #[proc_macro_attribute]
 pub fn pinned_init(
-    _attr: proc_macro::TokenStream,
+    attr: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    let res = pinned_init_inner(parse_macro_input!(item as ItemStruct));
+    let res = pinned_init_inner(attr.into(), parse_macro_input!(item as ItemStruct));
     res.into()
 }
 
@@ -66,15 +66,16 @@ pub fn pinned_init(
 #[proc_macro_attribute]
 #[proc_macro_error]
 pub fn manual_init(
-    _attr: proc_macro::TokenStream,
+    attr: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     let input = parse_macro_input!(item as ItemStruct);
-    let res = manual_init_inner(input);
+    let res = manual_init_inner(attr.into(), input);
     res.into()
 }
 
 fn pinned_init_inner(
+    attr: TokenStream,
     ItemStruct {
         attrs,
         vis,
@@ -126,7 +127,7 @@ fn pinned_init_inner(
         .collect::<Vec<_>>();
     quote! {
         // delegate to manual_init
-        #[::pinned_init::manual_init]
+        #[::pinned_init::manual_init(#attr)]
         #(#attrs)*
         #vis #struct_token #ident #generics #fields #semi_token
 
@@ -148,6 +149,7 @@ fn pinned_init_inner(
 }
 
 fn manual_init_inner(
+    attr: TokenStream,
     ItemStruct {
         attrs,
         vis,
@@ -284,7 +286,7 @@ fn manual_init_inner(
         .collect::<Vec<_>>();
     quote! {
         // pin_project the original struct
-        #[::pinned_init::__private::pin_project]
+        #[::pinned_init::__private::pin_project(#attr)]
         #(#attrs)*
         // add const parameter with default value true
         #vis #struct_token #ident <#impl_generics #comma const #init_ident: bool = true> #where_clause #fields
@@ -483,16 +485,17 @@ fn make_ongoing_init_fields(fields: Fields, ongoing_init_lifetime: &TokenStream)
 /// type.
 fn append_generics<Expr: ToTokens>(ty: &mut Type, expr: &Expr) {
     match ty {
-        Type::Path(TypePath {path, ..}) => {
-            if let Some(PathSegment {arguments, ..}) = path.segments.last_mut() {
+        Type::Path(TypePath { path, .. }) => {
+            if let Some(PathSegment { arguments, .. }) = path.segments.last_mut() {
                 match arguments {
                     PathArguments::None => {
-                        *arguments = PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                            colon2_token: None,
-                            lt_token: <Token![<]>::default(),
-                            args: parse_quote! { #expr },
-                            gt_token: <Token![>]>::default()
-                        });
+                        *arguments =
+                            PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                                colon2_token: None,
+                                lt_token: <Token![<]>::default(),
+                                args: parse_quote! { #expr },
+                                gt_token: <Token![>]>::default(),
+                            });
                     }
                     PathArguments::AngleBracketed(AngleBracketedGenericArguments {
                         args, ..
