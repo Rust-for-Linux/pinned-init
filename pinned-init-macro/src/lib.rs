@@ -295,6 +295,8 @@ fn manual_init_inner(
         #vis type #uninit_ident <#impl_generics> = #ident<#type_generics #comma false>;
 
         // define a new struct used to handle the ongoing initialization.
+        // allow dead_code, because some fields may not be used in initialization.
+        #[allow(dead_code)]
         #vis #struct_token #ongoing_init_ident <#ongoing_init_lifetime #comma #impl_generics>
         #where_clause
             Self: #ongoing_init_lifetime,
