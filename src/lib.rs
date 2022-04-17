@@ -425,9 +425,12 @@
 //!     /// once.
 //!     pub unsafe fn init(self: Pin<&mut Self>) {
 //!         let ptr = &self.buf as *const T;
+//!         let end = self.buf.last().unwrap() as *const T;
 //!         unsafe {
 //!             // SAFETY: we do not move the data behind this pointer.
-//!             self.get_unchecked_mut().ptr.write(ptr);
+//!             let this = self.get_unchecked_mut();
+//!             this.ptr = ptr;
+//!             this.end = end;
 //!         }
 //!     }
 //!
@@ -441,7 +444,7 @@
 //!             // SAFETY: We never move out of this pointer
 //!             self.get_unchecked_mut()
 //!         };
-//!         debug_assert!(!ptr.is_null());
+//!         debug_assert!(!this.ptr.is_null());
 //!         if this.ptr > this.end {
 //!             None
 //!         } else {
