@@ -1,9 +1,18 @@
 [package]
 name = "pinned-init"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["y86-dev"]
+license = "MIT OR Apache-2.0"
+description = "Library to facilitate safe pinned initialization"
+readme = "README.md"
+
+repository = "https://github.com/y86-dev/pinned-init"
+keywords = ["safe", "pin", "init", "no-std", "rust-patterns"]
+categories = ["no-std", "rust-patterns", "embedded"]
+
+publish = false
 
 [dependencies]
 pin-project = "1"
