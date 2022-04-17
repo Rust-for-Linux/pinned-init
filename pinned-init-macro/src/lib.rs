@@ -203,7 +203,6 @@ fn manual_init_inner(
         quote! {,}
     };
     let ongoing_init_fields = make_ongoing_init_fields(fields.clone(), &ongoing_init_lifetime);
-    let type_params = generics.type_params().map(|p| &p.ident).collect::<Vec<_>>();
     // go through all of the fields in this struct and for each where `#[init]`
     // is specified
     // - append the `__INIT` expression to the generics of that type
@@ -296,7 +295,7 @@ fn manual_init_inner(
         // define a new struct used to handle the ongoing initialization.
         #vis #struct_token #ongoing_init_ident <#ongoing_init_lifetime #comma #impl_generics>
         #where_clause
-            #(#type_params: #ongoing_init_lifetime,)*
+            Self: #ongoing_init_lifetime,
         #ongoing_init_fields
 
 
@@ -339,7 +338,7 @@ fn manual_init_inner(
         {
             type OngoingInit<#ongoing_init_lifetime> = #ongoing_init_ident <#ongoing_init_lifetime #comma #type_generics>
             where
-                #(#type_params: #ongoing_init_lifetime,)*
+                Self: #ongoing_init_lifetime,
             ;
 
             #[inline]
