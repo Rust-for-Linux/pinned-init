@@ -1,7 +1,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![feature(get_mut_unchecked, generic_associated_types)]
 use core::{mem, ops::*, pin::*};
-use pinned_init::{transmute::TransmuteInto, ptr::OwnedUniquePtr};
+use pinned_init::{ptr::OwnedUniquePtr, transmute::TransmuteInto};
 use std::sync::*;
 
 #[repr(transparent)]
@@ -48,17 +48,22 @@ impl<T: ?Sized> DerefMut for UniqueArc<T> {
     }
 }
 
-unsafe impl<T, U> TransmuteInto<UniqueArc<T>> for UniqueArc<U>
-where
-    U: TransmuteInto<T>,
-{
-    unsafe fn transmute_ptr(this: *const Self) -> *const UniqueArc<T> {
-        unsafe { mem::transmute(this) }
-    }
-}
-
 unsafe impl<T: ?Sized> OwnedUniquePtr<T> for UniqueArc<T> {
     type Ptr<U: ?Sized> = UniqueArc<U>;
+
+    unsafe fn transmute_pointee_pinned<U>(this: Pin<Self>) -> Pin<Self::Ptr<U>>
+    where
+        T: TransmuteInto<U>,
+    {
+        unsafe {
+            // SAFETY: we later repin the pointer and never move out of the
+            // pointer.
+            let this = Pin::into_inner_unchecked(this);
+            // safe, because of the requiremens of this function
+            let this: UniqueArc<U> = UniqueArc(Arc::from_raw(Arc::into_raw(this.0) as *mut U));
+            Pin::new_unchecked(this)
+        }
+    }
 }
 
 fn main() {}
