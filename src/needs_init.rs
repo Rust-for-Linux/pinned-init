@@ -94,6 +94,8 @@ impl<'init, T: PinnedInit> Drop for NeedsPinnedInit<'init, T> {
                     fn trigger() -> !;
                 }
                 unsafe {
+                    // SAFETY: this function does not exist and will generate a
+                    // link error
                     trigger();
                 }
             }
@@ -122,7 +124,11 @@ impl<'init, T: PinnedInit> NeedsPinnedInit<'init, T> {
     #[inline]
     pub fn begin_init(mut self) -> <T as BeginInit>::OngoingInit<'init> {
         let res = if let Some(inner) = self.inner.take() {
-            unsafe { inner.__begin_init() }
+            unsafe {
+                // SAFETY: API internal contract is upheld, __begin_init has the
+                // same invariants as NeedsPinnedInit.
+                inner.__begin_init()
+            }
         } else {
             unsafe {
                 // SAFETY: self.inner is never `take`n anywhere else. Because
@@ -240,6 +246,8 @@ impl<'init, T: ?Sized> Drop for NeedsInit<'init, T> {
                     fn trigger() -> !;
                 }
                 unsafe {
+                    // SAFETY: this function does not exist and will generate a
+                    // link error
                     trigger();
                 }
             }

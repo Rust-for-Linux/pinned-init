@@ -530,6 +530,18 @@ pub mod private {
         type OngoingInit<'init>: 'init
         where
             Self: 'init;
+
+        /// api internal function, do not call from outside this library!
+        ///
+        /// # Safety
+        ///
+        /// - When the `'init` lifetime expires, the value at `inner` will be
+        /// initialized and have changed type to `T::Initialized`.
+        /// - From the moment this function is called until the end of `'init` the
+        /// produced [`NeedsPinnedInit`] becomes the only valid way to access the
+        /// underlying value.
+        /// - The caller needs to guarantee, that the pointer from which `inner` was
+        /// derived changes its pointee type to `T::Initialized`, when `'init` ends.
         #[doc(hidden)]
         unsafe fn __begin_init<'init>(self: Pin<&'init mut Self>) -> Self::OngoingInit<'init>
         where
@@ -588,6 +600,7 @@ pub mod transmute {
         #[inline]
         unsafe fn transmute(self) -> T {
             unsafe {
+                // SAFETY: the invariants between `transmute` and `transmute_ptr` are the same
                 let ptr = &self as *const Self;
                 mem::forget(self);
                 let ptr = Self::transmute_ptr(ptr);
