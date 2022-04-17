@@ -6,6 +6,48 @@
 //! when they determine, that a value has not been initialized.
 //!
 //! This catches simple errors when forgetting a variable.
+//!
+//! The link time errors emitted by the linker will look overwhelming and are
+//! not very helpful (you might be able to interpret the LLVM symbol where the
+//! link error originated), instead they help you extend your tests or check your
+//! unused variable warnings with more scrutiny.
+//!
+//! <details><summary><b>Example Linker error</b></summary>
+//! ```text
+//! TODO ERROR
+//! ```
+//! TODO
+//! ```rust
+//! TODO EXAMPLE CODE
+//! ```
+//! When running the debug build instead, we end up with the following panic,
+//! which is a lot more helpful at providing the relevant information:
+//! ```text
+//! TODO PANIC
+//! ```
+//! </details>
+//!
+//! # Behaviour rationale
+//!
+//! The correctness of the link error relies on the compiler to optimize the
+//! drop glue away. This is of course only possible, if optimizations are
+//! enabled.
+//! If you encounter such a link error and receive no runtime errors despite
+//! running all initializer functions and being very sure that you did not
+//! forget initializing a value, then feel free to report this issue at [my
+//! repo](https://github.com/y86-dev/pinned-init/).
+//!
+//! If in some rare cases the compiler is unable to determine that all instances
+//! of [`NeedsPinnedInit`] and [`NeedsInit`] are initialized, you are able to
+//! disable the static and dynamic initialization check provided by this module:
+//! pass the `pinned_init_unsafe_no_enforce_init` flag to rustc:
+//! ```text
+//! RUSTFLAGS="--cfg pinned_init_unsafe_no_enforce_init" cargo build
+//! ```
+//! This will also need to be done by all crates, that depend on your crate,
+//! because it is circumventing one of the safety guarantees of this crate and
+//! is expicitly opt-in. Please try to find a safe workaround or open an issue
+//! at [my repo].
 
 use crate::{private::BeginInit, static_uninit::StaticUninit, PinnedInit};
 use core::{mem, pin::Pin};
@@ -17,12 +59,15 @@ use core::{mem, pin::Pin};
 /// This is to prevent partial initialization and guarantee statically (when
 /// used without debug assertions) that the type `T` is fully initialized and
 /// may be transmuted to its initialized form.
+///
+/// This pointer does **not** implement [`Deref`] or [`DerefMut`], instead you
+/// should only use [`NeedsPinnedInit::begin_init`] on this type to begin safe
+/// initialization of the inner `T`.
 #[repr(transparent)]
 pub struct NeedsPinnedInit<'init, T: ?Sized> {
     inner: Option<Pin<&'init mut T>>,
 }
 
-#[cfg(feature = "assert_init")]
 impl<'init, T: ?Sized> Drop for NeedsPinnedInit<'init, T> {
     fn drop(&mut self) {
         if_cfg! {
@@ -135,7 +180,6 @@ pub struct NeedsInit<'init, T: ?Sized> {
     inner: &'init mut T,
 }
 
-#[cfg(feature = "assert_init")]
 impl<'init, T: ?Sized> Drop for NeedsInit<'init, T> {
     fn drop(&mut self) {
         if_cfg! {
