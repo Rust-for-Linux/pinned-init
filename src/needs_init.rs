@@ -71,6 +71,9 @@ use core::{mem, pin::Pin};
 /// - From the construction of a [`NeedsPinnedInit<'init, T>`] until the end of
 /// `'init` it assumes full control over the pointee. This means that no one
 /// else is allowed to access the underlying value.
+///
+/// [`Deref`]: core::ops::Deref
+/// [`DerefMut`]: core::ops::DerefMut
 #[repr(transparent)]
 pub struct NeedsPinnedInit<'init, T: PinnedInit> {
     // need option here, otherwise `mem::forget`ing `self` in `begin_init` is
@@ -159,6 +162,8 @@ impl<'init, T: PinnedInit> NeedsPinnedInit<'init, T> {
     /// will change from `T` to `T::Initialized` when `'init` expires.
     ///
     /// Storing this pointer inside of the `T` itself for example is sound.
+    ///
+    /// [`UnsafeCell`]: core::cell::UnsafeCell
     #[inline]
     pub unsafe fn as_ptr(&self) -> *const T {
         let ptr: Pin<&T> = unsafe {
@@ -189,6 +194,8 @@ impl<'init, T: PinnedInit> NeedsPinnedInit<'init, T> {
     /// will change from `T` to `T::Initialized` when `'init` expires.
     ///
     /// Storing this pointer inside of the `T` itself for example is sound.
+    ///
+    /// [`UnsafeCell`]: core::cell::UnsafeCell
     #[inline]
     pub unsafe fn as_ptr_mut(&mut self) -> *mut T {
         let ptr: Pin<&mut T> = unsafe {
@@ -225,6 +232,9 @@ impl<'init, T: PinnedInit> NeedsPinnedInit<'init, T> {
 /// - From the construction of a [`NeedsInit<'init, T>`] until the end of
 /// `'init` it assumes full control over the pointee. This means that no one
 /// else is allowed to access the underlying value.
+///
+/// [`Deref`]: core::ops::Deref
+/// [`DerefMut`]: core::ops::DerefMut
 #[repr(transparent)]
 pub struct NeedsInit<'init, T: ?Sized> {
     inner: &'init mut T,

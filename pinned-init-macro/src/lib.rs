@@ -1,4 +1,4 @@
-//! Proc macros for the [`pinned_init` crate], see  [`pinned_init`] and [`manual_init`]
+//! Proc macros for the `pinned_init` crate, see  [`macro@pinned_init`] and [`macro@manual_init`]
 //! for details.
 
 use proc_macro2::*;
@@ -18,17 +18,17 @@ use syn::*;
 /// created to refer to the uninitialized variant more ergonomically, it should
 /// always be used instead of specifying the const parameter.
 /// - propagates that const parameter to all fields marked with `#[init]`.
-/// - implements [`PinnedInit`] for your struct delegating to all fields marked
+/// - implements `PinnedInit` for your struct delegating to all fields marked
 /// with `#[init]`.
-/// - implements [`TransmuteInto<{your-struct-name}>`]
+/// - implements `TransmuteInto<{your-struct-name}>`()
 /// `for`{your-struct-name}Uninit` and checks for layout equivalence between the
 /// two.
 /// - creates a custom type borrowing from your struct that is used as the
-/// `OngoingInit` type for the [`BeginInit`] trait.
-/// - implements [`BeginInit`] for your struct.
+/// `OngoingInit` type for the `BeginInit` trait.
+/// - implements `BeginInit` for your struct.
 ///
 /// Then you can safely, soundly and ergonomically initialize a value of such a
-/// struct behind an [`OwnedUniquePtr<{your-struct-name}>`]:
+/// struct behind an `OwnedUniquePtr<{your-struct-name}>`:
 /// TODO example
 #[proc_macro_error]
 #[proc_macro_attribute]
@@ -51,17 +51,17 @@ pub fn pinned_init(
 /// created to refer to the uninitialized variant more ergonomically, it should
 /// always be used instead of specifying the const parameter.
 /// - propagates that const parameter to all fields marked with `#[init]`.
-/// - implements [`TransmuteInto<{your-struct-name}>`]
+/// - implements `TransmuteInto<{your-struct-name}>`
 /// `for`{your-struct-name}Uninit` and checks for layout equivalence between the
 /// two.
 /// - creates a custom type borrowing from your struct that is used as the
-/// `OngoingInit` type for the [`BeginInit`] trait.
-/// - implements [`BeginInit`] for your struct.
+/// `OngoingInit` type for the `BeginInit` trait.
+/// - implements `BeginInit` for your struct.
 ///
-/// The only thing you need to implement is [`PinnedInit`].
+/// The only thing you need to implement is `PinnedInit`.
 ///
 /// Then you can safely, soundly and ergonomically initialize a value of such a
-/// struct behind an [`OwnedUniquePtr<{your-struct-name}>`]:
+/// struct behind an `OwnedUniquePtr<{your-struct-name}>`:
 /// TODO example
 #[proc_macro_attribute]
 #[proc_macro_error]

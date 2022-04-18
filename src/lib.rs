@@ -474,6 +474,8 @@
 //!
 //! Using unsafe for these invariants just results in rust code that is arguably
 //! less ergonomic the same code in C.
+//!
+//! [`StaticUninit<T, INIT>`]: crate::static_uninit::StaticUninit
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(generic_associated_types)]
@@ -503,7 +505,55 @@ pub mod needs_init;
 pub mod ptr;
 pub mod static_uninit;
 
-pub use pinned_init_macro::{manual_init, pinned_init};
+/// Use this attribute on a struct with named fields to ensure safe
+/// pinned initialization of all the fields marked with `#[init]`.
+///
+/// This attribute does several things, it:
+/// - `#[pin_project]`s your struct, structually pinning all fields with `#[init]` implicitly (adding `#[pin]`).
+/// - adds a constant type parameter of type bool with a default value of true.
+/// This constant type parameter indicates if your struct is in an initialized
+/// (and thus also pinned) state. A type alias `{your-struct-name}Uninit` is
+/// created to refer to the uninitialized variant more ergonomically, it should
+/// always be used instead of specifying the const parameter.
+/// - propagates that const parameter to all fields marked with `#[init]`.
+/// - implements [`PinnedInit`] for your struct delegating to all fields marked
+/// with `#[init]`.
+/// - implements [`TransmuteInto<{your-struct-name}>`]()
+/// `for`{your-struct-name}Uninit` and checks for layout equivalence between the
+/// two.
+/// - creates a custom type borrowing from your struct that is used as the
+/// `OngoingInit` type for the [`BeginInit`] trait.
+/// - implements [`BeginInit`] for your struct.
+///
+/// Then you can safely, soundly and ergonomically initialize a value of such a
+/// struct behind an [`OwnedUniquePtr<{your-struct-name}>`]:
+/// TODO example
+pub use pinned_init_macro::manual_init;
+
+/// Use this attribute on a struct with named fields to ensure safer
+/// pinned initialization of all the fields marked with `#[init]`.
+///
+/// This attribute does several things, it:
+/// - `#[pin_project]`s your struct, structually pinning all fields with `#[pin]`.
+/// - adds a constant type parameter of type bool with a default value of true.
+/// This constant type parameter indicates if your struct is in an initialized
+/// (and thus also pinned) state. A type alias `{your-struct-name}Uninit` is
+/// created to refer to the uninitialized variant more ergonomically, it should
+/// always be used instead of specifying the const parameter.
+/// - propagates that const parameter to all fields marked with `#[init]`.
+/// - implements [`TransmuteInto<{your-struct-name}>`]
+/// `for`{your-struct-name}Uninit` and checks for layout equivalence between the
+/// two.
+/// - creates a custom type borrowing from your struct that is used as the
+/// `OngoingInit` type for the [`BeginInit`] trait.
+/// - implements [`BeginInit`] for your struct.
+///
+/// The only thing you need to implement is [`PinnedInit`].
+///
+/// Then you can safely, soundly and ergonomically initialize a value of such a
+/// struct behind an [`OwnedUniquePtr<{your-struct-name}>`]:
+/// TODO example
+pub use pinned_init_macro::pinned_init;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -528,6 +578,9 @@ pub mod private {
 
     /// Trait implemented by the [`pinned_init`] and the [`manual_init`] proc
     /// macros. This trait should not be implemented manually.
+    ///
+    /// [`pinned_init`]: crate::pinned_init
+    /// [`manual_init`]: crate::manual_init
     pub trait BeginInit {
         #[doc(hidden)]
         type OngoingInit<'init>: 'init
@@ -593,6 +646,9 @@ pub mod transmute {
     /// invariants to be upheld, that concern layout of types. The behaviour of
     /// the compiler has not yet been fully specified, so you need to take extra
     /// care to ensure future compiler compatiblity.
+    ///
+    /// [`pinned_init`]: crate::pinned_init
+    /// [`manual_init`]: crate::manual_init
     pub unsafe trait TransmuteInto<T>: Sized {
         /// Unsafely transmutes `self` to `T`.
         ///
