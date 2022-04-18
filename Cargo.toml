@@ -12,11 +12,9 @@ repository = "https://github.com/y86-dev/pinned-init"
 keywords = ["safe", "pin", "init", "no-std", "rust-patterns"]
 categories = ["no-std", "rust-patterns", "embedded"]
 
-publish = false
-
 [dependencies]
-pin-project = "1"
-pinned-init-macro = { path = "pinned-init-macro" }
+pin-project = "^1.0.0"
+pinned-init-macro = { version = "=0.0.0", path = "pinned-init-macro" }
 
 [features]
 default = ["std"]
