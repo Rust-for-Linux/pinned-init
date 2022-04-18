@@ -77,7 +77,7 @@
 //! # use pinned_init::prelude::*;
 //! # use core::pin::Pin;
 //! # #[pinned_init]
-//! # struct PtrBuf<T> {
+//! # pub struct PtrBuf<T> {
 //! #     buf: [T; 64],
 //! # }
 //! # impl<T> From<[T; 64]> for PtrBufUninit<T> {
@@ -104,7 +104,7 @@
 //! # use core::pin::Pin;
 //! # use pinned_init::prelude::*;
 //! # #[pinned_init]
-//! # struct PtrBuf<T> {
+//! # pub struct PtrBuf<T> {
 //! #     buf: [T; 64],
 //! # }
 //! # impl<T> From<[T; 64]> for PtrBufUninit<T> {
@@ -143,7 +143,7 @@
 //! # use core::pin::Pin;
 //! use pinned_init::prelude::*;
 //! # #[pinned_init]
-//! # struct PtrBuf<T> {
+//! # pub struct PtrBuf<T> {
 //! #     buf: [T; 64],
 //! # }
 //! # impl<T> From<[T; 64]> for PtrBufUninit<T> {
@@ -164,7 +164,7 @@
 //! #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
 //! use pinned_init::prelude::*;
 //! # #[pinned_init]
-//! # struct PtrBuf<T> {
+//! # pub struct PtrBuf<T> {
 //! #   buf: [T; 64],
 //! # }
 //! # impl<T> From<[T; 64]> for PtrBufUninit<T> {
@@ -201,7 +201,7 @@
 //! # use pinned_init::prelude::*;
 //! # use core::pin::Pin;
 //! # #[pinned_init]
-//! # struct PtrBuf<T> {
+//! # pub struct PtrBuf<T> {
 //! #   buf: [T; 64],
 //! # }
 //! # impl<T> PtrBuf<T> {
@@ -268,8 +268,9 @@
 //! # }
 //! impl<T> PinnedInit for PtrBufUninit<T> {
 //!     type Initialized = PtrBuf<T>;
+//!     type Param = ();
 //!
-//!     fn init_raw(this: NeedsPinnedInit<Self>) {
+//!     fn init_raw(this: NeedsPinnedInit<Self>, _: Self::Param) {
 //!         let PtrBufOngoingInit {
 //!             ptr,
 //!             buf,
@@ -305,7 +306,9 @@
 //! # }
 //! # impl<T> PinnedInit for PtrBufUninit<T> {
 //! #     type Initialized = PtrBuf<T>;
-//! #     fn init_raw(this: NeedsPinnedInit<Self>) {
+//! #     type Param = ();
+//! #
+//! #     fn init_raw(this: NeedsPinnedInit<Self>, _: Self::Param) {
 //! #         let PtrBufOngoingInit {
 //! #             ptr,
 //! #             buf,
@@ -711,10 +714,13 @@ pub trait PinnedInit: TransmuteInto<Self::Initialized> + BeginInit {
     /// The initialized version of `Self`. `Self` can be transmuted via
     /// [`TransmuteInto`] into this type.
     type Initialized;
+    /// An optional Parameter used to initialize `Self`.
+    /// When you do not need it, set to `()`
+    type Param;
 
-    /// Initialize the value behind the given pointer, this pointer ensures,
+    /// Initialize the value behind the given pointer with the given parameter, this pointer ensures,
     /// that `Self` really will be initialized.
-    fn init_raw(this: NeedsPinnedInit<Self>);
+    fn init_raw(this: NeedsPinnedInit<Self>, param: Self::Param);
 }
 
 // used to prevent accidental/mailicious implementations of `SafePinnedInit`
@@ -736,14 +742,23 @@ pub trait SafePinnedInit<T: PinnedInit>: sealed::Sealed<T> + Sized {
     type Initialized;
 
     /// Initialize the contents of `self`.
-    fn init(self) -> Self::Initialized;
+    #[inline]
+    fn init(self) -> Self::Initialized
+    where
+        (): Into<T::Param>,
+    {
+        self.init_with(().into())
+    }
+
+    /// Initialize the contents of `self`.
+    fn init_with(self, param: T::Param) -> Self::Initialized;
 }
 
 impl<T: PinnedInit, P: OwnedUniquePtr<T>> SafePinnedInit<T> for Pin<P> {
     type Initialized = Pin<P::Ptr<T::Initialized>>;
 
     #[inline]
-    fn init(mut self) -> Self::Initialized {
+    fn init_with(mut self, param: T::Param) -> Self::Initialized {
         unsafe {
             // SAFETY: `self` implements `OwnedUniquePtr`, thus giving us unique
             // access to the data behind `self`. Because we call `T::init_raw`
@@ -751,7 +766,7 @@ impl<T: PinnedInit, P: OwnedUniquePtr<T>> SafePinnedInit<T> for Pin<P> {
             // `NeedsPinnedInit::new_unchecked` is fullfilled (all pointers to
             // the data are aware of the new_unchecked call).
             let this = NeedsPinnedInit::new_unchecked(self.as_mut());
-            T::init_raw(this);
+            T::init_raw(this, param);
             P::transmute_pointee_pinned(self)
         }
     }

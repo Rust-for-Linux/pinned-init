@@ -1,4 +1,5 @@
 #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+#![deny(unsafe_op_in_unsafe_fn)]
 use core::{
     marker::PhantomPinned,
     mem,
@@ -10,23 +11,87 @@ use pinned_init::prelude::*;
 #[manual_init(PinnedDrop)]
 pub struct LinkedList<T> {
     #[init]
-    prev: StaticUninit<Link<T>>,
+    #[pin]
+    prev: Link<T>,
     #[init]
-    next: StaticUninit<Link<T>>,
+    #[pin]
+    next: Link<T>,
     value: Option<T>,
     _pin: PhantomPinned,
 }
 
-type Link<T> = NonNull<LinkedList<T>>;
+#[manual_init]
+struct Link<T> {
+    #[init]
+    ptr: StaticUninit<NonNull<LinkedList<T>>>,
+}
+
+impl<T> PinnedInit for LinkUninit<T> {
+    type Initialized = Link<T>;
+    type Param = *mut LinkedList<T>;
+
+    fn init_raw(this: NeedsPinnedInit<Self>, param: Self::Param) {
+        let LinkOngoingInit { ptr } = this.begin_init();
+        ptr.init(NonNull::new(param).unwrap());
+    }
+}
+
+impl<T> LinkUninit<T> {
+    fn uninit() -> Self {
+        Self {
+            ptr: StaticUninit::uninit(),
+        }
+    }
+}
+
+impl<T> Link<T> {
+    /// # Safety
+    ///
+    /// only call follow_mut in one direction
+    ///
+    /// need to handle lifetime carefully
+    unsafe fn follow_mut_long<'a>(&mut self) -> &'a mut LinkedList<T> {
+        unsafe {
+            // SAFETY: we were initialized and thus point to a valid LinkedList
+            (*self.ptr).as_mut()
+        }
+    }
+
+    /// # Safety
+    ///
+    /// only call follow_mut in one direction
+    unsafe fn follow_mut(&mut self) -> &mut LinkedList<T> {
+        unsafe {
+            // SAFETY: we were initialized and thus point to a valid LinkedList
+            (*self.ptr).as_mut()
+        }
+    }
+
+    fn follow(&self) -> &LinkedList<T> {
+        unsafe {
+            // SAFETY: we were initialized and thus point to a valid LinkedList
+            (*self.ptr).as_ref()
+        }
+    }
+}
+
+impl<T> PartialEq for Link<T> {
+    fn eq(&self, other: &Self) -> bool {
+        ptr::eq(self.ptr.as_ptr(), other.ptr.as_ptr())
+    }
+}
+
+impl<T> Eq for Link<T> {}
 
 impl<T> PinnedInit for LinkedListUninit<T> {
     type Initialized = LinkedList<T>;
+    type Param = ();
 
-    fn init_raw(mut this: NeedsPinnedInit<Self>) {
+    fn init_raw(mut this: NeedsPinnedInit<Self>, _: Self::Param) {
         let link = unsafe {
             // SAFETY: the pointer from NeedsPinnedInit is valid and we do not use it until we are
             // initialized.
-            Link::new_unchecked(this.as_ptr_mut() as *mut LinkedList<T>)
+            this.as_ptr_mut() as *mut LinkedList<T>
         };
         let LinkedListOngoingInit {
             prev,
@@ -34,16 +99,16 @@ impl<T> PinnedInit for LinkedListUninit<T> {
             value: _,
             _pin,
         } = this.begin_init();
-        prev.init(link);
-        next.init(link);
+        PinnedInit::init_raw(next, link);
+        PinnedInit::init_raw(prev, link);
     }
 }
 
 impl<T> LinkedListUninit<T> {
     pub fn new(value: T) -> Self {
         Self {
-            prev: StaticUninit::uninit(),
-            next: StaticUninit::uninit(),
+            prev: Link::uninit(),
+            next: Link::uninit(),
             value: Some(value),
             _pin: PhantomPinned,
         }
@@ -54,10 +119,9 @@ impl<T> LinkedList<T> {
     pub fn insert_after(self: Pin<&mut Self>, value: T) {
         let mut this = self.project();
         let mut new = Box::pin(LinkedList::new(value)).init();
-        let next = &mut **this.next;
         let next = unsafe {
-            // SAFETY: the pointer is valid and points to initialized data
-            next.as_mut()
+            // SAFETY: we only go forwards
+            this.next.follow_mut()
         };
         mem::swap(&mut new.prev, &mut next.prev);
         mem::swap(&mut new.next, &mut this.next);
@@ -71,10 +135,9 @@ impl<T> LinkedList<T> {
     pub fn insert_before(self: Pin<&mut Self>, value: T) {
         let mut this = self.project();
         let mut new = Box::pin(LinkedList::new(value)).init();
-        let prev = &mut **this.prev;
         let prev = unsafe {
-            // SAFETY: the pointer is valid and points to initialized data
-            prev.as_mut()
+            // SAFETY: we only go backwards
+            this.prev.follow_mut()
         };
         mem::swap(&mut new.next, &mut prev.next);
         mem::swap(&mut new.prev, &mut this.prev);
@@ -105,17 +168,16 @@ impl<T> LinkedList<T> {
     }
 
     pub fn unlink(mut this: Pin<Box<Self>>) -> T {
-        let this = this.as_mut().project();
+        let mut this = this.as_mut().project();
         if this.next != this.prev {
             // we need to remove references to us before we get dropped.
-            unsafe {
-                // SAFETY: the pointers are valid and point to initialized data
-                let next = (**this.next).as_mut();
-                let prev = (**this.prev).as_mut();
-                mem::swap(&mut next.prev, &mut *this.prev);
-                mem::swap(&mut prev.next, &mut *this.next);
-                assert!(this.prev == this.next);
-            }
+            // SAFETY: next only goes forwards
+            let next = unsafe { this.next.follow_mut() };
+            mem::swap(&mut next.prev, &mut *this.prev);
+            // SAFETY: prev only goes backwards
+            let prev = unsafe { this.prev.follow_mut() };
+            mem::swap(&mut prev.next, &mut *this.next);
+            assert!(this.prev == this.next);
         }
         this.value.take().unwrap()
     }
@@ -130,17 +192,21 @@ impl<T, const INIT: bool> PinnedDrop for LinkedList<T, INIT> {
                 cur.next != cur.prev
             } {
                 // we need to remove references to cur before we remove it.
-                unsafe {
-                    let this = cur.project();
-                    // SAFETY: the pointers are valid and point to initialized data
-                    let next = (**this.next).as_mut();
-                    let prev = (**this.prev).as_mut();
-                    mem::swap(&mut next.prev, &mut *this.prev);
-                    mem::swap(&mut prev.next, &mut *this.next);
-                    assert!(this.prev == this.next);
-                    // set the next node, all nodes are pinned
-                    cur = Pin::new_unchecked(next);
-                }
+                let mut this = cur.project();
+                // SAFETY: the pointers are valid and point to initialized data
+                // SAFETY: next only goes forwards
+                let next = unsafe { this.next.follow_mut() };
+                mem::swap(&mut next.prev, &mut *this.prev);
+                // SAFETY: prev only goes backwards
+                let prev = unsafe { this.prev.follow_mut() };
+                mem::swap(&mut prev.next, &mut *this.next);
+
+                // SAFETY: next only goes forwards and we are in drop, so the lifetime will end
+                // after this function
+                let next = unsafe { this.next.follow_mut_long() };
+                assert!(this.prev == this.next);
+                // SAFETY: all nodes are pinned
+                cur = unsafe { Pin::new_unchecked(next) };
             }
         }
         if INIT {
@@ -170,10 +236,7 @@ impl<'a, T> Iterator for LLIter<'a, T> {
         } else {
             self.begin = Some(self.cur);
             let val = self.cur.value.as_ref().unwrap();
-            unsafe {
-                // SAFETY: node pointers are always init
-                self.cur = (*self.cur.next).as_ref();
-            }
+            self.cur = self.cur.next.follow();
             Some(val)
         }
     }
@@ -203,7 +266,7 @@ impl<'a, T> Iterator for LLIterMut<'a, T> {
             };
             unsafe {
                 // SAFETY: node pointers are always init and pinned
-                self.cur = Pin::new_unchecked((*self.cur.next).as_mut());
+                self.cur = Pin::new_unchecked(self.cur.next.follow_mut_long());
             }
             Some(val)
         }

@@ -113,18 +113,30 @@ fn pinned_init_inner(
     } else {
         quote! {,}
     };
-    let init_fields = fields
+    let (init_fields, (pinned_field_types, param_pos)): (Vec<_>, (Vec<_>, Vec<Member>)) = fields
         .iter_mut()
         .filter(|f| {
             f.attrs
                 .iter()
                 .any(|a| matches!(a.style, AttrStyle::Outer) && a.path.is_ident("init"))
         })
-        .map(|f| {
+        .enumerate()
+        .map(|(i, f)| {
             f.attrs.push(parse_quote! { #[pin] });
-            f.ident.as_ref().unwrap().clone()
+            let mut ty = f.ty.clone();
+            append_generics(&mut ty, &quote! { false });
+            (
+                f.ident.as_ref().unwrap().clone(),
+                (
+                    ty,
+                    Member::Unnamed(Index {
+                        index: i.try_into().unwrap(),
+                        span: Span::call_site(),
+                    }),
+                ),
+            )
         })
-        .collect::<Vec<_>>();
+        .unzip();
     quote! {
         // delegate to manual_init
         #[::pinned_init::manual_init(#attr)]
@@ -135,13 +147,14 @@ fn pinned_init_inner(
             #where_clause
         {
             type Initialized = #ident<#type_generics>;
+            type Param = (#(<#pinned_field_types as ::pinned_init::PinnedInit>::Param),*);
 
-            fn init_raw(this: ::pinned_init::needs_init::NeedsPinnedInit<Self>) {
+            fn init_raw(this: ::pinned_init::needs_init::NeedsPinnedInit<Self>, param: Self::Param) {
                 // just begin our init process and call init_raw on each field
                 // marked with #[init]
                 let this = ::pinned_init::needs_init::NeedsPinnedInit::begin_init(this);
                 #(
-                    ::pinned_init::PinnedInit::init_raw(this.#init_fields);
+                    ::pinned_init::PinnedInit::init_raw(this.#init_fields, param.#param_pos);
                 )*
             }
         }
