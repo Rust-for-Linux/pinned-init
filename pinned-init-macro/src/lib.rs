@@ -1,11 +1,13 @@
 //! Proc macros for the `pinned_init` crate, see  [`macro@pinned_init`] and [`macro@manual_init`]
 //! for details.
 
+use crate::helpers::{has_outer_attr, my_split_for_impl, parse_attrs, ManualInitParam};
 use proc_macro2::*;
 use proc_macro_error::*;
 use quote::*;
-use std::collections::*;
-use syn::*;
+use syn::{parse::*, *};
+
+mod helpers;
 
 /// Use this attribute on a struct with named fields to ensure safe
 /// pinned initialization of all the fields marked with `#[init]`.
@@ -24,8 +26,8 @@ use syn::*;
 /// `for`{your-struct-name}Uninit` and checks for layout equivalence between the
 /// two.
 /// - creates a custom type borrowing from your struct that is used as the
-/// `OngoingInit` type for the `BeginInit` trait.
-/// - implements `BeginInit` for your struct.
+/// `OngoingInit` type for the `BeginPinnedInit` trait.
+/// - implements `BeginPinnedInit` for your struct.
 ///
 /// Then you can safely, soundly and ergonomically initialize a value of such a
 /// struct behind an `OwnedUniquePtr<{your-struct-name}>`:
@@ -55,8 +57,8 @@ pub fn pinned_init(
 /// `for`{your-struct-name}Uninit` and checks for layout equivalence between the
 /// two.
 /// - creates a custom type borrowing from your struct that is used as the
-/// `OngoingInit` type for the `BeginInit` trait.
-/// - implements `BeginInit` for your struct.
+/// `OngoingInit` type for the `BeginPinnedInit` trait.
+/// - implements `BeginPinnedInit` for your struct.
 ///
 /// The only thing you need to implement is `PinnedInit`.
 ///
@@ -72,6 +74,20 @@ pub fn manual_init(
     let input = parse_macro_input!(item as ItemStruct);
     let res = manual_init_inner(attr.into(), input);
     res.into()
+}
+
+#[proc_macro_derive(BeginInit, attributes(ongoing_init, init))]
+#[proc_macro_error]
+pub fn derive_begin_init(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(item as DeriveInput);
+    derive_begin_init_inner(input).into()
+}
+
+#[proc_macro_derive(BeginPinnedInit, attributes(ongoing_init, init, pin))]
+#[proc_macro_error]
+pub fn derive_begin_pinned_init(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(item as DeriveInput);
+    derive_begin_pinned_init_inner(input).into()
 }
 
 fn pinned_init_inner(
@@ -107,12 +123,7 @@ fn pinned_init_inner(
             Fields::Named(_) => unreachable!(),
         };
     }
-    let (impl_generics, type_generics, where_clause) = my_split_for_impl(&generics);
-    let comma = if impl_generics.is_empty() {
-        quote! {}
-    } else {
-        quote! {,}
-    };
+    let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
     let (init_fields, (pinned_field_types, param_pos)): (Vec<_>, (Vec<_>, Vec<Member>)) = fields
         .iter_mut()
         .filter(|f| {
@@ -123,8 +134,7 @@ fn pinned_init_inner(
         .enumerate()
         .map(|(i, f)| {
             f.attrs.push(parse_quote! { #[pin] });
-            let mut ty = f.ty.clone();
-            append_generics(&mut ty, &quote! { false });
+            let ty = f.ty.clone();
             (
                 f.ident.as_ref().unwrap().clone(),
                 (
@@ -137,17 +147,24 @@ fn pinned_init_inner(
             )
         })
         .unzip();
+    let attr_comma = if attr.is_empty() {
+        quote! {}
+    } else {
+        quote! {,}
+    };
+    let uninit_ident = format_ident!("{}Uninit", ident);
     quote! {
         // delegate to manual_init
-        #[::pinned_init::manual_init(#attr)]
+        #[::pinned_init::manual_init(pinned #attr_comma #attr)]
         #(#attrs)*
         #vis #struct_token #ident #generics #fields #semi_token
 
-        impl<#impl_generics> ::pinned_init::PinnedInit for #ident<#type_generics #comma false>
+        impl #impl_generics ::pinned_init::PinnedInit for #uninit_ident #type_generics
             #where_clause
         {
-            type Initialized = #ident<#type_generics>;
-            type Param = (#(<#pinned_field_types as ::pinned_init::PinnedInit>::Param),*);
+            type Initialized = #ident #type_generics;
+            // TODO correct param stuff
+            type Param = (#(<<#pinned_field_types as ::pinned_init::private::AsUninit>::Uninit as ::pinned_init::PinnedInit>::Param),*);
 
             fn init_raw(this: ::pinned_init::needs_init::NeedsPinnedInit<Self>, param: Self::Param) {
                 // just begin our init process and call init_raw on each field
@@ -173,6 +190,30 @@ fn manual_init_inner(
         semi_token: _,
     }: ItemStruct,
 ) -> TokenStream {
+    let my_attrs = match parse_attrs.parse2(attr) {
+        Ok(attrs) => attrs,
+        Err(e) => return e.to_compile_error(),
+    };
+    let is_pinned = my_attrs
+        .iter()
+        .any(|p| matches!(p, ManualInitParam::Pinned));
+    let pin_project_attrs = my_attrs
+        .into_iter()
+        .filter_map(|p| {
+            if let ManualInitParam::PinProject(raw) = p {
+                Some(raw)
+            } else {
+                None
+            }
+        })
+        .reduce(|a, b| quote! { #a #b })
+        .map(|a| quote! { (#a) });
+    if !is_pinned && pin_project_attrs.is_some() {
+        emit_error!(
+            pin_project_attrs.as_ref().unwrap(),
+            "Pinned attribute not supplied, pin_project is not applied."
+        );
+    }
     // Only structs with named fields are supported.
     // To provide a better debugging experience, we only emit an error and
     // correct the fields value.
@@ -196,16 +237,14 @@ fn manual_init_inner(
     }
     let uninit_ident = format_ident!("{}Uninit", ident);
     let ongoing_init_ident = format_ident!("{}OngoingInit", ident);
-    // we need two generics for the two structs we are defining, both will have
-    // an additional const bool parameter indicating init status.
-    // The struct used to facilitate ergonomic and safe initialization needs a
-    // lifetime that is named `'__ongoing_init`.
-    let init_ident = format_ident!("__INIT");
+    // `'__ongoing_init` for the OngoingInit type
     let ongoing_init_lifetime = quote! { '__ongoing_init };
+    // add a where clause that is empty or trailing
     let where_clause = generics.make_where_clause();
     if !where_clause.predicates.empty_or_trailing() {
         where_clause.predicates.push_punct(Default::default());
     }
+    // ensure that we have a `where`
     let where_clause = if where_clause.predicates.is_empty() {
         quote! {where}
     } else {
@@ -217,108 +256,22 @@ fn manual_init_inner(
     } else {
         quote! {,}
     };
-    let ongoing_init_fields = make_ongoing_init_fields(fields.clone(), &ongoing_init_lifetime);
-    // go through all of the fields in this struct and for each where `#[init]`
-    // is specified
-    // - append the `__INIT` expression to the generics of that type
-    let bare_fields = fields
-        .iter()
-        .filter(|f| {
-            !f.attrs
-                .iter()
-                .any(|a| matches!(a.style, AttrStyle::Outer) && a.path.is_ident("pin"))
-                && !f
-                    .attrs
-                    .iter()
-                    .any(|a| matches!(a.style, AttrStyle::Outer) && a.path.is_ident("init"))
-        })
-        .map(|f| f.ident.as_ref().unwrap().clone())
-        .collect::<Vec<_>>();
-    let pinned_fields = fields
+    let uninit_fields = make_uninit_fields(fields.clone());
+    let ongoing_init_fields =
+        make_ongoing_init_fields(uninit_fields.clone(), &ongoing_init_lifetime);
+    let all_fields = fields
         .iter_mut()
-        .filter(|f| {
-            f.attrs
-                .iter()
-                .any(|a| matches!(a.style, AttrStyle::Outer) && a.path.is_ident("pin"))
-                && !f
-                    .attrs
-                    .iter()
-                    .any(|a| matches!(a.style, AttrStyle::Outer) && a.path.is_ident("init"))
-        })
-        .map(|f| f.ident.as_ref().unwrap().clone())
-        .collect::<Vec<_>>();
-    let pinned_init_fields = fields
-        .iter_mut()
-        .filter(|f| {
-            f.attrs
-                .iter()
-                .any(|a| matches!(a.style, AttrStyle::Outer) && a.path.is_ident("pin"))
-                && f.attrs
-                    .iter()
-                    .any(|a| matches!(a.style, AttrStyle::Outer) && a.path.is_ident("init"))
-        })
         .map(|f| {
-            f.attrs
-                .retain(|a| !(matches!(a.style, AttrStyle::Outer) && a.path.is_ident("init")));
-            append_generics(&mut f.ty, &init_ident);
+            f.attrs.retain(|a| {
+                !(matches!(a.style, AttrStyle::Outer)
+                    && (a.path.is_ident("init") || a.path.is_ident("uninit")))
+            });
             f.ident.as_ref().unwrap().clone()
         })
         .collect::<Vec<_>>();
-    let bare_init_fields = fields
-        .iter_mut()
-        .filter(|f| {
-            !f.attrs
-                .iter()
-                .any(|a| matches!(a.style, AttrStyle::Outer) && a.path.is_ident("pin"))
-                && f.attrs
-                    .iter()
-                    .any(|a| matches!(a.style, AttrStyle::Outer) && a.path.is_ident("init"))
-        })
-        .map(|f| {
-            f.attrs
-                .retain(|a| !(matches!(a.style, AttrStyle::Outer) && a.path.is_ident("init")));
-            append_generics(&mut f.ty, &init_ident);
-            f.ident.as_ref().unwrap().clone()
-        })
-        .collect::<Vec<_>>();
-    let all_fields = bare_fields
-        .iter()
-        .chain(pinned_fields.iter())
-        .chain(bare_init_fields.iter())
-        .chain(pinned_init_fields.iter())
-        .cloned()
-        .collect::<Vec<_>>();
-    let field_offset_check_name = all_fields
-        .iter()
-        .map(|i| {
-            Ident::new(
-                &format!("__check_valid_offset_between_uninit_and_init_{}", i).to_uppercase(),
-                i.span(),
-            )
-        })
-        .collect::<Vec<_>>();
-    quote! {
-        // pin_project the original struct
-        #[::pinned_init::__private::pin_project(#attr)]
-        #(#attrs)*
-        // add const parameter with default value true
-        #vis #struct_token #ident <#impl_generics #comma const #init_ident: bool = true> #where_clause #fields
-
-        // define the type alias
-        #vis type #uninit_ident <#impl_generics> = #ident<#type_generics #comma false>;
-
-        // define a new struct used to handle the ongoing initialization.
-        // allow dead_code, because some fields may not be used in initialization.
-        #[allow(dead_code)]
-        #vis #struct_token #ongoing_init_ident <#ongoing_init_lifetime #comma #impl_generics>
-        #where_clause
-            Self: #ongoing_init_lifetime,
-        #ongoing_init_fields
-
-
+    let check_mod = quote! {
         // define constants to ensure the layout between init and uninit is the
         // same
-        #[allow(non_uppercase_globals)]
         impl <#impl_generics> #uninit_ident<#type_generics> {
             const __CHECK_ALIGNMENT: () = {
                 if ::core::mem::align_of::<#uninit_ident<#type_generics>>() != ::core::mem::align_of::<#ident<#type_generics>>() {
@@ -330,27 +283,232 @@ fn manual_init_inner(
                     panic!(concat!("The sizes of the uninitialized and initialized variants of the type `", stringify!(#ident<#type_generics>), "` are not identical."));
                 }
             };
-            #(
-                const #field_offset_check_name: () = unsafe {
-                    // create a valid allocation of uninit, we cannot use null
-                    // here, because that would be undefined behaviour
-                    let uninit = ::core::mem::MaybeUninit::<#uninit_ident<#type_generics>>::uninit();
-                    let u = uninit.as_ptr();
-                    // reinterpret the pointer
-                    let i = u as *const #ident<#type_generics>;
-                    // get each offset using the `offset_from` function, because
-                    // this function takes a *const T pointer, we cast both to
-                    // *const u8
-                    let u_off = (::core::ptr::addr_of!((*u).#all_fields) as *const u8).offset_from(u as *const u8);
-                    let i_off = (::core::ptr::addr_of!((*i).#all_fields) as *const u8).offset_from(i as *const u8);
-                    if u_off != i_off {
-                        panic!(concat!("The offset of `", stringify!(#all_fields), "` is not the same between the uninitialized and initialized variants of the type `", stringify!(#ident<#type_generics>), "`."));
-                    }
-                };
-            )*
+            const __CHECK_OFFSETS: () = {
+                #(
+                    unsafe {
+                        // create a valid allocation of uninit, we cannot use null
+                        // here, because that would be undefined behaviour
+                        let uninit = ::core::mem::MaybeUninit::<#uninit_ident<#type_generics>>::uninit();
+                        let u = uninit.as_ptr();
+                        // reinterpret the pointer
+                        let i = u as *const #ident<#type_generics>;
+                        // get each offset using the `offset_from` function, because
+                        // this function takes a *const T pointer, we cast both to
+                        // *const u8
+                        let u_off = (::core::ptr::addr_of!((*u).#all_fields) as *const u8).offset_from(u as *const u8);
+                        let i_off = (::core::ptr::addr_of!((*i).#all_fields) as *const u8).offset_from(i as *const u8);
+                        if u_off != i_off {
+                            panic!(concat!("The offset of `", stringify!(#all_fields), "` is not the same between the uninitialized and initialized variants of the type `", stringify!(#ident<#type_generics>), "`."));
+                        }
+                    };
+                )*
+            };
+        }
+    };
+    let pin_project = if is_pinned {
+        quote! { #[::pinned_init::__private::pin_project #pin_project_attrs] }
+    } else {
+        quote! {}
+    };
+    let begin_init = if is_pinned {
+        quote! {#[derive(::pinned_init::private::BeginPinnedInit)]}
+    } else {
+        quote! {#[derive(::pinned_init::private::BeginInit)]}
+    };
+    if is_pinned {
+    } else {
+    }
+    quote! {
+        #[repr(C)]
+        #pin_project
+        #(#attrs)*
+        #vis #struct_token #ident <#impl_generics> #where_clause #fields
+
+        #[repr(C)]
+        #begin_init
+        #pin_project
+        #[ongoing_init(#ongoing_init_ident)]
+        #(#attrs)*
+        #vis #struct_token #uninit_ident <#impl_generics> #where_clause #uninit_fields
+
+        #check_mod
+
+        // define a new struct used to handle the ongoing initialization.
+        // allow dead_code, because some fields may not be used in initialization.
+        #[allow(dead_code)]
+        #vis #struct_token #ongoing_init_ident <#ongoing_init_lifetime #comma #impl_generics>
+        #where_clause
+            Self: #ongoing_init_lifetime,
+        #ongoing_init_fields
+
+        // implement TransmuteInto because we implement #[repr(C)] and all field types are either the same,
+        // or TransmuteInto with their uninit variants.
+        unsafe impl<#impl_generics> ::pinned_init::transmute::TransmuteInto<#ident<#type_generics>> for #uninit_ident<#type_generics>
+        #where_clause
+        {
+            unsafe fn transmute_ptr(this: *const Self) ->
+                *const #ident<#type_generics>
+            {
+                unsafe {
+                    ::core::mem::transmute(this)
+                }
+            }
         }
 
-        impl <#impl_generics> ::pinned_init::private::BeginInit for #uninit_ident<#type_generics>
+        unsafe impl<#impl_generics> ::pinned_init::private::AsUninit for #ident<#type_generics> #where_clause {
+            type Uninit = #uninit_ident<#type_generics>;
+        }
+    }
+}
+
+fn derive_begin_init_inner(
+    DeriveInput {
+        attrs,
+        vis: _,
+        ident,
+        generics,
+        data,
+    }: DeriveInput,
+) -> TokenStream {
+    let fields;
+    if let Data::Struct(s) = data {
+        fields = s.fields;
+    } else {
+        abort!(ident, "Can only derive BeginInit for structs.");
+    }
+    let (impl_generics, type_generics, where_clause) = my_split_for_impl(&generics);
+    let comma = if type_generics.is_empty() {
+        quote! {}
+    } else {
+        quote! {,}
+    };
+    let ongoing_init_lifetime = quote! {'__ongoing_init};
+    let ongoing_init_ident = attrs
+        .iter()
+        .filter_map(|a| {
+            if let Ok(Meta::List(MetaList { path, nested, .. })) = a.parse_meta() {
+                if path.is_ident("ongoing_init") {
+                    if nested.len() == 1 {
+                        if let NestedMeta::Meta(Meta::Path(path)) = nested.first().unwrap() {
+                            return Some(path.clone());
+                        } else {
+                            emit_error!(nested, "Expected a path.");
+                        }
+                    } else {
+                        emit_error!(nested, "Expected single argument");
+                    }
+                }
+            }
+            None
+        })
+        .reduce(|a, b| {
+            emit_error!(b, "#[ongoing_init] should only be specified once."; note = SpanRange::from_tokens(&a).collapse() => "other #[ongoing_init] here");
+            a
+        }).unwrap_or_else(|| abort!(ident, "Expected #[ongoing_init(<name>)] attribute."));
+    let mut bare_fields = vec![];
+    let mut bare_init_fields = vec![];
+
+    for field in fields.iter() {
+        if has_outer_attr(field.attrs.iter(), "init") {
+            bare_init_fields.push(field.ident.as_ref().unwrap().clone());
+        } else {
+            bare_fields.push(field.ident.as_ref().unwrap().clone());
+        }
+    }
+    quote! {
+        impl <#impl_generics> ::pinned_init::private::BeginInit for #ident<#type_generics>
+        #where_clause
+        {
+            type OngoingInit<#ongoing_init_lifetime> = #ongoing_init_ident <#ongoing_init_lifetime #comma #type_generics>
+            where
+                Self: #ongoing_init_lifetime,
+            ;
+
+            #[inline]
+            unsafe fn __begin_init<#ongoing_init_lifetime>(self: &#ongoing_init_lifetime mut Self) -> Self::OngoingInit<#ongoing_init_lifetime>
+            where
+                Self: #ongoing_init_lifetime,
+            {
+                // need to mention these constants again, because they are not
+                // computed if they are not used. If no one uses the
+                // __begin_init function, then they will not use this library's
+                // TransmuteInto functionality and so they will be on their own.
+                Self::__CHECK_ALIGNMENT;
+                Self::__CHECK_SIZE;
+                Self::__CHECK_OFFSETS;
+                unsafe {
+                    #ongoing_init_ident {
+                        #(#bare_fields: &mut self.#bare_fields,)*
+                        #(#bare_init_fields: ::pinned_init::needs_init::NeedsInit::new_unchecked(&mut self.#bare_init_fields),)*
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn derive_begin_pinned_init_inner(
+    DeriveInput {
+        attrs,
+        vis: _,
+        ident,
+        generics,
+        data,
+    }: DeriveInput,
+) -> TokenStream {
+    let fields;
+    if let Data::Struct(s) = data {
+        fields = s.fields;
+    } else {
+        abort!(ident, "Can only derive BeginPinnedInit for structs.");
+    }
+    let (impl_generics, type_generics, where_clause) = my_split_for_impl(&generics);
+    let comma = if type_generics.is_empty() {
+        quote! {}
+    } else {
+        quote! {,}
+    };
+    let ongoing_init_lifetime = quote! {'__ongoing_init};
+    let ongoing_init_ident = attrs
+        .iter()
+        .filter_map(|a| {
+            if let Ok(Meta::List(MetaList { path, nested, .. })) = a.parse_meta() {
+                if path.is_ident("ongoing_init") {
+                    if nested.len() == 1 {
+                        if let NestedMeta::Meta(Meta::Path(path)) = nested.first().unwrap() {
+                            return Some(path.clone());
+                        } else {
+                            emit_error!(nested, "Expected a path.");
+                        }
+                    } else {
+                        emit_error!(nested, "Expected single argument");
+                    }
+                }
+            }
+            None
+        })
+        .reduce(|a, b| {
+            emit_error!(b, "#[ongoing_init] should only be specified once."; note = SpanRange::from_tokens(&a).collapse() => "other #[ongoing_init] here");
+            a
+        }).unwrap_or_else(|| abort!(ident, "Expected #[ongoing_init(<name>)] attribute."));
+    let mut bare_fields = vec![];
+    let mut pinned_fields = vec![];
+    let mut bare_init_fields = vec![];
+    let mut pinned_init_fields = vec![];
+
+    for field in fields.iter() {
+        match (
+            has_outer_attr(field.attrs.iter(), "init"),
+            has_outer_attr(field.attrs.iter(), "pin"),
+        ) {
+            (true, true) => pinned_init_fields.push(field.ident.as_ref().unwrap().clone()),
+            (false, true) => pinned_fields.push(field.ident.as_ref().unwrap().clone()),
+            (true, false) => bare_init_fields.push(field.ident.as_ref().unwrap().clone()),
+            (false, false) => bare_fields.push(field.ident.as_ref().unwrap().clone()),
+        }
+    }
+    quote! {
+        impl <#impl_generics> ::pinned_init::private::BeginPinnedInit for #ident<#type_generics>
         #where_clause
         {
             type OngoingInit<#ongoing_init_lifetime> = #ongoing_init_ident <#ongoing_init_lifetime #comma #type_generics>
@@ -369,7 +527,7 @@ fn manual_init_inner(
                 // TransmuteInto functionality and so they will be on their own.
                 Self::__CHECK_ALIGNMENT;
                 Self::__CHECK_SIZE;
-                #(Self::#field_offset_check_name;)*
+                Self::__CHECK_OFFSETS;
                 let this = self.project();
                 unsafe {
                     #ongoing_init_ident {
@@ -381,74 +539,61 @@ fn manual_init_inner(
                 }
             }
         }
+    }
+}
 
-        // implement TransmuteInto because we checked the layout before.
-        unsafe impl<#impl_generics> ::pinned_init::transmute::TransmuteInto<#ident<#type_generics>> for
-        #uninit_ident<#type_generics>
-        #where_clause
-        {
-            unsafe fn transmute_ptr(this: *const Self) ->
-                *const #ident<#type_generics>
-            {
-                unsafe {
-                    ::core::mem::transmute(this)
-                }
-            }
+/// Changes the types of the given fields for use in the [`BeginPinnedInit::OngoingInit`] type.
+/// it handles four cases:
+/// - `#[init] #[pin] => <T as AsUninit>::Uninit`
+/// - `#[init] => <T as AsUninit>::Uninit`
+/// - `else => T`
+fn make_uninit_fields(fields: Fields) -> Fields {
+    match fields {
+        Fields::Named(FieldsNamed {
+            mut named,
+            brace_token,
+        }) => {
+            named = named
+                .into_iter()
+                .map(|mut f| {
+                    if has_outer_attr(f.attrs.iter(), "init") {
+                        if let Some(a@Attribute { tokens, .. } ) = f.attrs.iter()
+                            .filter(|a| matches!(a.style, AttrStyle::Outer) && a.path.is_ident("uninit"))
+                            .reduce(|a, b| {
+                                emit_error!(a, "Expected at most one #[uninit = <type>] attribute."; note = SpanRange::from_tokens(&b).collapse() => "Other found here.");
+                                a
+                            })
+                        {
+                            let mut tokens = tokens.clone().into_iter();
+                            if let Some(TokenTree::Punct(p)) = tokens.next()  {
+                                if p.as_char() == '=' {
+                                    // consume the '='
+                                } else {
+                                    emit_error!(a, "Expected #[uninit = <type>].");
+                                    tokens = quote!{ () }.into_iter();
+                                }
+                            } else {
+                                emit_error!(a, "Expected #[uninit = <type>].");
+                                tokens = quote!{ () }.into_iter();
+                            }
+                            let tokens = TokenStream::from_iter(tokens);
+                            f.ty = parse_quote! { #tokens };
+                        } else {
+                            let ty = f.ty;
+                            f.ty = parse_quote! { <#ty as ::pinned_init::private::AsUninit>::Uninit };
+                        }
+                    }
+                    f.attrs.retain(|a| !(matches!(a.style, AttrStyle::Outer) && a.path.is_ident("uninit")));
+                    f
+                })
+                .collect();
+            Fields::Named(FieldsNamed { named, brace_token })
         }
+        _ => panic!("Expected named fields!"),
     }
 }
 
-/// splits the given generics into impl_generics, type_generics and the where
-/// clause, similar to [`Generics::split_for_impl`], but does not produce the '<' and '>' tokens,
-/// in order to allow generic extensions
-fn my_split_for_impl(generics: &Generics) -> (TokenStream, TokenStream, Option<&WhereClause>) {
-    let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
-    let mut impl_generics = quote! { #impl_generics }
-        .into_iter()
-        .collect::<VecDeque<_>>();
-    let mut type_generics = quote! { #type_generics }
-        .into_iter()
-        .collect::<VecDeque<_>>();
-    macro_rules! pop {
-        (front $e:expr, $c:literal) => {{
-            let pop = $e.pop_front();
-            if let Some(TokenTree::Punct(p)) = &pop {
-                assert_eq!(p.as_char(), $c);
-            } else {
-                panic!(
-                    "invalid internal state, expected {}, but found {:?}",
-                    $c, pop
-                );
-            }
-        }};
-        (back $e:expr, $c:literal) => {{
-            let pop = $e.pop_back();
-            if let Some(TokenTree::Punct(p)) = &pop {
-                assert_eq!(p.as_char(), $c);
-            } else {
-                panic!(
-                    "invalid internal state, expected {}, but found {:?}",
-                    $c, pop
-                );
-            }
-        }};
-    }
-    if !impl_generics.is_empty() {
-        pop!(front impl_generics, '<');
-        pop!(back impl_generics, '>');
-    }
-    if !type_generics.is_empty() {
-        pop!(front type_generics, '<');
-        pop!(back type_generics, '>');
-    }
-    (
-        impl_generics.into_iter().collect(),
-        type_generics.into_iter().collect(),
-        where_clause,
-    )
-}
-
-/// Changes the types of the given fields for use in the [`BeginInit::OngoingInit`] type.
+/// Changes the types of the given fields for use in the [`BeginPinnedInit::OngoingInit`] type.
 /// it handles four cases:
 /// - `#[init] #[pin] => NeedsPinnedInit<T>`
 /// - `#[pin] => Pin<&mut T>`
@@ -463,68 +608,19 @@ fn make_ongoing_init_fields(fields: Fields, ongoing_init_lifetime: &TokenStream)
             named = named
                 .into_iter()
                 .map(|mut f| {
-                    let mut ty = f.ty;
-                    if f.attrs.iter().any(|a| matches!(a.style, AttrStyle::Outer) && a.path.is_ident("init")) {
-                        append_generics::<Expr>(&mut ty, &parse_quote! { false });
-                        if f.attrs.iter().any(|a|{
-                            matches!(a.style, AttrStyle::Outer)
-                                && a.path.is_ident("pin")
-                        }) {
-                            f.ty = parse_quote! { ::pinned_init::needs_init::NeedsPinnedInit<#ongoing_init_lifetime, #ty> };
-                        } else {
-                            f.ty = parse_quote! { ::pinned_init::needs_init::NeedsInit<#ongoing_init_lifetime, #ty> };
-                        }
-                    } else {
-                        if f.attrs.iter().any(|a|{
-                            matches!(a.style, AttrStyle::Outer)
-                                && a.path.is_ident("pin")
-                        }) {
-                            f.ty = parse_quote! { ::core::pin::Pin<&#ongoing_init_lifetime mut #ty> };
-                        } else {
-                            f.ty = parse_quote! { &#ongoing_init_lifetime mut #ty };
-                        }
-                    }
-                    f.attrs.retain(|a|
-                        !(matches!(a.style, AttrStyle::Outer)
-                            && (a.path.is_ident("init") || a.path.is_ident("pin"))));
+                    let ty = f.ty;
+                    f.ty = match (has_outer_attr(f.attrs.iter(), "init"), has_outer_attr(f.attrs.iter(), "pin")) {
+                        (true, true) => parse_quote! { ::pinned_init::needs_init::NeedsPinnedInit<#ongoing_init_lifetime, #ty> },
+                        (true, false) => parse_quote! { ::pinned_init::needs_init::NeedsInit<#ongoing_init_lifetime, #ty> },
+                        (false, true) => parse_quote! { ::core::pin::Pin<&#ongoing_init_lifetime mut #ty> },
+                        (false, false) => parse_quote! { &#ongoing_init_lifetime mut #ty },
+                    };
+                    f.attrs.retain(|a| !(matches!(a.style, AttrStyle::Outer) && (a.path.is_ident("init") || a.path.is_ident("pin"))));
                     f
                 })
                 .collect();
             Fields::Named(FieldsNamed { named, brace_token })
         }
         _ => panic!("Expected named fields!"),
-    }
-}
-
-/// Append the expression as a const generic parameter to the generics of the given
-/// type.
-fn append_generics<Expr: ToTokens>(ty: &mut Type, expr: &Expr) {
-    match ty {
-        Type::Path(TypePath { path, .. }) => {
-            if let Some(PathSegment { arguments, .. }) = path.segments.last_mut() {
-                match arguments {
-                    PathArguments::None => {
-                        *arguments =
-                            PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                                colon2_token: None,
-                                lt_token: <Token![<]>::default(),
-                                args: parse_quote! { #expr },
-                                gt_token: <Token![>]>::default(),
-                            });
-                    }
-                    PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                        args, ..
-                    }) => {
-                        args.push(GenericArgument::Const(parse_quote! { #expr }));
-                    }
-                    PathArguments::Parenthesized(p) => {
-                        emit_error!(p, "Expected arguments with angled brackets.");
-                    }
-                }
-            } else {
-                emit_error!(path, "Expected at least one ident.");
-            }
-        }
-        rest => emit_error!(rest, "Cannot #[init] this type, expected a type path."),
     }
 }
