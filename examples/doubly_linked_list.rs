@@ -2,19 +2,17 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 use core::{
     marker::PhantomPinned,
-    mem,
+    mem::{self, MaybeUninit},
     pin::Pin,
     ptr::{self, NonNull},
 };
 use pinned_init::prelude::*;
 
-#[manual_init(PinnedDrop)]
+#[manual_init(pinned, pin_project(PinnedDrop))]
 pub struct LinkedList<T> {
     #[init]
-    #[pin]
     prev: Link<T>,
     #[init]
-    #[pin]
     next: Link<T>,
     value: Option<T>,
     _pin: PhantomPinned,
@@ -23,14 +21,15 @@ pub struct LinkedList<T> {
 #[manual_init]
 struct Link<T> {
     #[init]
-    ptr: StaticUninit<NonNull<LinkedList<T>>>,
+    #[uninit = MaybeUninit::<NonNull::<LinkedList::<T>>>]
+    ptr: NonNull<LinkedList<T>>,
 }
 
-impl<T> PinnedInit for LinkUninit<T> {
+impl<T> Init for LinkUninit<T> {
     type Initialized = Link<T>;
     type Param = *mut LinkedList<T>;
 
-    fn init_raw(this: NeedsPinnedInit<Self>, param: Self::Param) {
+    fn init_raw(this: NeedsInit<Self>, param: Self::Param) {
         let LinkOngoingInit { ptr } = this.begin_init();
         ptr.init(NonNull::new(param).unwrap());
     }
@@ -39,7 +38,7 @@ impl<T> PinnedInit for LinkUninit<T> {
 impl<T> LinkUninit<T> {
     fn uninit() -> Self {
         Self {
-            ptr: StaticUninit::uninit(),
+            ptr: MaybeUninit::uninit(),
         }
     }
 }
@@ -53,7 +52,7 @@ impl<T> Link<T> {
     unsafe fn follow_mut_long<'a>(&mut self) -> &'a mut LinkedList<T> {
         unsafe {
             // SAFETY: we were initialized and thus point to a valid LinkedList
-            (*self.ptr).as_mut()
+            self.ptr.as_mut()
         }
     }
 
@@ -63,14 +62,14 @@ impl<T> Link<T> {
     unsafe fn follow_mut(&mut self) -> &mut LinkedList<T> {
         unsafe {
             // SAFETY: we were initialized and thus point to a valid LinkedList
-            (*self.ptr).as_mut()
+            self.ptr.as_mut()
         }
     }
 
     fn follow(&self) -> &LinkedList<T> {
         unsafe {
             // SAFETY: we were initialized and thus point to a valid LinkedList
-            (*self.ptr).as_ref()
+            self.ptr.as_ref()
         }
     }
 }
@@ -99,16 +98,16 @@ impl<T> PinnedInit for LinkedListUninit<T> {
             value: _,
             _pin,
         } = this.begin_init();
-        PinnedInit::init_raw(next, link);
-        PinnedInit::init_raw(prev, link);
+        Init::init_raw(next, link);
+        Init::init_raw(prev, link);
     }
 }
 
 impl<T> LinkedListUninit<T> {
     pub fn new(value: T) -> Self {
         Self {
-            prev: Link::uninit(),
-            next: Link::uninit(),
+            prev: LinkUninit::uninit(),
+            next: LinkUninit::uninit(),
             value: Some(value),
             _pin: PhantomPinned,
         }
@@ -118,7 +117,7 @@ impl<T> LinkedListUninit<T> {
 impl<T> LinkedList<T> {
     pub fn insert_after(self: Pin<&mut Self>, value: T) {
         let mut this = self.project();
-        let mut new = Box::pin(LinkedList::new(value)).init();
+        let mut new = Box::pin(LinkedListUninit::new(value)).init();
         let next = unsafe {
             // SAFETY: we only go forwards
             this.next.follow_mut()
@@ -134,7 +133,7 @@ impl<T> LinkedList<T> {
 
     pub fn insert_before(self: Pin<&mut Self>, value: T) {
         let mut this = self.project();
-        let mut new = Box::pin(LinkedList::new(value)).init();
+        let mut new = Box::pin(LinkedListUninit::new(value)).init();
         let prev = unsafe {
             // SAFETY: we only go backwards
             this.prev.follow_mut()
@@ -168,7 +167,7 @@ impl<T> LinkedList<T> {
     }
 
     pub fn unlink(mut this: Pin<Box<Self>>) -> T {
-        let mut this = this.as_mut().project();
+        let this = this.as_mut().project();
         if this.next != this.prev {
             // we need to remove references to us before we get dropped.
             // SAFETY: next only goes forwards
@@ -184,38 +183,35 @@ impl<T> LinkedList<T> {
 }
 
 #[pin_project::pinned_drop]
-impl<T, const INIT: bool> PinnedDrop for LinkedList<T, INIT> {
+impl<T> PinnedDrop for LinkedList<T> {
     fn drop(self: Pin<&mut Self>) {
-        fn inner<T>(mut cur: Pin<&mut LinkedList<T>>) {
-            while {
-                let cur = cur.as_ref().project_ref();
-                cur.next != cur.prev
-            } {
-                // we need to remove references to cur before we remove it.
-                let mut this = cur.project();
-                // SAFETY: the pointers are valid and point to initialized data
-                // SAFETY: next only goes forwards
-                let next = unsafe { this.next.follow_mut() };
-                mem::swap(&mut next.prev, &mut *this.prev);
-                // SAFETY: prev only goes backwards
-                let prev = unsafe { this.prev.follow_mut() };
-                mem::swap(&mut prev.next, &mut *this.next);
-
-                // SAFETY: next only goes forwards and we are in drop, so the lifetime will end
-                // after this function
-                let next = unsafe { this.next.follow_mut_long() };
-                assert!(this.prev == this.next);
-                // SAFETY: all nodes are pinned
-                cur = unsafe { Pin::new_unchecked(next) };
-            }
-        }
-        if INIT {
-            inner::<T>(unsafe {
-                // SAFETY: we are initialized
-                core::mem::transmute(self)
-            });
+        let mut cur = self;
+        while {
+            let cur = cur.as_ref().project_ref();
+            cur.next != cur.prev
+        } {
+            // we need to remove references to cur before we remove it.
+            let this = cur.project();
+            // SAFETY: the pointers are valid and point to initialized data
+            // SAFETY: next only goes forwards
+            let next = unsafe { this.next.follow_mut() };
+            mem::swap(&mut next.prev, &mut *this.prev);
+            // SAFETY: prev only goes backwards
+            let prev = unsafe { this.prev.follow_mut() };
+            mem::swap(&mut prev.next, &mut *this.next);
+            // SAFETY: next only goes forwards and we are in drop, so the lifetime will end
+            // after this function
+            let next = unsafe { this.next.follow_mut_long() };
+            assert!(this.prev == this.next);
+            // SAFETY: all nodes are pinned
+            cur = unsafe { Pin::new_unchecked(next) };
         }
     }
+}
+
+#[pin_project::pinned_drop]
+impl<T> PinnedDrop for LinkedListUninit<T> {
+    fn drop(self: Pin<&mut Self>) {}
 }
 
 pub struct LLIter<'a, T> {
