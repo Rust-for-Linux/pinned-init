@@ -49,8 +49,14 @@
 //! is expicitly opt-in. Please try to find a safe workaround or open an issue
 //! at [my repo].
 
-use crate::{private::BeginInit, static_uninit::StaticUninit, PinnedInit};
-use core::{mem, pin::Pin};
+use crate::{
+    private::{BeginInit, BeginPinnedInit},
+    Init, PinnedInit,
+};
+use core::{
+    mem::{self, MaybeUninit},
+    pin::Pin,
+};
 
 /// A pointer to pinned data that needs to be initialized while pinned.
 /// When this pointer is neglected and not initialized, it will
@@ -125,7 +131,7 @@ impl<'init, T: PinnedInit> NeedsPinnedInit<'init, T> {
 
     /// Begin to initialize the value behind this `NeedsPinnedInit`.
     #[inline]
-    pub fn begin_init(mut self) -> <T as BeginInit>::OngoingInit<'init> {
+    pub fn begin_init(mut self) -> <T as BeginPinnedInit>::OngoingInit<'init> {
         let res = if let Some(inner) = self.inner.take() {
             unsafe {
                 // SAFETY: API internal contract is upheld, __begin_init has the
@@ -236,19 +242,19 @@ impl<'init, T: PinnedInit> NeedsPinnedInit<'init, T> {
 /// [`Deref`]: core::ops::Deref
 /// [`DerefMut`]: core::ops::DerefMut
 #[repr(transparent)]
-pub struct NeedsInit<'init, T: ?Sized> {
-    inner: &'init mut T,
+pub struct NeedsInit<'init, T> {
+    inner: Option<&'init mut T>,
 }
 
 #[cfg(not(pinned_init_unsafe_no_enforce_init))]
-impl<'init, T: ?Sized> Drop for NeedsInit<'init, T> {
+impl<'init, T> Drop for NeedsInit<'init, T> {
     #[inline]
     fn drop(&mut self) {
         if_cfg! {
             if (debug_assertions) {
                 panic!(
                     "NeedsInit({:p}) was dropped, without prior initialization!",
-                    self.inner
+                    self.inner.as_ref().unwrap()
                 );
             } else {
                 extern "C" {
@@ -265,7 +271,7 @@ impl<'init, T: ?Sized> Drop for NeedsInit<'init, T> {
     }
 }
 
-impl<'init, T> NeedsInit<'init, StaticUninit<T, false>> {
+impl<'init, T> NeedsInit<'init, T> {
     /// Construct a new `NeedsInit` from the given pointer.
     ///
     /// # Safety
@@ -278,25 +284,51 @@ impl<'init, T> NeedsInit<'init, StaticUninit<T, false>> {
     /// - The caller needs to guarantee, that the pointer from which `inner` was
     /// derived changes its pointee type to `StaticUninit<T, true>`, when `'init` ends.
     #[inline]
-    pub unsafe fn new_unchecked(inner: &'init mut StaticUninit<T, false>) -> Self {
-        Self { inner }
+    pub unsafe fn new_unchecked(inner: &'init mut T) -> Self {
+        Self { inner: Some(inner) }
     }
+}
 
-    /// Initializes the value behind this pointer with the supplied value
+impl<'init, T> NeedsInit<'init, MaybeUninit<T>> {
+    /// Begin to initialize the value behind this `NeedsPinnedInit`.
     #[inline]
-    pub fn init(self, value: T) {
-        unsafe {
-            // SAFETY: We have been constructed by [`NeedsInit::new_unchecked`]
-            // and thus have full control over the pointee, we now change its
-            // type and never access it again (we are consumed). When `'init`
-            // expires all accesses to the pointee will be made through
-            // [`StaticUninit<T, true>`] which is the initialized variant.
-            //
-            // This satisfies the contract of [`StaticUninit::as_uninit_mut`].
-            self.inner.as_uninit_mut().write(value);
-        }
-        // We do not want to drop `self` here, because it would panic or link to
-        // an unresolved symbol.
+    pub fn init(mut self, value: T) {
+        let res = if let Some(inner) = self.inner.take() {
+            inner.write(value);
+        } else {
+            unsafe {
+                // SAFETY: self.inner is never `take`n anywhere else. Because
+                // this function takes `self` by value, we know, that the option
+                // is populated, because we only create `NeedsPinnedInit` with
+                // inner set to `Some`.
+                core::hint::unreachable_unchecked();
+            }
+        };
         mem::forget(self);
+        res
+    }
+}
+
+impl<'init, T: Init> NeedsInit<'init, T> {
+    /// Begin to initialize the value behind this `NeedsPinnedInit`.
+    #[inline]
+    pub fn begin_init(mut self) -> <T as BeginInit>::OngoingInit<'init> {
+        let res = if let Some(inner) = self.inner.take() {
+            unsafe {
+                // SAFETY: API internal contract is upheld, __begin_init has the
+                // same invariants as NeedsInit.
+                inner.__begin_init()
+            }
+        } else {
+            unsafe {
+                // SAFETY: self.inner is never `take`n anywhere else. Because
+                // this function takes `self` by value, we know, that the option
+                // is populated, because we only create `NeedsPinnedInit` with
+                // inner set to `Some`.
+                core::hint::unreachable_unchecked();
+            }
+        };
+        mem::forget(self);
+        res
     }
 }

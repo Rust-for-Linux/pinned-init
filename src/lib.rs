@@ -245,12 +245,17 @@
 //! need to use [`StaticUninit<T, INIT>`] here the `PtrBuf` example:
 //! ```rust
 //! #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+//! # use core::mem::MaybeUninit;
 //! use pinned_init::prelude::*;
-//! #[manual_init]
+//! #[manual_init(pinned)]
 //! pub struct PtrBuf<T> {
 //!     buf: [T; 64],
 //!     #[init]
-//!     ptr: StaticUninit<*const T>,
+//!     #[uninit = MaybeUninit::<*const T>]
+//!     ptr: *const T,
+//!     #[init]
+//!     #[uninit = MaybeUninit::<*const T>]
+//!     end: *const T,
 //! }
 //! ```
 //! Now we also need to implement a way to construct a `PtrBufUninit` and
@@ -258,13 +263,16 @@
 //! ```rust
 //! #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
 //! use pinned_init::prelude::*;
-//! # #[manual_init]
+//! # use core::mem::MaybeUninit;
+//! # #[manual_init(pinned)]
 //! # pub struct PtrBuf<T> {
 //! #     buf: [T; 64],
 //! #     #[init]
-//! #     ptr: StaticUninit<*const T>,
+//! #     #[uninit = MaybeUninit::<*const T>]
+//! #     ptr: *const T,
 //! #     #[init]
-//! #     end: StaticUninit<*const T>,
+//! #     #[uninit = MaybeUninit::<*const T>]
+//! #     end: *const T,
 //! # }
 //! impl<T> PinnedInit for PtrBufUninit<T> {
 //!     type Initialized = PtrBuf<T>;
@@ -285,8 +293,8 @@
 //!     fn from(buf: [T; 64]) -> Self {
 //!         Self {
 //!             buf,
-//!             ptr: StaticUninit::uninit(),
-//!             end: StaticUninit::uninit(),
+//!             ptr: MaybeUninit::uninit(),
+//!             end: MaybeUninit::uninit(),
 //!         }
 //!     }
 //! }
@@ -294,15 +302,18 @@
 //! Now implementing the `next` method is rather staight forward:
 //! ```rust
 //! # #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+//! # use core::mem::MaybeUninit;
 //! # use pinned_init::prelude::*;
 //! # use core::pin::Pin;
-//! # #[manual_init]
+//! # #[manual_init(pinned)]
 //! # pub struct PtrBuf<T> {
 //! #     buf: [T; 64],
 //! #     #[init]
-//! #     ptr: StaticUninit<*const T>,
+//! #     #[uninit = MaybeUninit::<*const T>]
+//! #     ptr: *const T,
 //! #     #[init]
-//! #     end: StaticUninit<*const T>,
+//! #     #[uninit = MaybeUninit::<*const T>]
+//! #     end: *const T,
 //! # }
 //! # impl<T> PinnedInit for PtrBufUninit<T> {
 //! #     type Initialized = PtrBuf<T>;
@@ -322,23 +333,23 @@
 //! #     fn from(buf: [T; 64]) -> Self {
 //! #         Self {
 //! #             buf,
-//! #             ptr: StaticUninit::uninit(),
-//! #             end: StaticUninit::uninit(),
+//! #             ptr: MaybeUninit::uninit(),
+//! #             end: MaybeUninit::uninit(),
 //! #         }
 //! #     }
 //! # }
 //! impl<T> PtrBuf<T> {
 //!     pub fn next(self: Pin<&mut Self>) -> Option<&T> {
 //!         let this = self.project();
-//!         if **this.ptr > **this.end {
+//!         if *this.ptr > *this.end {
 //!             None
 //!         } else {
 //!             let res = unsafe {
 //!                 // SAFETY: we were correctly initialized and checked bounds
 //!                 // so this.ptr points to somewhere in buf.
-//!                 &***this.ptr
+//!                 &**this.ptr
 //!             };
-//!             **this.ptr = unsafe {
+//!             *this.ptr = unsafe {
 //!                 // SAFETY: the resulting pointer is either one byte after buf, or
 //!                 // inside buf.
 //!                 // An offset of 1 cannot overflow, because we allocated `[T;
@@ -477,14 +488,15 @@
 //!
 //! Using unsafe for these invariants just results in rust code that is arguably
 //! less ergonomic the same code in C.
-//!
-//! [`StaticUninit<T, INIT>`]: crate::static_uninit::StaticUninit
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(generic_associated_types)]
 #![deny(unsafe_op_in_unsafe_fn, missing_docs)]
 use crate::{
-    needs_init::NeedsPinnedInit, private::BeginInit, ptr::OwnedUniquePtr, transmute::TransmuteInto,
+    needs_init::{NeedsInit, NeedsPinnedInit},
+    private::{BeginInit, BeginPinnedInit},
+    ptr::OwnedUniquePtr,
+    transmute::TransmuteInto,
 };
 use core::pin::Pin;
 
@@ -506,7 +518,6 @@ macro_rules! if_cfg {
 
 pub mod needs_init;
 pub mod ptr;
-pub mod static_uninit;
 
 /// Use this attribute on a struct with named fields to ensure safe
 /// pinned initialization of all the fields marked with `#[init]`.
@@ -525,8 +536,8 @@ pub mod static_uninit;
 /// `for`{your-struct-name}Uninit` and checks for layout equivalence between the
 /// two.
 /// - creates a custom type borrowing from your struct that is used as the
-/// `OngoingInit` type for the [`BeginInit`] trait.
-/// - implements [`BeginInit`] for your struct.
+/// `OngoingInit` type for the [`BeginPinnedInit`] trait.
+/// - implements [`BeginPinnedInit`] for your struct.
 ///
 /// Then you can safely, soundly and ergonomically initialize a value of such a
 /// struct behind an [`OwnedUniquePtr<{your-struct-name}>`]:
@@ -548,8 +559,8 @@ pub use pinned_init_macro::manual_init;
 /// `for`{your-struct-name}Uninit` and checks for layout equivalence between the
 /// two.
 /// - creates a custom type borrowing from your struct that is used as the
-/// `OngoingInit` type for the [`BeginInit`] trait.
-/// - implements [`BeginInit`] for your struct.
+/// `OngoingInit` type for the [`BeginPinnedInit`] trait.
+/// - implements [`BeginPinnedInit`] for your struct.
 ///
 /// The only thing you need to implement is [`PinnedInit`].
 ///
@@ -564,9 +575,7 @@ pub mod prelude {
     pub use crate::{
         manual_init,
         needs_init::{NeedsInit, NeedsPinnedInit},
-        pinned_init,
-        static_uninit::StaticUninit,
-        PinnedInit, SafePinnedInit,
+        pinned_init, Init, PinnedInit, SafePinnedInit,
     };
 }
 
@@ -578,6 +587,36 @@ pub mod __private {
 #[doc(hidden)]
 pub mod private {
     use core::pin::Pin;
+
+    pub use pinned_init_macro::{BeginInit, BeginPinnedInit};
+
+    /// Trait implemented by the [`pinned_init`] and the [`manual_init`] proc
+    /// macros. This trait should not be implemented manually.
+    ///
+    /// [`pinned_init`]: crate::pinned_init
+    /// [`manual_init`]: crate::manual_init
+    pub trait BeginPinnedInit {
+        #[doc(hidden)]
+        type OngoingInit<'init>: 'init
+        where
+            Self: 'init;
+
+        /// api internal function, do not call from outside this library!
+        ///
+        /// # Safety
+        ///
+        /// - When the `'init` lifetime expires, the value at `inner` will be
+        /// initialized and have changed type to `T::Initialized`.
+        /// - From the moment this function is called until the end of `'init` the
+        /// produced [`NeedsPinnedInit`] becomes the only valid way to access the
+        /// underlying value.
+        /// - The caller needs to guarantee, that the pointer from which `inner` was
+        /// derived changes its pointee type to `T::Initialized`, when `'init` ends.
+        #[doc(hidden)]
+        unsafe fn __begin_init<'init>(self: Pin<&'init mut Self>) -> Self::OngoingInit<'init>
+        where
+            Self: 'init;
+    }
 
     /// Trait implemented by the [`pinned_init`] and the [`manual_init`] proc
     /// macros. This trait should not be implemented manually.
@@ -602,9 +641,19 @@ pub mod private {
         /// - The caller needs to guarantee, that the pointer from which `inner` was
         /// derived changes its pointee type to `T::Initialized`, when `'init` ends.
         #[doc(hidden)]
-        unsafe fn __begin_init<'init>(self: Pin<&'init mut Self>) -> Self::OngoingInit<'init>
+        unsafe fn __begin_init<'init>(self: &'init mut Self) -> Self::OngoingInit<'init>
         where
             Self: 'init;
+    }
+
+    /// Marks types that have an uninitialized form, automatically implemented by [`manual_init`]
+    /// and [`pinned_init`].
+    ///
+    /// [`pinned_init`]: crate::pinned_init
+    /// [`manual_init`]: crate::manual_init
+    pub unsafe trait AsUninit: Sized {
+        /// Uninitialized form of `Self`.
+        type Uninit: crate::transmute::TransmuteInto<Self>;
     }
 }
 
@@ -708,9 +757,9 @@ pub mod transmute {
 /// You will need to implement this trait yourself, if your struct contains any
 /// fields with the [`static_uninit::StaticUninit`] type. When implementing this
 /// trait manually, use the [`manual_init`] proc macro attribute to implement
-/// [`BeginInit`] for your struct, as implementing that trait is not supposed to
+/// [`BeginPinnedInit`] for your struct, as implementing that trait is not supposed to
 /// be done manually.
-pub trait PinnedInit: TransmuteInto<Self::Initialized> + BeginInit {
+pub trait PinnedInit: TransmuteInto<Self::Initialized> + BeginPinnedInit {
     /// The initialized version of `Self`. `Self` can be transmuted via
     /// [`TransmuteInto`] into this type.
     type Initialized;
@@ -721,6 +770,29 @@ pub trait PinnedInit: TransmuteInto<Self::Initialized> + BeginInit {
     /// Initialize the value behind the given pointer with the given parameter, this pointer ensures,
     /// that `Self` really will be initialized.
     fn init_raw(this: NeedsPinnedInit<Self>, param: Self::Param);
+}
+
+/// Facilitates pinned initialization.
+/// Before you implement this trait manually, look at the [`pinned_init`] proc
+/// macro attribute, it can be used to implement this trait in a safe and sound
+/// fashion in many cases.
+///
+/// You will need to implement this trait yourself, if your struct contains any
+/// fields with the [`static_uninit::StaticUninit`] type. When implementing this
+/// trait manually, use the [`manual_init`] proc macro attribute to implement
+/// [`BeginPinnedInit`] for your struct, as implementing that trait is not supposed to
+/// be done manually.
+pub trait Init: TransmuteInto<Self::Initialized> + BeginInit {
+    /// The initialized version of `Self`. `Self` can be transmuted via
+    /// [`TransmuteInto`] into this type.
+    type Initialized;
+    /// An optional Parameter used to initialize `Self`.
+    /// When you do not need it, set to `()`
+    type Param;
+
+    /// Initialize the value behind the given pointer with the given parameter, this pointer ensures,
+    /// that `Self` really will be initialized.
+    fn init_raw(this: NeedsInit<Self>, param: Self::Param);
 }
 
 // used to prevent accidental/mailicious implementations of `SafePinnedInit`
