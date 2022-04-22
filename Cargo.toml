@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 description = "Library to facilitate safe pinned initialization"
 readme = "README.md"
 
+documentation = "https://docs.rs/pinned-init"
 repository = "https://github.com/y86-dev/pinned-init"
 keywords = ["safe", "pin", "init", "no-std", "rust-patterns"]
 categories = ["no-std", "rust-patterns", "embedded"]
@@ -15,6 +16,10 @@ categories = ["no-std", "rust-patterns", "embedded"]
 [dependencies]
 pin-project = "^1.0.2"
 pinned-init-macro = { version = "=0.0.0", path = "pinned-init-macro" }
+
+[dev-dependencies]
+unsafe-alias-cell = "0.0.1"
+aliasable = "0.1"
 
 [features]
 default = ["std"]
