@@ -29,6 +29,7 @@ such a type actually is created, feel free to head to that [section](#declaratio
 ## What `PtrBuf` defines
 
 ```rust
+# #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
 pub struct PtrBuf<T> {
     idx: *const T,
     buf: [T; 64],
@@ -36,6 +37,13 @@ pub struct PtrBuf<T> {
 ```
 To create a `PtrBuf` the crate provides the following implementation:
 ```rust
+# #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+# use pinned_init::*;
+# #[manual_init]
+# pub struct PtrBuf<T> {
+#     idx: *const T,
+#     buf: [T; 64],
+# }
 impl<T> From<[T; 64]> for PtrBufUninit<T> {
     fn from(arr: [T; 64]) -> Self { todo!() }
 }
@@ -46,6 +54,12 @@ uninitialized, version of a `PtrBuf`.
 
 To use a `PtrBuf`, a next function is defined:
 ```rust
+# #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+# use core::pin::Pin;
+# pub struct PtrBuf<T> {
+#     idx: *const T,
+#     buf: [T; 64],
+# }
 impl<T> PtrBuf<T> {
     pub fn next(self: Pin<&mut Self>) -> Option<&T> { todo!() }
 }
@@ -56,7 +70,19 @@ impl<T> PtrBuf<T> {
 To begin the creation process of a `PtrBuf` we first must create a
 `PtrBufUninit`:
 ```rust
-
+# #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+# use pinned_init::prelude::*;
+# use unsafe_alias_cell::UnsafeAliasCell;
+# use core::pin::Pin;
+# #[pinned_init]
+# pub struct PtrBuf<T> {
+#     buf: UnsafeAliasCell<[T; 64]>,
+# }
+# impl<T> From<[T; 64]> for PtrBufUninit<T> {
+#     fn from(arr: [T; 64]) -> Self {
+#         Self { buf: UnsafeAliasCell::new(arr) }
+#     }
+# }
 let uninit: PtrBufUninit<i32> = PtrBufUninit::from([42; 64]);
 ```
 Because this library facilitates pinned initialization, we now need to find
@@ -72,6 +98,20 @@ Now we need to call [`Box::pin`] to create an already pinned pointer to our
 data, if your pointer type supports it you could also create it first and
 then pin it later, but in many cases this is not necessary.
 ```rust
+# #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+# use core::pin::Pin;
+# use pinned_init::prelude::*;
+# use unsafe_alias_cell::UnsafeAliasCell;
+# #[pinned_init]
+# pub struct PtrBuf<T> {
+#     buf: UnsafeAliasCell<[T; 64]>,
+# }
+# impl<T> From<[T; 64]> for PtrBufUninit<T> {
+#     fn from(arr: [T; 64]) -> Self {
+#         Self { buf: UnsafeAliasCell::new(arr) }
+#     }
+# }
+# let uninit: PtrBufUninit<i32> = PtrBufUninit::from([42; 64]);
 let boxed: Pin<Box<PtrBufUninit<i32>>> = Box::pin(uninit);
 ```
 
@@ -79,11 +119,39 @@ Now all that is left to do is to call [`SafePinnedInit::init`], this trait
 is implemented for [`Pin<P>`] when `P` is pointer with support for this
 library.
 ```rust
+# #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+# use core::pin::Pin;
+# use pinned_init::prelude::*;
+# use unsafe_alias_cell::UnsafeAliasCell;
+# #[pinned_init]
+# pub struct PtrBuf<T> {
+#     buf: UnsafeAliasCell<[T; 64]>,
+# }
+# impl<T> From<[T; 64]> for PtrBufUninit<T> {
+#     fn from(arr: [T; 64]) -> Self {
+#         Self { buf: UnsafeAliasCell::new(arr) }
+#     }
+# }
+# let uninit: PtrBufUninit<i32> = PtrBufUninit::from([42; 64]);
+# let boxed: Pin<Box<PtrBufUninit<i32>>> = Box::pin(uninit);
 let init: Pin<Box<PtrBuf<i32>>> = boxed.init();
 ```
 
 Full code:
 ```rust
+#![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+# use core::pin::Pin;
+# use pinned_init::prelude::*;
+# use unsafe_alias_cell::UnsafeAliasCell;
+# #[pinned_init]
+# pub struct PtrBuf<T> {
+#     buf: UnsafeAliasCell<[T; 64]>,
+# }
+# impl<T> From<[T; 64]> for PtrBufUninit<T> {
+#     fn from(arr: [T; 64]) -> Self {
+#         Self { buf: UnsafeAliasCell::new(arr) }
+#     }
+# }
 let uninit: PtrBufUninit<i32> = PtrBufUninit::from([42; 64]);
 let boxed: Pin<Box<PtrBufUninit<i32>>> = Box::pin(uninit);
 let init: Pin<Box<PtrBuf<i32>>> = boxed.init();
@@ -94,8 +162,19 @@ This involves writing no unsafe code yourself and is done by adding
 [`pinned_init`] as an attribute to your struct and marking each field, that
 requires initialization with `#[init]`:
 ```rust
+#![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
 use pinned_init::prelude::*;
-
+# #[pinned_init]
+# pub struct PtrBuf<T> {
+#   buf: [T; 64],
+# }
+# impl<T> From<[T; 64]> for PtrBufUninit<T> {
+#     fn from(buf: [T; 64]) -> Self {
+#         Self {
+#             buf
+#         }
+#     }
+# }
 #[pinned_init]
 pub struct WithPtrBuf<'a, T> {
     #[init]
@@ -119,6 +198,22 @@ And that is it.
 
 When you want to use a field, use the same API when using [`pin_project`]:
 ```rust
+# #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+# use pinned_init::prelude::*;
+# use unsafe_alias_cell::UnsafeAliasCell;
+# use core::pin::Pin;
+# #[pinned_init]
+# pub struct PtrBuf<T> {
+#    buf: UnsafeAliasCell<[T; 64]>,
+# }
+# impl<T> PtrBuf<T> {
+#     pub fn next(self: Pin<&mut Self>) -> Option<&T> { todo!() }
+# }
+# impl<T> From<[T; 64]> for PtrBufUninit<T> {
+#     fn from(buf: [T; 64]) -> Self {
+#         Self { buf: UnsafeAliasCell::new(buf) }
+#     }
+# }
 #[pinned_init]
 pub struct WithPtrBuf<'a, T> {
     #[init]
@@ -147,6 +242,8 @@ is similar to [`pinned_init`], you mark fields that need initialization with
 `#[init]`. However you need to specify `#[pin]` manually, if you want that
 field to be structually pinned.
 ```rust
+#![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+# use core::mem::MaybeUninit;
 use pinned_init::prelude::*;
 use unsafe_alias_cell::UnsafeAliasCell;
 
@@ -165,8 +262,21 @@ pub struct PtrBuf<T> {
 Now we also need to implement a way to construct a `PtrBufUninit` and
 implement PinnedInit:
 ```rust
+#![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
 use pinned_init::prelude::*;
-
+# use core::mem::MaybeUninit;
+# use unsafe_alias_cell::UnsafeAliasCell;
+# #[manual_init(pinned)]
+# pub struct PtrBuf<T> {
+#     #[pin]
+#     buf: UnsafeAliasCell<[T; 64]>,
+#     #[init]
+#     #[uninit = MaybeUninit::<*const T>]
+#     ptr: *const T,
+#     #[init]
+#     #[uninit = MaybeUninit::<*const T>]
+#     end: *const T,
+# }
 impl<T> PinnedInit for PtrBufUninit<T> {
     type Initialized = PtrBuf<T>;
     type Param = ();
@@ -197,6 +307,48 @@ impl<T> From<[T; 64]> for PtrBufUninit<T> {
 ```
 Now implementing the `next` method is rather staight forward:
 ```rust
+# #![feature(generic_associated_types, const_ptr_offset_from, const_refs_to_cell)]
+# use core::mem::MaybeUninit;
+# use unsafe_alias_cell::UnsafeAliasCell;
+# use pinned_init::prelude::*;
+# use core::pin::Pin;
+# #[manual_init(pinned)]
+# pub struct PtrBuf<T> {
+#     #[pin]
+#     buf: UnsafeAliasCell<[T; 64]>,
+#     #[init]
+#     #[uninit = MaybeUninit::<*const T>]
+#     ptr: *const T,
+#     #[init]
+#     #[uninit = MaybeUninit::<*const T>]
+#     end: *const T,
+# }
+# impl<T> PinnedInit for PtrBufUninit<T> {
+#     type Initialized = PtrBuf<T>;
+#     type Param = ();
+#
+#     fn init_raw(this: NeedsPinnedInit<Self>, _: Self::Param) {
+#         let PtrBufOngoingInit {
+#             ptr,
+#             buf,
+#             end,
+#         } = this.begin_init();
+#         ptr.init(buf.get() as *const T);
+#         end.init(unsafe {
+#             // SAFETY: we offset by 63 which is buf.len() - 1
+#             (buf.get() as *const T).offset(63)
+#         });
+#     }
+# }
+# impl<T> From<[T; 64]> for PtrBufUninit<T> {
+#     fn from(buf: [T; 64]) -> Self {
+#         Self {
+#             buf: UnsafeAliasCell::new(buf),
+#             ptr: MaybeUninit::uninit(),
+#             end: MaybeUninit::uninit(),
+#         }
+#     }
+# }
 impl<T> PtrBuf<T> {
     pub fn next(self: Pin<&mut Self>) -> Option<&T> {
         let this = self.project();
@@ -265,7 +417,7 @@ Without this library you would need to resort to `unsafe` for all such
 initializations at the definition site and the call site.
 
 For example the `PtrBuf` from above without this library and without
-[pin\_project] could look like this:
+[pin_project] could look like this:
 ```rust
 use core::{mem::MaybeUninit, pin::Pin, ptr};
 

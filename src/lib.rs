@@ -1,4 +1,4 @@
-#![doc = include_str!("../README.md")]
+#![doc = include_str!("lib.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(generic_associated_types)]
 #![deny(unsafe_op_in_unsafe_fn, missing_docs)]
