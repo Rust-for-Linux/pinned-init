@@ -81,7 +81,7 @@ use core::{
 /// [`Deref`]: core::ops::Deref
 /// [`DerefMut`]: core::ops::DerefMut
 #[repr(transparent)]
-pub struct NeedsPinnedInit<'init, T: PinnedInit> {
+pub struct NeedsPinnedInit<'init, T: ?Sized> {
     // need option here, otherwise `mem::forget`ing `self` in `begin_init` is
     // not possible, because we would need to borrow `self` for `'init`, but
     // `'init` ends only after we have been dropped.
@@ -89,7 +89,7 @@ pub struct NeedsPinnedInit<'init, T: PinnedInit> {
 }
 
 #[cfg(not(pinned_init_unsafe_no_enforce_init))]
-impl<'init, T: PinnedInit> Drop for NeedsPinnedInit<'init, T> {
+impl<'init, T: ?Sized> Drop for NeedsPinnedInit<'init, T> {
     fn drop(&mut self) {
         if_cfg! {
             if (debug_assertions) {
@@ -113,22 +113,6 @@ impl<'init, T: PinnedInit> Drop for NeedsPinnedInit<'init, T> {
 }
 
 impl<'init, T: PinnedInit> NeedsPinnedInit<'init, T> {
-    /// Construct a new `NeedsPinnedInit` from the given [`Pin`].
-    ///
-    /// # Safety
-    ///
-    /// - When the `'init` lifetime expires, the value at `inner` will be
-    /// initialized and have changed type to `T::Initialized`.
-    /// - From the moment this function is called until the end of `'init` the
-    /// produced [`NeedsPinnedInit`] becomes the only valid way to access the
-    /// underlying value.
-    /// - The caller needs to guarantee, that the pointer from which `inner` was
-    /// derived changes its pointee type to `T::Initialized`, when `'init` ends.
-    #[inline]
-    pub unsafe fn new_unchecked(inner: Pin<&'init mut T>) -> Self {
-        Self { inner: Some(inner) }
-    }
-
     /// Begin to initialize the value behind this `NeedsPinnedInit`.
     #[inline]
     pub fn begin_init(mut self) -> <T as BeginPinnedInit>::OngoingInit<'init> {
@@ -149,6 +133,48 @@ impl<'init, T: PinnedInit> NeedsPinnedInit<'init, T> {
         };
         mem::forget(self);
         res
+    }
+}
+
+impl<'init, T: ?Sized> NeedsPinnedInit<'init, T> {
+    /// Construct a new `NeedsPinnedInit` from the given [`Pin`].
+    ///
+    /// # Safety
+    ///
+    /// - When the `'init` lifetime expires, the value at `inner` will be
+    /// initialized and have changed type to `T::Initialized`.
+    /// - From the moment this function is called until the end of `'init` the
+    /// produced [`NeedsPinnedInit`] becomes the only valid way to access the
+    /// underlying value.
+    /// - The caller needs to guarantee, that the pointer from which `inner` was
+    /// derived changes its pointee type to `T::Initialized`, when `'init` ends.
+    #[inline]
+    pub unsafe fn new_unchecked(inner: Pin<&'init mut T>) -> Self {
+        Self { inner: Some(inner) }
+    }
+
+    /// Map the inner value to another contained within the first, this is only safe, if the outer
+    /// wrapper type does not require initialization.
+    ///
+    /// # Safety
+    ///
+    /// The caller needs to guarantee, that the data returned by `map` will not move so long as the
+    /// argument does not move. Also the caller is not allowed to move out of the argument given to
+    /// `map`.
+    /// The wrapping value is also required to be fully initialized.
+    pub unsafe fn map_unchecked<U: ?Sized>(
+        mut self,
+        map: impl FnOnce(&mut T) -> &mut U,
+    ) -> NeedsPinnedInit<'init, U> {
+        let inner = unsafe {
+            // SAFETY: the caller guarantees that this is safe
+            self.inner.take().unwrap().map_unchecked_mut(map)
+        };
+        mem::forget(self);
+        unsafe {
+            // SAFETY: the caller guarantees that this is safe
+            NeedsPinnedInit::new_unchecked(inner)
+        }
     }
 
     /// Get a raw const pointer to the value behind this `NeedsPinnedInit`.
@@ -171,7 +197,7 @@ impl<'init, T: PinnedInit> NeedsPinnedInit<'init, T> {
     ///
     /// [`UnsafeCell`]: core::cell::UnsafeCell
     #[inline]
-    pub unsafe fn as_ptr(&self) -> *const T {
+    pub fn as_ptr(&self) -> *const T {
         let ptr: Pin<&T> = unsafe {
             // SAFETY: self.inner can only be None, if `begin_init` was called,
             // which takes `self` by value, so this function cannot be called.
@@ -203,7 +229,7 @@ impl<'init, T: PinnedInit> NeedsPinnedInit<'init, T> {
     ///
     /// [`UnsafeCell`]: core::cell::UnsafeCell
     #[inline]
-    pub unsafe fn as_ptr_mut(&mut self) -> *mut T {
+    pub fn as_ptr_mut(&mut self) -> *mut T {
         let ptr: Pin<&mut T> = unsafe {
             // SAFETY: self.inner can only be None, if `begin_init` was called,
             // which takes `self` by value, so this function cannot be called.

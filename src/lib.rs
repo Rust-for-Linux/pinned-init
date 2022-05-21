@@ -282,6 +282,52 @@ pub trait PinnedInit: TransmuteInto<Self::Initialized> + BeginPinnedInit {
     fn init_raw(this: NeedsPinnedInit<Self>, param: Self::Param);
 }
 
+#[cfg(feature = "unsafe-alias-cell")]
+impl<T: PinnedInit> PinnedInit for unsafe_alias_cell::UnsafeAliasCell<T> {
+    type Initialized = unsafe_alias_cell::UnsafeAliasCell<T::Initialized>;
+    type Param = T::Param;
+
+    fn init_raw(this: NeedsPinnedInit<Self>, param: Self::Param) {
+        T::init_raw(
+            unsafe {
+                // SAFETY: we do not move out of the arg, we do not move out of the returned value
+                // and the wrapping value is fully initialized
+                this.map_unchecked(|this| unsafe { &mut *this.get() })
+            },
+            param,
+        )
+    }
+}
+
+#[cfg(feature = "unsafe-alias-cell")]
+unsafe impl<U, T: TransmuteInto<U>> TransmuteInto<unsafe_alias_cell::UnsafeAliasCell<U>>
+    for unsafe_alias_cell::UnsafeAliasCell<T>
+{
+    unsafe fn transmute_ptr(this: *const Self) -> *const unsafe_alias_cell::UnsafeAliasCell<U> {
+        unsafe {
+            // SAFETY: caller guarantees this is safe
+            core::mem::transmute(this)
+        }
+    }
+}
+
+#[cfg(feature = "unsafe-alias-cell")]
+impl<T: BeginPinnedInit> BeginPinnedInit for unsafe_alias_cell::UnsafeAliasCell<T> {
+    type OngoingInit<'init> = () where Self: 'init;
+
+    unsafe fn __begin_init<'init>(self: Pin<&'init mut Self>) -> Self::OngoingInit<'init>
+    where
+        Self: 'init,
+    {
+        todo!()
+    }
+}
+
+#[cfg(feature = "unsafe-alias-cell")]
+unsafe impl<T: private::AsUninit> private::AsUninit for unsafe_alias_cell::UnsafeAliasCell<T> {
+    type Uninit = unsafe_alias_cell::UnsafeAliasCell<T::Uninit>;
+}
+
 /// Facilitates pinned initialization.
 /// Before you implement this trait manually, look at the [`pinned_init`] proc
 /// macro attribute, it can be used to implement this trait in a safe and sound
@@ -327,13 +373,35 @@ pub trait SafePinnedInit<T: PinnedInit>: sealed::Sealed<T> + Sized {
     #[inline]
     fn init(self) -> Self::Initialized
     where
-        (): Into<T::Param>,
+        (): SimpleInto<T::Param>,
     {
-        self.init_with(().into())
+        self.init_with(SimpleInto::into(()))
     }
 
     /// Initialize the contents of `self`.
     fn init_with(self, param: T::Param) -> Self::Initialized;
+}
+///
+pub trait SimpleInto<T> {
+    ///
+    fn into(self) -> T;
+}
+
+macro_rules! simple_into {
+    ($([$($what:tt)*])*) => {
+        $(
+            impl SimpleInto<$($what)*> for () {
+                fn into(self) -> $($what)* {
+                    $($what)*
+                }
+            }
+        )*
+    }
+}
+simple_into! {
+    [()]
+    [((),)]
+    [(((),),)]
 }
 
 impl<T: PinnedInit, P: OwnedUniquePtr<T>> SafePinnedInit<T> for Pin<P> {
