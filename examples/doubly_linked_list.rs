@@ -105,7 +105,7 @@ impl<T> PinnedInit for LinkedListUninit<T> {
     type Param = ();
 
     fn init_raw(mut this: NeedsPinnedInit<Self>, _: Self::Param) {
-        let link = unsafe {
+        let link = {
             // SAFETY: the pointer from NeedsPinnedInit is valid and we do not use it until we are
             // initialized.
             this.as_ptr_mut() as *mut LinkedList<T>
