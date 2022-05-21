@@ -28,7 +28,7 @@ impl<T> UnsafeAliasCell<T> {
     }
 }
 
-#[manual_init(pinned, pin_project(PinnedDrop, UnsafeUnpin))]
+#[manual_init(pinned, pin_project(PinnedDrop))]
 pub struct PtrBuf<T, const N: usize> {
     #[init]
     #[uninit = MaybeUninit::<*const T>]
