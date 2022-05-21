@@ -136,6 +136,29 @@ impl<'init, T: PinnedInit> NeedsPinnedInit<'init, T> {
     }
 }
 
+impl<'init, T> NeedsPinnedInit<'init, MaybeUninit<T>> {
+    /// Begin to initialize the value behind this `NeedsPinnedInit`.
+    #[inline]
+    pub fn init(mut self, value: T) {
+        let res = if let Some(inner) = self.inner.take() {
+            unsafe {
+                // SAFETY: we never move out of the reference
+                inner.get_unchecked_mut().write(value);
+            }
+        } else {
+            unsafe {
+                // SAFETY: self.inner is never `take`n anywhere else. Because
+                // this function takes `self` by value, we know, that the option
+                // is populated, because we only create `NeedsPinnedInit` with
+                // inner set to `Some`.
+                core::hint::unreachable_unchecked();
+            }
+        };
+        mem::forget(self);
+        res
+    }
+}
+
 impl<'init, T: ?Sized> NeedsPinnedInit<'init, T> {
     /// Construct a new `NeedsPinnedInit` from the given [`Pin`].
     ///
@@ -243,6 +266,12 @@ impl<'init, T: ?Sized> NeedsPinnedInit<'init, T> {
             // pinned pointer.
             ptr.get_unchecked_mut() as *mut T
         }
+    }
+
+    /// # Safety
+    /// The caller needs to ensure that the value is initialized.
+    pub unsafe fn assume_init(self) {
+        mem::forget(self);
     }
 }
 
