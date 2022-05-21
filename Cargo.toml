@@ -16,6 +16,7 @@ categories = ["no-std", "rust-patterns", "embedded"]
 [dependencies]
 pin-project = "^1.0.2"
 pinned-init-macro = { version = "=0.0.0", path = "pinned-init-macro" }
+unsafe-alias-cell = { version = "0.0.1", optional = true }
 
 [dev-dependencies]
 unsafe-alias-cell = "0.0.1"
@@ -25,3 +26,7 @@ aliasable = "0.1"
 default = ["std"]
 std = ["alloc"]
 alloc = []
+
+[[example]]
+name = "intrusive"
+required-features = ["unsafe-alias-cell"]
