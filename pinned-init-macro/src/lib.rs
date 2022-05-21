@@ -164,7 +164,7 @@ fn pinned_init_inner(
         {
             type Initialized = #ident #type_generics;
             // TODO correct param stuff
-            type Param = (#(<<#pinned_field_types as ::pinned_init::private::AsUninit>::Uninit as ::pinned_init::PinnedInit>::Param),*);
+            type Param = (#(<<#pinned_field_types as ::pinned_init::private::AsUninit>::Uninit as ::pinned_init::PinnedInit>::Param),*,);
 
             fn init_raw(this: ::pinned_init::needs_init::NeedsPinnedInit<Self>, param: Self::Param) {
                 // just begin our init process and call init_raw on each field
