@@ -1,9 +1,17 @@
 [package]
-name = "safe-init"
-version = "0.1.0"
+name = "simple-safe-init"
+version = "0.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-safe-init-internal = { path = "./safe-init-internal" }
+simple-safe-init-internal = { path = "./simple-safe-init-internal" }
+
+[features]
+default = []
+attr = ["simple-safe-init-internal/attr"]
+
+[[example]]
+name = "mutex"
+required-features = ["attr"]
