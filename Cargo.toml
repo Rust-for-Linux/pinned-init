@@ -9,9 +9,11 @@ edition = "2021"
 simple-safe-init-internal = { path = "./simple-safe-init-internal" }
 
 [features]
-default = []
+default = ["std"]
+std = []
+alloc = []
 attr = ["simple-safe-init-internal/attr"]
 
 [[example]]
-name = "mutex"
+name = "mutex_attr"
 required-features = ["attr"]

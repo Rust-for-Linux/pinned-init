@@ -32,6 +32,7 @@ pub fn pin_init(ts: TokenStream) -> TokenStream {
 
 fn inner<const PIN: bool>(item: TokenStream) -> TokenStream {
     let mut tokens = item.into_iter().collect::<VecDeque<_>>();
+    // first find the type and body that is being constructed
     let mut ty = vec![];
     let mut body = loop {
         let next = tokens
@@ -50,24 +51,32 @@ fn inner<const PIN: bool>(item: TokenStream) -> TokenStream {
         }
     };
 
-    let mut fields = vec![];
-    while let Some(field) = parse_field_init(&mut body) {
-        fields.push(field);
-    }
+    // now lets extract each field
+
+    // this is the actual initializer part
     let mut inner = vec![];
+    // struct initializer to verify that every field has been initalized
     let mut check = vec![];
+    // list of forget calls to forget the dropguards
     let mut forget = vec![];
+    // are we creating a pinned initalizer or not?
     let initializer = if PIN {
         quote!(PinInitializer)
     } else {
         quote!(Initializer)
     };
-    for Field { ident, expr } in fields.iter().cloned() {
+    while let Some(Field { ident, expr }) = parse_field_init(&mut body) {
         let ident = TokenTree::Ident(ident);
         convert!(expr);
         inner.extend(quote! {
+            // evaluate the expression
             let $ident = $expr;
+            // call the initializer
+            // SAFETY: place is valid, because we are inside of an initializer closure, we return
+            //         when an error/panic occurs.
             unsafe { ::simple_safe_init::$initializer::init($ident, ::core::ptr::addr_of_mut!((*place).$ident))? };
+            // create the drop guard
+            // SAFETY: we forget the guard later when initialization has succeeded.
             let $ident = unsafe { ::simple_safe_init::DropGuard::new(::core::ptr::addr_of_mut!((*place).$ident)) };
         });
         check.extend(quote! {
@@ -82,8 +91,8 @@ fn inner<const PIN: bool>(item: TokenStream) -> TokenStream {
     quote! {{
         let init = move |place: *mut $ty| {
             $inner
+            #[allow(unreachable_code, clippy::diverging_sub_expression)]
             if false {
-                #[allow(unreachable_code)]
                 let _: $ty = $ty {
                     $check
                 };
@@ -91,6 +100,7 @@ fn inner<const PIN: bool>(item: TokenStream) -> TokenStream {
             $forget
             Ok(())
         };
+        // SAFETY: either all fields have been initialized, or a compile error exists above
         unsafe { ::simple_safe_init::$init::from_closure(init) }
     }}
 }
