@@ -8,8 +8,29 @@ macro_rules! convert {
     }
 }
 
+#[cfg(feature = "attr")]
 #[proc_macro_attribute]
-pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn init_attr(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    init(item)
+}
+
+#[cfg(feature = "attr")]
+#[proc_macro_attribute]
+pub fn pin_init_attr(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    pin_init(item)
+}
+
+#[proc_macro]
+pub fn init(ts: TokenStream) -> TokenStream {
+    inner::<false>(ts)
+}
+
+#[proc_macro]
+pub fn pin_init(ts: TokenStream) -> TokenStream {
+    inner::<true>(ts)
+}
+
+fn inner<const PIN: bool>(item: TokenStream) -> TokenStream {
     let mut tokens = item.into_iter().collect::<VecDeque<_>>();
     let mut ty = vec![];
     let mut body = loop {
@@ -35,34 +56,42 @@ pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
     let mut inner = vec![];
     let mut check = vec![];
+    let mut forget = vec![];
+    let initializer = if PIN {
+        quote!(PinInitializer)
+    } else {
+        quote!(Initializer)
+    };
     for Field { ident, expr } in fields.iter().cloned() {
         let ident = TokenTree::Ident(ident);
         convert!(expr);
         inner.extend(quote! {
             let $ident = $expr;
-            unsafe { <_ as ::simple_safe_init::Place>::init(::core::ptr::addr_of_mut!((*place).$ident), $ident)? };
+            unsafe { ::simple_safe_init::$initializer::init($ident, ::core::ptr::addr_of_mut!((*place).$ident))? };
+            let $ident = unsafe { ::simple_safe_init::DropGuard::new(::core::ptr::addr_of_mut!((*place).$ident)) };
         });
         check.extend(quote! {
             $ident: ::core::todo!(),
         });
+        forget.extend(quote! {
+            ::core::mem::forget($ident);
+        });
     }
-    convert!(ty, check);
-    inner.extend(quote! {
-        if false {
-            #[allow(unreachable_code)]
-            let _: $ty = $ty {
-                $check
-            };
-        }
-    });
-
-    convert!(inner);
+    convert!(ty, check, forget, inner);
+    let init = if PIN { quote!(PinInit) } else { quote!(Init) };
     quote! {{
         let init = move |place: *mut $ty| {
             $inner
+            if false {
+                #[allow(unreachable_code)]
+                let _: $ty = $ty {
+                    $check
+                };
+            }
+            $forget
             Ok(())
         };
-        unsafe { ::simple_safe_init::Init::from_closure(init) }
+        unsafe { ::simple_safe_init::$init::from_closure(init) }
     }}
 }
 
