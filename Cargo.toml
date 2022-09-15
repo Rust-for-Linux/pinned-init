@@ -6,14 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-simple-safe-init-internal = { path = "./simple-safe-init-internal" }
 
 [features]
 default = ["std"]
 std = []
 alloc = []
-attr = ["simple-safe-init-internal/attr"]
-
-[[example]]
-name = "mutex_attr"
-required-features = ["attr"]
