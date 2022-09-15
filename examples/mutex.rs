@@ -9,8 +9,8 @@
 )]
 use core::{
     cell::{Cell, UnsafeCell},
-    mem::MaybeUninit,
     ops::{Deref, DerefMut},
+    pin::Pin,
     ptr::NonNull,
     sync::atomic::{AtomicBool, Ordering},
 };
@@ -181,13 +181,7 @@ impl WaitEntry {
 }
 
 fn main() {
-    let mut mtx: Arc<MaybeUninit<Mutex<usize>>> = Arc::new(MaybeUninit::uninit());
-    let ptr = Arc::get_mut(&mut mtx)
-        .expect("arc should be unique")
-        .as_mut_ptr();
-    let init = Mutex::new(0);
-    unsafe { init.init(ptr).into_ok() };
-    let mtx = unsafe { mtx.assume_init() };
+    let mtx: Pin<Arc<Mutex<usize>>> = Arc::pin_init(Mutex::new(0)).unwrap();
     let mut handles = vec![];
     let thread_count = 20;
     let workload = 1000_000;
