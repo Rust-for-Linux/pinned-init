@@ -24,16 +24,16 @@ pub struct ListHead {
 impl ListHead {
     pub fn new() -> impl PinInitializer<Self, !> {
         pin_init!(&this <- Self {
-            next: unsafe { Link::new_unchecked(this) },
-            prev: unsafe { Link::new_unchecked(this) },
+            next: unsafe { Link::new_unchecked(this.as_ptr()) },
+            prev: unsafe { Link::new_unchecked(this.as_ptr()) },
             pin: PhantomPinned,
         })
     }
 
     pub fn insert_new(list: &ListHead) -> impl PinInitializer<Self, !> + '_ {
         pin_init!(&this <- Self {
-            prev: unsafe { Link::replace_raw(list.next.prev(),  Link::new_unchecked(this) )},
-            next: list.next.replace(unsafe { Link::new_unchecked(this) }),
+            prev: unsafe { Link::replace_raw(list.next.prev(),  Link::new_unchecked(this.as_ptr()) )},
+            next: list.next.replace(unsafe { Link::new_unchecked(this.as_ptr()) }),
             pin: PhantomPinned,
         })
     }
