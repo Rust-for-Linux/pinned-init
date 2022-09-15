@@ -1,14 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(generic_associated_types)]
+//
 #![feature(never_type)]
 #![feature(raw_ref_op)]
+#![feature(unwrap_infallible)]
 #![feature(allocator_api)]
 #![cfg_attr(any(feature = "alloc", feature = "std"), feature(new_uninit))]
-#![cfg_attr(feature = "attr", feature(proc_macro_hygiene))]
-#![cfg_attr(feature = "attr", feature(stmt_expr_attributes))]
 #[cfg(feature = "alloc")]
 use alloc::alloc::AllocError;
-use core::{marker::PhantomData, pin::Pin, ptr};
+use core::{marker::PhantomData, mem::MaybeUninit, pin::Pin, ptr};
 #[cfg(feature = "std")]
 use std::alloc::AllocError;
 
@@ -17,11 +16,80 @@ extern crate alloc;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 
-pub use simple_safe_init_internal::{init, pin_init};
+#[macro_export]
+macro_rules! stack_init {
+    ($var:ident = $val:expr) => {
+        let mut $var = $crate::StackInit::uninit();
+        let $var = $crate::StackInit::init(&mut $var, $val);
+    };
+}
 
-#[cfg(feature = "attr")]
-pub mod attr {
-    pub use simple_safe_init_internal::{init_attr as init, pin_init_attr as pin_init};
+#[macro_export]
+macro_rules! pin_init {
+    ($(&$this:ident <- )? $t:ident $(<$($generics:ty),* $(,)?>)? {
+        $($field:ident $(: $val:expr)?),*
+        $(,)?
+    }) => {{
+        let init = move |place: *mut $t $(<$($generics),*>)?| -> ::core::result::Result<(), _> {
+            $(let $this = place;)?
+            $(
+                $(let $field = $val;)?
+                // call the initializer
+                // SAFETY: place is valid, because we are inside of an initializer closure, we return
+                //         when an error/panic occurs.
+                unsafe { $crate::PinInitializer::init($field, ::core::ptr::addr_of_mut!((*place).$field))? };
+                // create the drop guard
+                // SAFETY: we forget the guard later when initialization has succeeded.
+                let $field = unsafe { $crate::DropGuard::new(::core::ptr::addr_of_mut!((*place).$field)) };
+            )*
+            #[allow(unreachable_code, clippy::diverging_sub_expression)]
+            if false {
+                let _: $t $(<$($generics),*>)? = $t {
+                    $($field: ::core::todo!()),*
+                };
+            }
+            $(
+                ::core::mem::forget($field);
+            )*
+            Ok(())
+        };
+        let init = unsafe { $crate::PinInit::from_closure(init) };
+        init
+    }}
+}
+
+#[macro_export]
+macro_rules! init {
+    ($(where $this:ident <- )?$t:ident $(<$($generics:ty),* $(,)?>)? {
+        $($field:ident $(: $val:expr)?),*
+        $(,)?
+    }) => {{
+        let init = move |place: *mut $t $(<$($generics),*>)?| -> ::core::result::Result<(), _> {
+            $(let $this = place;)?
+            $(
+                $(let $field = $val;)?
+                // call the initializer
+                // SAFETY: place is valid, because we are inside of an initializer closure, we return
+                //         when an error/panic occurs.
+                unsafe { $crate::Initializer::init($field, ::core::ptr::addr_of_mut!((*place).$field))? };
+                // create the drop guard
+                // SAFETY: we forget the guard later when initialization has succeeded.
+                let $field = unsafe { $crate::DropGuard::new(::core::ptr::addr_of_mut!((*place).$field)) };
+            )*
+            #[allow(unreachable_code, clippy::diverging_sub_expression)]
+            if false {
+                let _: $t $(<$($generics),*>)? = $t {
+                    $($field: ::core::todo!()),*
+                };
+            }
+            $(
+                ::core::mem::forget($field);
+            )*
+            Ok(())
+        };
+        let init = unsafe { $crate::Init::from_closure(init) };
+        init
+    }}
 }
 
 mod sealed {
@@ -114,7 +182,7 @@ where
     ///     - place does not need to be dropped,
     ///     - place is not partially initialized.
     /// - place may move after initialization
-    pub unsafe fn from_closure(f: F) -> Self {
+    pub const unsafe fn from_closure(f: F) -> Self {
         Self(f, PhantomData)
     }
 }
@@ -149,7 +217,7 @@ where
     ///     - place can be deallocated without UB ocurring,
     ///     - place does not need to be dropped,
     ///     - place is not partially initialized.
-    pub unsafe fn from_closure(f: F) -> Self {
+    pub const unsafe fn from_closure(f: F) -> Self {
         Self(f, PhantomData)
     }
 }
@@ -185,6 +253,27 @@ impl<T: ?Sized> Drop for DropGuard<T> {
     fn drop(&mut self) {
         // SAFETY: safe as a `DropGuard` can only be constructed using the unsafe new function.
         unsafe { ptr::drop_in_place(self.0) }
+    }
+}
+
+pub struct StackInit<T>(MaybeUninit<T>, bool);
+
+impl<T> Drop for StackInit<T> {
+    fn drop(&mut self) {
+        if self.1 {
+            unsafe { self.0.assume_init_drop() };
+        }
+    }
+}
+impl<T> StackInit<T> {
+    pub fn uninit() -> Self {
+        Self(MaybeUninit::uninit(), false)
+    }
+
+    pub fn init<Way: InitWay>(&mut self, init: impl PinInitializer<T, !, Way>) -> Pin<&mut T> {
+        unsafe { init.init(self.0.as_mut_ptr()).into_ok() };
+        self.1 = true;
+        unsafe { Pin::new_unchecked(self.0.assume_init_mut()) }
     }
 }
 
