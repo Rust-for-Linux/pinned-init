@@ -11,3 +11,12 @@ edition = "2021"
 default = ["std"]
 std = []
 alloc = []
+never_type = []
+
+[[example]]
+name = "linked_list"
+required-features = ["never_type"]
+
+[[example]]
+name = "mutex"
+required-features = ["never_type"]
