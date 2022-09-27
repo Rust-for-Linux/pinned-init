@@ -204,7 +204,7 @@ macro_rules! pin_init {
             )*
             Ok(())
         };
-        let init = unsafe { $crate::PinInitClosure::from_closure(init) };
+        let init: $crate::PinInitClosure<_, $t $(<$($generics),*>)?, _> = unsafe { $crate::PinInitClosure::from_closure(init) };
         init
     }}
 }
@@ -360,7 +360,7 @@ macro_rules! init {
             )*
             Ok(())
         };
-        let init = unsafe { $crate::InitClosure::from_closure(init) };
+        let init: $crate::InitClosure<_, $t $(<$($generics),*>)?, _> = unsafe { $crate::InitClosure::from_closure(init) };
         init
     }}
 }
@@ -687,5 +687,30 @@ impl<T> InPlaceInit<T> for Rc<T> {
         unsafe { init.__init(place).map_err(AllocInitErr::Init)? };
         // SAFETY: all fields have been initialized
         Ok(unsafe { this.assume_init() })
+    }
+}
+
+/// Marker trait for types that can be initialized by writing just zeroes.
+///
+/// # Safety
+/// The bit pattern consisting of only zeroes must be a valid bit pattern for the type.
+pub unsafe trait Zeroable {}
+
+macro_rules! impl_zeroable {
+    ($($t:ty),*) => {
+        $(unsafe impl Zeroable for $t {})*
+    };
+}
+impl_zeroable!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, Never);
+
+unsafe impl<const N: usize, T: Zeroable> Zeroable for [T; N] {}
+
+/// Create a new zeroed T
+pub fn zeroed<T: Zeroable>() -> impl Init<T, Never> {
+    unsafe {
+        InitClosure::from_closure(|place: *mut T| {
+            place.write_bytes(0, 1);
+            Ok(())
+        })
     }
 }
