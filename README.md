@@ -8,10 +8,10 @@ circular list in rust:
 
 ```rust
 pub struct ListHead {
-	next: NonNull<Self>,
-	prev: NonNull<Self>,
-	// ListHead is `!Unpin` because `next.prev = self`
-	_pin: PhantomPinned,
+    next: NonNull<Self>,
+    prev: NonNull<Self>,
+    // ListHead is `!Unpin` because `next.prev = self`
+    _pin: PhantomPinned,
 }
 ```
 
@@ -25,10 +25,10 @@ we cannot get a hold of `self` until we have selected a value for `next`!
 
 ```rust
 impl ListHead {
-	pub unsafe fn init(this: *mut Self) {
-		addr_of_mut!((*this).next).write(this);
-		addr_of_mut!((*this).prev).write(this);
-	}
+    pub unsafe fn init(this: *mut Self) {
+        addr_of_mut!((*this).next).write(this);
+        addr_of_mut!((*this).prev).write(this);
+    }
 }
 
 let list_head = MaybeUninit::uninit();
@@ -56,9 +56,9 @@ Now lets try making a safe API. We will create a function that returns an
 *initializer*:
 ```rust
 impl ListHead {
-	pub fn new() -> impl PinInitializer<Self, !> {
-		todo!()
-	}
+    pub fn new() -> impl PinInitializer<Self, !> {
+        todo!()
+    }
 }
 ```
 We used `PinInitializer`, because our type requires a stable address after being
@@ -71,14 +71,14 @@ But *how* do we create such an initializer, this library provides a macro for
 this purpose:
 ```rust
 impl ListHead {
-	pub fn new() -> impl PinInitializer<Self, !> {
-		// we specify `&this <-` to use it in the initializer
-		pin_init!(&this <- Self {
-			next: NonNull::from(this),
-			prev: NonNull::from(this),
-			_pin: PhantomPinned,
-		});
-	}
+    pub fn new() -> impl PinInitializer<Self, !> {
+        // we specify `&this <-` to use it in the initializer
+        pin_init!(&this <- Self {
+            next: NonNull::from(this),
+            prev: NonNull::from(this),
+            _pin: PhantomPinned,
+        });
+    }
 }
 ```
 
@@ -103,7 +103,7 @@ The `InitAllocErr<!>` is an error enum that either holds an initialization error
 The macro expands to this:
 ```rust
 impl ListHead {
-	pub fn new() -> impl PinInitializer<Self, !> {
+    pub fn new() -> impl PinInitializer<Self, !> {
         let init = move |place: *mut Self| -> ::core::result::Result<(), _> {
             let this = unsafe { ::core::ptr::NonNull::new_unchecked(place) };
             let next = this;
@@ -136,7 +136,7 @@ impl ListHead {
         };
         let init = unsafe { ::simple_safe_init::PinInit::from_closure(init) };
         init
-	}
+    }
 }
 ```
 Lets unpack that a bit.
@@ -211,23 +211,23 @@ One could use `<-` to make them more explicit:
 
 ```rust
 pub struct ListHead {
-	// using *const for convenicen
-	next: *const Self,
-	prev: *const Self,
-	_pin: PhantomPinned,
+    // using *const for convenicen
+    next: *const Self,
+    prev: *const Self,
+    _pin: PhantomPinned,
 }
 
 impl ListHead {
-	// note the reversed arrow! (maybe use `Self <-` instead, but that might be
-	// more difficult for the parser)
-	pub fn new() <- Self {
-		<- Self {
-			// self is available in the initializer context
-			next: &raw const self,
-			prev: &raw const self,
-			_pin: PhantomPinned,
-		}
-	}
+    // note the reversed arrow! (maybe use `Self <-` instead, but that might be
+    // more difficult for the parser)
+    pub fn new() <- Self {
+        <- Self {
+            // self is available in the initializer context
+            next: &raw const self,
+            prev: &raw const self,
+            _pin: PhantomPinned,
+        }
+    }
 }
 
 let list_head <- ListHead::new();
@@ -237,17 +237,17 @@ be inaccessible.
 
 ```rust
 pub struct Mutex<T> {
-	wait_list: ListHead,
-	value: UnsafeCell<T>,
+    wait_list: ListHead,
+    value: UnsafeCell<T>,
 }
 
 impl Mutex<T> {
-	// here the alternative way to write `<- Self` in the signature:
-	pub fn new(data: T) Self <- {
-		<- Self {
-			wait_list <- ListHead::new(),
-			value: UnsafeCell::new(data)
-		}
-	}
+    // here the alternative way to write `<- Self` in the signature:
+    pub fn new(data: T) Self <- {
+        <- Self {
+            wait_list <- ListHead::new(),
+            value: UnsafeCell::new(data)
+        }
+    }
 }
 ```
