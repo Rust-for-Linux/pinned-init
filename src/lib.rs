@@ -695,15 +695,6 @@ impl<T> InPlaceInit<T> for Rc<T> {
 /// The bit pattern consisting of only zeroes must be a valid bit pattern for the type.
 pub unsafe trait Zeroable {}
 
-macro_rules! impl_zeroable {
-    ($($t:ty),*) => {
-        $(unsafe impl Zeroable for $t {})*
-    };
-}
-impl_zeroable!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, Never);
-
-unsafe impl<const N: usize, T: Zeroable> Zeroable for [T; N] {}
-
 /// Create a new zeroed T
 pub fn zeroed<T: Zeroable>() -> impl Init<T, Never> {
     unsafe {
@@ -713,3 +704,40 @@ pub fn zeroed<T: Zeroable>() -> impl Init<T, Never> {
         })
     }
 }
+
+pub fn uninit<T>() -> impl Init<MaybeUninit<T>, Never> {
+    unsafe { InitClosure::from_closure(|_| Ok(())) }
+}
+
+macro_rules! impl_zeroable {
+    ($($t:ty),*) => {
+        $(unsafe impl Zeroable for $t {})*
+    };
+}
+// all primitives that are allowed to be 0
+impl_zeroable!(
+    bool, char, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64
+);
+// there is nothing to zero
+impl_zeroable!(core::marker::PhantomPinned, Never, ());
+
+// we are allowed to zero padding bytes
+unsafe impl<const N: usize, T: Zeroable> Zeroable for [T; N] {}
+
+// there is nothing to zero
+unsafe impl<T: ?Sized> Zeroable for PhantomData<T> {}
+
+// null pointer is valid
+unsafe impl<T: ?Sized> Zeroable for *mut T {}
+unsafe impl<T: ?Sized> Zeroable for *const T {}
+
+macro_rules! impl_tuple_zeroable {
+    ($(,)?) => {};
+    ($first:ident, $($t:ident),* $(,)?) => {
+        // all elements are zeroable and padding can be zero
+        unsafe impl<$first: Zeroable, $($t: Zeroable),*> Zeroable for ($first, $($t),*) {}
+        impl_tuple_zeroable!($($t),* ,);
+    }
+}
+
+impl_tuple_zeroable!(A, B, C, D, E, F, G, H, I, J);
