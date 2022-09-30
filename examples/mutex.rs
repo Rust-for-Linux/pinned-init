@@ -73,17 +73,14 @@ impl<T> Mutex<T> {
     pub fn lock(&self) -> MutexGuard<'_, T> {
         let mut sguard = self.spin_lock.acquire();
         if self.locked.get() {
-            Result::<(), !>::into_ok(
-                try {
-                    stack_init!(let wait_entry = WaitEntry::insert_new(&self.wait_list));
-                    while self.locked.get() {
-                        drop(sguard);
-                        park();
-                        sguard = self.spin_lock.acquire();
-                    }
-                    drop(wait_entry);
-                },
-            )
+            stack_init!(let wait_entry = WaitEntry::insert_new(&self.wait_list));
+            let wait_entry = wait_entry.into_ok();
+            while self.locked.get() {
+                drop(sguard);
+                park();
+                sguard = self.spin_lock.acquire();
+            }
+            drop(wait_entry);
         }
         self.locked.set(true);
         MutexGuard { mtx: self }
