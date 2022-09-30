@@ -1,7 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 //
 #![cfg_attr(feature = "never_type", feature(never_type))]
-#![feature(unwrap_infallible)]
 #![feature(allocator_api)]
 #![cfg_attr(
     any(feature = "alloc", feature = "std"),
@@ -24,7 +23,9 @@ use std::{boxed::Box, rc::Rc, sync::Arc};
 
 /// Initialize a type on the stack. It will be pinned:
 /// ```rust
+/// # #![feature(never_type)]
 /// # use simple_safe_init::*;
+/// # use core::pin::Pin;
 /// struct Foo {
 ///     a: usize,
 ///     b: Bar,
@@ -42,15 +43,14 @@ use std::{boxed::Box, rc::Rc, sync::Arc};
 ///         x: 64,
 ///     },
 /// }));
-/// // `foo` is now of type Pin<&mut Foo>
-///
+/// let foo: Result<Pin<&mut Foo>, !> = foo;
 /// ```
 #[macro_export]
 macro_rules! stack_init {
     (let $var:ident = $val:expr) => {
         let mut $var = $crate::StackInit::uninit();
         let val = $val;
-        let mut $var = unsafe { $crate::StackInit::init(&mut $var, val)? };
+        let mut $var = unsafe { $crate::StackInit::init(&mut $var, val) };
     };
 }
 

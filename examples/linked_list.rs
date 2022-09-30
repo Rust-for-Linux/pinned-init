@@ -112,8 +112,11 @@ impl Link {
 fn main() -> Result<(), AllocInitErr<!>> {
     let a = Box::pin_init(ListHead::new())?;
     stack_init!(let b = ListHead::insert_next(&*a));
+    let b = b?;
     stack_init!(let c = ListHead::insert_next(&*a));
+    let c = c?;
     stack_init!(let d = ListHead::insert_next(&*b));
+    let d = d?;
     let e = Box::pin_init(ListHead::insert_next(&*b))?;
     println!("a ({a:p}): {a:?}");
     println!("b ({b:p}): {b:?}");
