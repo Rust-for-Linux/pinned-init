@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 //
 #![cfg_attr(feature = "never_type", feature(never_type))]
@@ -81,7 +82,7 @@ macro_rules! stack_init {
 ///         x: 64,
 ///     },
 /// });
-/// # let _: Result<Pin<Box<Foo>>, AllocInitErr<!>> = Box::pin_init(initializer);
+/// # let _: Result<Pin<Box<Foo>>, AllocOrInitError<!>> = Box::pin_init(initializer);
 /// ```
 /// Arbitrary rust expressions can be used to set the value of a variable.
 ///
@@ -236,7 +237,7 @@ macro_rules! pin_init {
 ///         x: 64,
 ///     },
 /// });
-/// # let _: Result<Box<Foo>, AllocInitErr<!>> = Box::init(initializer);
+/// # let _: Result<Box<Foo>, AllocOrInitError<!>> = Box::init(initializer);
 /// ```
 /// Arbitrary rust expressions can be used to set the value of a variable.
 ///
@@ -489,29 +490,38 @@ where
         (self.0)(place)
     }
 }
+
+/// Smart pointer that can initialize memory in place.
 pub trait InPlaceInit<T>: Sized {
+    /// The error that can occur when creating this pointer
     type Error<E>;
 
+    /// Use the given initializer to in-place initialize a `T`.
+    ///
+    /// If `T: !Unpin` it will not be able to move afterwards.
     fn pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, Self::Error<E>>;
 
+    /// Use the given initializer to in-place initialize a `T`.
     fn init<E>(init: impl Init<T, E>) -> Result<Self, Self::Error<E>>;
 }
 
 /// Either an allocation error, or an initialization error.
 #[derive(Debug)]
-pub enum AllocInitErr<E> {
+pub enum AllocOrInitError<E> {
+    /// An error from initializing a value
     Init(E),
+    /// An error from trying to allocate memory
     Alloc,
 }
 
-impl<E> From<Never> for AllocInitErr<E> {
+impl<E> From<Never> for AllocOrInitError<E> {
     fn from(e: Never) -> Self {
         match e {}
     }
 }
 
 #[cfg(any(feature = "alloc", feature = "std"))]
-impl<E> From<AllocError> for AllocInitErr<E> {
+impl<E> From<AllocError> for AllocOrInitError<E> {
     fn from(_: AllocError) -> Self {
         Self::Alloc
     }
@@ -519,14 +529,14 @@ impl<E> From<AllocError> for AllocInitErr<E> {
 
 #[cfg(any(feature = "alloc", feature = "std"))]
 impl<T> InPlaceInit<T> for Box<T> {
-    type Error<E> = AllocInitErr<E>;
+    type Error<E> = AllocOrInitError<E>;
 
     fn pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, Self::Error<E>> {
         let mut this = Box::try_new_uninit()?;
         let place = this.as_mut_ptr();
         // SAFETY: when init errors/panics, place will get deallocated but not dropped,
         // place is valid and will not be moved because of the into_pin
-        unsafe { init.__pinned_init(place).map_err(AllocInitErr::Init)? };
+        unsafe { init.__pinned_init(place).map_err(AllocOrInitError::Init)? };
         // SAFETY: all fields have been initialized
         Ok(Box::into_pin(unsafe { this.assume_init() }))
     }
@@ -536,7 +546,7 @@ impl<T> InPlaceInit<T> for Box<T> {
         let place = this.as_mut_ptr();
         // SAFETY: when init errors/panics, place will get deallocated but not dropped,
         // place is valid
-        unsafe { init.__init(place).map_err(AllocInitErr::Init)? };
+        unsafe { init.__init(place).map_err(AllocOrInitError::Init)? };
         // SAFETY: all fields have been initialized
         Ok(unsafe { this.assume_init() })
     }
@@ -544,14 +554,14 @@ impl<T> InPlaceInit<T> for Box<T> {
 
 #[cfg(any(feature = "alloc", feature = "std"))]
 impl<T> InPlaceInit<T> for Arc<T> {
-    type Error<E> = AllocInitErr<E>;
+    type Error<E> = AllocOrInitError<E>;
 
     fn pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, Self::Error<E>> {
         let mut this = Arc::try_new_uninit()?;
         let place = unsafe { Arc::get_mut_unchecked(&mut this) }.as_mut_ptr();
         // SAFETY: when init errors/panics, place will get deallocated but not dropped,
         // place is valid and will not be moved because of the into_pin
-        unsafe { init.__pinned_init(place).map_err(AllocInitErr::Init)? };
+        unsafe { init.__pinned_init(place).map_err(AllocOrInitError::Init)? };
         // SAFETY: all fields have been initialized
         Ok(unsafe { Pin::new_unchecked(this.assume_init()) })
     }
@@ -561,7 +571,7 @@ impl<T> InPlaceInit<T> for Arc<T> {
         let place = unsafe { Arc::get_mut_unchecked(&mut this) }.as_mut_ptr();
         // SAFETY: when init errors/panics, place will get deallocated but not dropped,
         // place is valid
-        unsafe { init.__init(place).map_err(AllocInitErr::Init)? };
+        unsafe { init.__init(place).map_err(AllocOrInitError::Init)? };
         // SAFETY: all fields have been initialized
         Ok(unsafe { this.assume_init() })
     }
@@ -569,14 +579,14 @@ impl<T> InPlaceInit<T> for Arc<T> {
 
 #[cfg(any(feature = "alloc", feature = "std"))]
 impl<T> InPlaceInit<T> for Rc<T> {
-    type Error<E> = AllocInitErr<E>;
+    type Error<E> = AllocOrInitError<E>;
 
     fn pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, Self::Error<E>> {
         let mut this = Rc::try_new_uninit()?;
         let place = unsafe { Rc::get_mut_unchecked(&mut this) }.as_mut_ptr();
         // SAFETY: when init errors/panics, place will get deallocated but not dropped,
         // place is valid and will not be moved because of the into_pin
-        unsafe { init.__pinned_init(place).map_err(AllocInitErr::Init)? };
+        unsafe { init.__pinned_init(place).map_err(AllocOrInitError::Init)? };
         // SAFETY: all fields have been initialized
         Ok(unsafe { Pin::new_unchecked(this.assume_init()) })
     }
@@ -586,7 +596,7 @@ impl<T> InPlaceInit<T> for Rc<T> {
         let place = unsafe { Rc::get_mut_unchecked(&mut this) }.as_mut_ptr();
         // SAFETY: when init errors/panics, place will get deallocated but not dropped,
         // place is valid
-        unsafe { init.__init(place).map_err(AllocInitErr::Init)? };
+        unsafe { init.__init(place).map_err(AllocOrInitError::Init)? };
         // SAFETY: all fields have been initialized
         Ok(unsafe { this.assume_init() })
     }
@@ -608,6 +618,7 @@ pub fn zeroed<T: Zeroable>() -> impl Init<T, Never> {
     }
 }
 
+/// An initializer that leaves the memory uninitialized.
 pub fn uninit<T>() -> impl Init<MaybeUninit<T>, Never> {
     unsafe { InitClosure::from_closure(|_| Ok(())) }
 }

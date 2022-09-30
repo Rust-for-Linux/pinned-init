@@ -109,7 +109,7 @@ impl Link {
 }
 
 #[allow(dead_code)]
-fn main() -> Result<(), AllocInitErr<!>> {
+fn main() -> Result<(), AllocOrInitError<!>> {
     let a = Box::pin_init(ListHead::new())?;
     stack_init!(let b = ListHead::insert_next(&*a));
     let b = b?;
