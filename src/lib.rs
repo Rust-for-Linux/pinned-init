@@ -332,12 +332,11 @@ macro_rules! pin_init {
 /// ```
 #[macro_export]
 macro_rules! init {
-    ($(&$this:ident in)? $t:ident $(<$($generics:ty),* $(,)?>)? {
+    ($t:ident $(<$($generics:ty),* $(,)?>)? {
         $($field:ident $(: $val:expr)?),*
         $(,)?
     }) => {{
         let init = move |place: *mut $t $(<$($generics),*>)?| -> ::core::result::Result<(), _> {
-            $(let $this = unsafe { ::core::ptr::NonNull::new_unchecked(place) };)?
             $(
                 $(let $field = $val;)?
                 // call the initializer
