@@ -20,3 +20,6 @@ required-features = ["never_type"]
 [[example]]
 name = "mutex"
 required-features = ["never_type"]
+
+[dev-dependencies]
+libc = "0.2"
