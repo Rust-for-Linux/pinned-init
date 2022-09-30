@@ -27,7 +27,7 @@ impl ManagedBuf {
 
 fn main() {
     // we want to initialize the struct in place, otherwise we would get a stackoverflow
-    let buf: Result<Box<BigStruct>, AllocInitErr<Infallible>> = Box::init(init! { BigStruct {
+    let buf: Result<Box<BigStruct>, AllocOrInitError<Infallible>> = Box::init(init! { BigStruct {
         buf: zeroed(),
         a: 7,
         b: 186,
