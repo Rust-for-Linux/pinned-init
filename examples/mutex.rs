@@ -11,13 +11,12 @@ use core::{
     cell::{Cell, UnsafeCell},
     ops::{Deref, DerefMut},
     pin::Pin,
-    ptr::NonNull,
     sync::atomic::{AtomicBool, Ordering},
 };
 use std::{
     sync::Arc,
-    thread::{current, park, sleep, yield_now, Builder, Thread},
-    time::{Duration, Instant},
+    thread::{current, park, sleep, Builder, Thread},
+    time::Duration,
 };
 
 use pinned_init::*;
@@ -102,6 +101,7 @@ impl<'a, T> Drop for MutexGuard<'a, T> {
             let wait_entry = list_field.as_ptr().cast::<WaitEntry>();
             unsafe { (*wait_entry).thread.unpark() };
         }
+        drop(sguard);
     }
 }
 
@@ -138,7 +138,7 @@ fn main() {
     let mtx: Pin<Arc<Mutex<usize>>> = Arc::pin_init(Mutex::new(0)).unwrap();
     let mut handles = vec![];
     let thread_count = 20;
-    let workload = 1000_000;
+    let workload = 1_000_000;
     for i in 0..thread_count {
         let mtx = mtx.clone();
         handles.push(

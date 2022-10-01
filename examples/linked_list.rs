@@ -79,7 +79,7 @@ struct Link(Cell<NonNull<ListHead>>);
 impl Link {
     #[inline]
     unsafe fn new_unchecked(ptr: NonNull<ListHead>) -> Self {
-        unsafe { Self(Cell::new(ptr)) }
+        Self(Cell::new(ptr))
     }
 
     #[inline]
@@ -111,13 +111,13 @@ impl Link {
 #[allow(dead_code)]
 fn main() -> Result<(), AllocOrInitError<!>> {
     let a = Box::pin_init(ListHead::new())?;
-    stack_init!(let b = ListHead::insert_next(&*a));
+    stack_init!(let b = ListHead::insert_next(&a));
     let b = b?;
-    stack_init!(let c = ListHead::insert_next(&*a));
+    stack_init!(let c = ListHead::insert_next(&a));
     let c = c?;
-    stack_init!(let d = ListHead::insert_next(&*b));
+    stack_init!(let d = ListHead::insert_next(&b));
     let d = d?;
-    let e = Box::pin_init(ListHead::insert_next(&*b))?;
+    let e = Box::pin_init(ListHead::insert_next(&b))?;
     println!("a ({a:p}): {a:?}");
     println!("b ({b:p}): {b:?}");
     println!("c ({c:p}): {c:?}");
