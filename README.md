@@ -9,6 +9,8 @@ of initializing them. For example we will create an intrusive, doubly linked,
 circular list in Rust:
 
 ```rust
+use core::{ptr::NonNull, marker::PhantomPinned};
+
 pub struct ListHead {
     next: NonNull<Self>,
     prev: NonNull<Self>,
@@ -25,6 +27,7 @@ we cannot get a hold of `self` until we have selected a value for `next`!
 
 This library provides the means to achieve this safely:
 ```rust
+use core::{ptr::NonNull, marker::PhantomPinned};
 use pinned_init::*;
 
 pub struct ListHead {
