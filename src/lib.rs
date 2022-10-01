@@ -28,7 +28,7 @@ pub mod __private;
 /// Initialize a type on the stack. It will be pinned:
 /// ```rust
 /// # #![feature(never_type)]
-/// # use simple_safe_init::*;
+/// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// struct Foo {
 ///     a: usize,
@@ -63,7 +63,7 @@ macro_rules! stack_init {
 /// The syntax is identical to a normal struct initializer:
 /// ```rust
 /// # #![feature(never_type)]
-/// # use simple_safe_init::*;
+/// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// struct Foo {
 ///     a: usize,
@@ -96,7 +96,7 @@ macro_rules! stack_init {
 /// To create an initializer function, simple declare it like this:
 /// ```rust
 /// # #![feature(never_type)]
-/// # use simple_safe_init::*;
+/// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// # struct Foo {
 /// #     a: usize,
@@ -120,7 +120,7 @@ macro_rules! stack_init {
 /// Users of `Foo` can now create it like this:
 /// ```rust
 /// # #![feature(never_type)]
-/// # use simple_safe_init::*;
+/// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// # struct Foo {
 /// #     a: usize,
@@ -144,7 +144,7 @@ macro_rules! stack_init {
 /// They can also easily embed it into their own `struct`s:
 /// ```rust
 /// # #![feature(never_type)]
-/// # use simple_safe_init::*;
+/// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// # struct Foo {
 /// #     a: usize,
@@ -218,7 +218,7 @@ macro_rules! pin_init {
 /// The syntax is identical to a normal struct initializer:
 /// ```rust
 /// # #![feature(never_type)]
-/// # use simple_safe_init::*;
+/// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// struct Foo {
 ///     a: usize,
@@ -251,7 +251,7 @@ macro_rules! pin_init {
 /// To create an initializer function, simple declare it like this:
 /// ```rust
 /// # #![feature(never_type)]
-/// # use simple_safe_init::*;
+/// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// # struct Foo {
 /// #     a: usize,
@@ -275,7 +275,7 @@ macro_rules! pin_init {
 /// Users of `Foo` can now create it like this:
 /// ```rust
 /// # #![feature(never_type)]
-/// # use simple_safe_init::*;
+/// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// # struct Foo {
 /// #     a: usize,
@@ -299,7 +299,7 @@ macro_rules! pin_init {
 /// They can also easily embed it into their own `struct`s:
 /// ```rust
 /// # #![feature(never_type)]
-/// # use simple_safe_init::*;
+/// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// # struct Foo {
 /// #     a: usize,

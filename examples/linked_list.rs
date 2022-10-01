@@ -12,7 +12,7 @@ use core::{
     ptr::{self, NonNull},
 };
 
-use simple_safe_init::*;
+use pinned_init::*;
 
 #[repr(C)]
 #[derive(Debug)]

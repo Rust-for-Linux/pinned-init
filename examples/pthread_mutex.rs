@@ -6,7 +6,7 @@ use core::{
     ops::{Deref, DerefMut},
     pin::Pin,
 };
-use simple_safe_init::*;
+use pinned_init::*;
 use std::{
     sync::Arc,
     thread::{sleep, Builder},

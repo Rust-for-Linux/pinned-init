@@ -1,5 +1,5 @@
 use core::convert::Infallible;
-use simple_safe_init::*;
+use pinned_init::*;
 
 // Struct with size over 1GiB
 #[derive(Debug)]

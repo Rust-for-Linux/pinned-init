@@ -20,7 +20,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use simple_safe_init::*;
+use pinned_init::*;
 #[allow(unused_attributes)]
 pub mod linked_list;
 use linked_list::*;
