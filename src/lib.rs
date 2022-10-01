@@ -30,13 +30,17 @@ pub mod __private;
 /// # #![feature(never_type)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
-/// struct Foo {
-///     a: usize,
-///     b: Bar,
+/// pin_data! {
+///     struct Foo {
+///         a: usize,
+///         b: Bar,
+///     }
 /// }
 ///
-/// struct Bar {
-///     x: u32,
+/// pin_data! {
+///     struct Bar {
+///         x: u32,
+///     }
 /// }
 ///
 /// let a = 42;
@@ -65,13 +69,17 @@ macro_rules! stack_init {
 /// # #![feature(never_type)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
-/// struct Foo {
-///     a: usize,
-///     b: Bar,
+/// pin_data! {
+///     struct Foo {
+///         a: usize,
+///         b: Bar,
+///     }
 /// }
 ///
-/// struct Bar {
-///     x: u32,
+/// pin_data! {
+///     struct Bar {
+///         x: u32,
+///     }
 /// }
 ///
 /// let a = 42;
@@ -98,13 +106,13 @@ macro_rules! stack_init {
 /// # #![feature(never_type)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
-/// # struct Foo {
+/// # pin_data! { struct Foo {
 /// #     a: usize,
 /// #     b: Bar,
-/// # }
-/// # struct Bar {
+/// # }}
+/// # pin_data! { struct Bar {
 /// #     x: u32,
-/// # }
+/// # }}
 ///
 /// impl Foo {
 ///     pub fn new() -> impl PinInit<Self, !> {
@@ -122,13 +130,13 @@ macro_rules! stack_init {
 /// # #![feature(never_type)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
-/// # struct Foo {
+/// # pin_data! { struct Foo {
 /// #     a: usize,
 /// #     b: Bar,
-/// # }
-/// # struct Bar {
+/// # }}
+/// # pin_data! { struct Bar {
 /// #     x: u32,
-/// # }
+/// # }}
 /// # impl Foo {
 /// #     pub fn new() -> impl PinInit<Self, !> {
 /// #         pin_init!(Self {
@@ -146,13 +154,13 @@ macro_rules! stack_init {
 /// # #![feature(never_type)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
-/// # struct Foo {
+/// # pin_data! { struct Foo {
 /// #     a: usize,
 /// #     b: Bar,
-/// # }
-/// # struct Bar {
+/// # }}
+/// # pin_data! { struct Bar {
 /// #     x: u32,
-/// # }
+/// # }}
 /// # impl Foo {
 /// #     pub fn new() -> impl PinInit<Self, !> {
 /// #         pin_init!(Self {
@@ -163,10 +171,14 @@ macro_rules! stack_init {
 /// #         })
 /// #     }
 /// # }
-/// struct FooContainer {
-///     foo1: Foo,
-///     foo2: Foo,
-///     other: u32,
+/// pin_data! {
+///     struct FooContainer {
+///         #pin
+///         foo1: Foo,
+///         #pin
+///         foo2: Foo,
+///         other: u32,
+///     }
 /// }
 ///
 /// impl FooContainer {
@@ -184,15 +196,23 @@ macro_rules! pin_init {
     ($(&$this:ident in)? $t:ident $(<$($generics:ty),* $(,)?>)? {
         $($field:ident $(: $val:expr)?),*
         $(,)?
-    }) => {{
-        let init = move |slot: *mut $t $(<$($generics),*>)?| -> ::core::result::Result<(), _> {
+    }) => {
+        $crate::pin_init!(@this($($this)?), @type_name($t $($($generics),*)?), @typ($t $($($generics),*)?), @fields($($field $(: $val)?),*));
+    };
+    (@this($($this:ident)?), @type_name($t:ident $(<$($generics:ty),*)?), @typ($ty:ty), @fields($($field:ident $(: $val:expr)?),*)) => {{
+        let init = move |slot: *mut $ty| -> ::core::result::Result<(), _> {
             $(let $this = unsafe { ::core::ptr::NonNull::new_unchecked(slot) };)?
             $(
                 $(let $field = $val;)?
                 // call the initializer
                 // SAFETY: slot is valid, because we are inside of an initializer closure, we return
                 //         when an error/panic occurs.
-                unsafe { $crate::__private::__PinInitImpl::__pinned_init($field, ::core::ptr::addr_of_mut!((*slot).$field))? };
+                unsafe {
+                    <$ty as $crate::__private::__PinData>::__PinData::$field(
+                        ::core::ptr::addr_of_mut!((*slot).$field),
+                        $field,
+                    )?;
+                }
                 // create the drop guard
                 // SAFETY: we forget the guard later when initialization has succeeded.
                 let $field = unsafe { $crate::__private::DropGuard::new(::core::ptr::addr_of_mut!((*slot).$field)) };
@@ -366,6 +386,71 @@ macro_rules! init {
         let init: $crate::InitClosure<_, $t $(<$($generics),*>)?, _> = unsafe { $crate::InitClosure::from_closure(init) };
         init
     }}
+}
+
+/// Used to specify the pin information of the fields of a struct.
+///
+/// This is somewhat similar in purpose as
+/// [pin-project-lite](https://crates.io/crates/pin-project-lite).
+/// Place this macro around a struct definition and then `#pin` in front of the attributes of each
+/// field you want to have structurally pinned.
+///
+/// needed to use `pin_init`.
+#[macro_export]
+macro_rules! pin_data {
+    (
+        $(#[$struct_attr:meta])*
+        $vis:vis struct $name:ident $(<$($($life:lifetime),+ $(,)?)? $($generic:ident $(: [$($bounds:tt)*])?),* $(,)?>)? $(where $($whr:path : $bound:ty),* $(,)?)? {
+            $(
+                $(#$pin:ident)?
+                $(#[$attr:meta])*
+                $fvis:vis $field:ident : $typ:ty
+            ),*
+            $(,)?
+        }
+    ) => {
+        $(#[$struct_attr])*
+        $vis struct $name $(<$($($life),+ ,)? $($generic $(: $($bounds)*)?),*>)? $(where $($whr : $bound),*)? {
+            $(
+                $(#[$attr])*
+                $fvis $field: $typ
+            ),*
+        }
+
+        const _: () = {
+            #[doc(hidden)]
+            $vis struct __ThePinData$(<$($($life),+ ,)? $($generic $(: $($bounds)*)?),*>)? $(where $($whr : $bound),*)?
+                (::core::marker::PhantomData<fn($name$(<$($($life),+ ,)? $($generic),*>)?) -> $name$(<$($($life),+ ,)? $($generic),*>)?>);
+
+            impl$(<$($($life),+ ,)? $($generic $(: $($bounds)*)?),*>)? __ThePinData$(<$($($life),+ ,)? $($generic),*>)?
+            $(where $($whr : $bound),*)? {
+                $(
+                    $crate::pin_data!(@make_fn(($fvis) $($pin)? $field: $typ));
+                )*
+            }
+
+            unsafe impl$(<$($($life),+ ,)? $($generic $(: $($bounds)*)?),*>)? $crate::__private::__PinData for $name$(<$($($life),+ ,)? $($generic),*>)?
+            $(where $($whr : $bound),*)? {
+                type __PinData = __ThePinData$(<$($($life),+ ,)? $($generic),*>)?;
+            }
+        };
+    };
+    (@make_fn(($vis:vis) pin $field:ident : $typ:ty)) => {
+        $vis unsafe fn $field<E, W: $crate::__private::InitWay>(
+            slot: *mut $typ,
+            init: impl $crate::__private::__PinInitImpl<$typ, E, W>,
+        ) -> ::core::result::Result<(), E> {
+            $crate::__private::__PinInitImpl::__pinned_init(init, slot)
+        }
+    };
+    (@make_fn(($vis:vis) $field:ident : $typ:ty)) => {
+        $vis unsafe fn $field<E, W: $crate::__private::InitWay>(
+            slot: *mut $typ,
+            init: impl $crate::__private::__InitImpl<$typ, E, W>,
+        ) -> ::core::result::Result<(), E> {
+            $crate::__private::__InitImpl::__init(init, slot)
+        }
+    };
 }
 
 /// An initializer for `T`.

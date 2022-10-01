@@ -53,11 +53,14 @@ impl Drop for SpinLockGuard<'_> {
     }
 }
 
-pub struct Mutex<T> {
-    wait_list: ListHead,
-    spin_lock: SpinLock,
-    locked: Cell<bool>,
-    data: UnsafeCell<T>,
+pin_data! {
+    pub struct Mutex<T> {
+        #pin
+        wait_list: ListHead,
+        spin_lock: SpinLock,
+        locked: Cell<bool>,
+        data: UnsafeCell<T>,
+    }
 }
 
 impl<T> Mutex<T> {
@@ -119,10 +122,13 @@ impl<'a, T> DerefMut for MutexGuard<'a, T> {
     }
 }
 
-#[repr(C)]
-struct WaitEntry {
-    wait_list: ListHead,
-    thread: Thread,
+pin_data! {
+    #[repr(C)]
+    struct WaitEntry {
+        #pin
+        wait_list: ListHead,
+        thread: Thread,
+    }
 }
 
 impl WaitEntry {

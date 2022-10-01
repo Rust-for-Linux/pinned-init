@@ -14,10 +14,13 @@ use std::{
     time::Duration,
 };
 
-pub struct PThreadMutex<T> {
-    raw: UnsafeCell<libc::pthread_mutex_t>,
-    data: UnsafeCell<T>,
-    pin: PhantomPinned,
+pin_data! {
+    pub struct PThreadMutex<T> {
+        #pin
+        raw: UnsafeCell<libc::pthread_mutex_t>,
+        data: UnsafeCell<T>,
+        pin: PhantomPinned,
+    }
 }
 
 unsafe impl<T: Send> Send for PThreadMutex<T> {}

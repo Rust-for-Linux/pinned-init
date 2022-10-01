@@ -10,12 +10,16 @@ circular list in Rust:
 
 ```rust
 use core::{ptr::NonNull, marker::PhantomPinned};
+use pinned_init::*;
 
-pub struct ListHead {
-    next: NonNull<Self>,
-    prev: NonNull<Self>,
-    // ListHead is `!Unpin` because `next.prev = self`
-    _pin: PhantomPinned,
+pin_data! {
+    pub struct ListHead {
+        next: NonNull<ListHead>,
+        prev: NonNull<ListHead>,
+        // ListHead is `!Unpin` because `next.prev = self`
+        #pin
+        _pin: PhantomPinned,
+    }
 }
 ```
 
@@ -30,16 +34,19 @@ This library provides the means to achieve this safely:
 use core::{ptr::NonNull, marker::PhantomPinned};
 use pinned_init::*;
 
-pub struct ListHead {
-    next: NonNull<Self>,
-    prev: NonNull<Self>,
-    // ListHead is `!Unpin` because `next.prev = self`
-    _pin: PhantomPinned,
+pin_data! {
+    pub struct ListHead {
+        next: NonNull<ListHead>,
+        prev: NonNull<ListHead>,
+        // ListHead is `!Unpin` because `next.prev = self`
+        #pin
+        _pin: PhantomPinned,
+    }
 }
 
 impl ListHead {
-    pub fn new_in_place() -> impl PinInit<Self> {
-        pin_init!(&this in Self {
+    pub fn new_in_place() -> impl PinInit<ListHead> {
+        pin_init!(&this in ListHead {
             next: this,
             prev: this,
             _pin: PhantomPinned,

@@ -14,12 +14,14 @@ use core::{
 
 use pinned_init::*;
 
-#[repr(C)]
-#[derive(Debug)]
-pub struct ListHead {
-    next: Link,
-    prev: Link,
-    pin: PhantomPinned,
+pin_data! {
+    #[repr(C)]
+    #[derive(Debug)]
+    pub struct ListHead {
+        next: Link,
+        prev: Link,
+        pin: PhantomPinned,
+    }
 }
 
 impl ListHead {
