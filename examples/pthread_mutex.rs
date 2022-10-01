@@ -1,4 +1,5 @@
 // inspired by https://github.com/nbdd0121/pin-init/blob/trunk/examples/pthread_mutex.rs
+#![feature(never_type)]
 use core::{
     cell::UnsafeCell,
     marker::PhantomPinned,
@@ -31,8 +32,8 @@ impl<T> Drop for PThreadMutex<T> {
 #[derive(Debug)]
 pub struct Error(std::io::Error);
 
-impl From<core::convert::Infallible> for Error {
-    fn from(e: core::convert::Infallible) -> Self {
+impl From<!> for Error {
+    fn from(e: !) -> Self {
         match e {}
     }
 }

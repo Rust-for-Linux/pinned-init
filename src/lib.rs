@@ -1,7 +1,7 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 //
-#![cfg_attr(feature = "never_type", feature(never_type))]
+#![feature(never_type)]
 #![feature(allocator_api)]
 #![cfg_attr(
     any(feature = "alloc", feature = "std"),
@@ -368,12 +368,6 @@ macro_rules! init {
     }}
 }
 
-#[cfg(feature = "never_type")]
-type Never = !;
-
-#[cfg(not(feature = "never_type"))]
-type Never = core::convert::Infallible;
-
 /// An initializer for `T`.
 ///
 /// # Safety
@@ -383,7 +377,7 @@ type Never = core::convert::Infallible;
 ///     - slot can be deallocated without UB ocurring,
 ///     - slot does not need to be dropped,
 ///     - slot is not partially initialized.
-pub unsafe trait PinInit<T, E = Never>: Sized {
+pub unsafe trait PinInit<T, E = !>: Sized {
     /// Initializes `slot`.
     ///
     /// # Safety
@@ -409,7 +403,7 @@ pub unsafe trait PinInit<T, E = Never>: Sized {
 ///
 /// Contrary to its supertype [`PinInit<T, E>`] the caller is allowed to
 /// move the pointee after initialization.
-pub unsafe trait Init<T, E = Never>: PinInit<T, E> {
+pub unsafe trait Init<T, E = !>: PinInit<T, E> {
     /// Initializes `slot`.
     ///
     /// # Safety
@@ -514,8 +508,8 @@ pub enum AllocOrInitError<E> {
     Alloc,
 }
 
-impl<E> From<Never> for AllocOrInitError<E> {
-    fn from(e: Never) -> Self {
+impl<E> From<!> for AllocOrInitError<E> {
+    fn from(e: !) -> Self {
         match e {}
     }
 }
@@ -609,7 +603,7 @@ impl<T> InPlaceInit<T> for Rc<T> {
 pub unsafe trait Zeroable {}
 
 /// Create a new zeroed T
-pub fn zeroed<T: Zeroable>() -> impl Init<T, Never> {
+pub fn zeroed<T: Zeroable>() -> impl Init<T, !> {
     unsafe {
         InitClosure::from_closure(|slot: *mut T| {
             slot.write_bytes(0, 1);
@@ -619,7 +613,7 @@ pub fn zeroed<T: Zeroable>() -> impl Init<T, Never> {
 }
 
 /// An initializer that leaves the memory uninitialized.
-pub fn uninit<T>() -> impl Init<MaybeUninit<T>, Never> {
+pub fn uninit<T>() -> impl Init<MaybeUninit<T>, !> {
     unsafe { InitClosure::from_closure(|_| Ok(())) }
 }
 
@@ -633,7 +627,7 @@ impl_zeroable!(
     bool, char, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64
 );
 // there is nothing to zero
-impl_zeroable!(core::marker::PhantomPinned, Never, ());
+impl_zeroable!(core::marker::PhantomPinned, !, ());
 
 // we are allowed to zero padding bytes
 unsafe impl<const N: usize, T: Zeroable> Zeroable for [T; N] {}

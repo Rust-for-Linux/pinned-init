@@ -24,16 +24,16 @@ pub unsafe trait __InitImpl<T, E, W: InitWay>: __PinInitImpl<T, E, W> {
     unsafe fn __init(self, slot: *mut T) -> Result<(), E>;
 }
 
-unsafe impl<T> __PinInitImpl<T, Never, Direct> for T {
-    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), Never> {
+unsafe impl<T> __PinInitImpl<T, !, Direct> for T {
+    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), !> {
         // SAFETY: pointer valid as per function contract
         unsafe { slot.write(self) };
         Ok(())
     }
 }
 
-unsafe impl<T> __InitImpl<T, Never, Direct> for T {
-    unsafe fn __init(self, slot: *mut T) -> Result<(), Never> {
+unsafe impl<T> __InitImpl<T, !, Direct> for T {
+    unsafe fn __init(self, slot: *mut T) -> Result<(), !> {
         // SAFETY: pointer valid as per function contract
         unsafe { slot.write(self) };
         Ok(())
