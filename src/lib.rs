@@ -25,6 +25,9 @@ use std::{boxed::Box, rc::Rc, sync::Arc};
 #[doc(hidden)]
 pub mod __private;
 
+#[cfg(doctest)]
+mod tests;
+
 /// Initialize a type on the stack. It will be pinned:
 /// ```rust
 /// # #![feature(never_type)]
@@ -200,33 +203,42 @@ macro_rules! pin_init {
         $crate::pin_init!(@this($($this)?), @type_name($t $($($generics),*)?), @typ($t $($($generics),*)?), @fields($($field $(: $val)?),*));
     };
     (@this($($this:ident)?), @type_name($t:ident $(<$($generics:ty),*)?), @typ($ty:ty), @fields($($field:ident $(: $val:expr)?),*)) => {{
-        let init = move |slot: *mut $ty| -> ::core::result::Result<(), _> {
-            $(let $this = unsafe { ::core::ptr::NonNull::new_unchecked(slot) };)?
-            $(
-                $(let $field = $val;)?
-                // call the initializer
-                // SAFETY: slot is valid, because we are inside of an initializer closure, we return
-                //         when an error/panic occurs.
-                unsafe {
-                    <$ty as $crate::__private::__PinData>::__PinData::$field(
-                        ::core::ptr::addr_of_mut!((*slot).$field),
-                        $field,
-                    )?;
+        // we do not want to allow arbitrary returns
+        struct __InitOk;
+        let init = move |slot: *mut $ty| -> ::core::result::Result<__InitOk, _> {
+            {
+                // shadow the structure so it cannot be used to return early
+                struct __InitOk;
+                $(let $this = unsafe { ::core::ptr::NonNull::new_unchecked(slot) };)?
+                $(
+                    $(let $field = $val;)?
+                    // call the initializer
+                    // SAFETY: slot is valid, because we are inside of an initializer closure, we return
+                    //         when an error/panic occurs.
+                    unsafe {
+                        <$ty as $crate::__private::__PinData>::__PinData::$field(
+                            ::core::ptr::addr_of_mut!((*slot).$field),
+                            $field,
+                        )?;
+                    }
+                    // create the drop guard
+                    // SAFETY: we forget the guard later when initialization has succeeded.
+                    let $field = unsafe { $crate::__private::DropGuard::new(::core::ptr::addr_of_mut!((*slot).$field)) };
+                )*
+                #[allow(unreachable_code, clippy::diverging_sub_expression)]
+                if false {
+                    let _: $t $(<$($generics),*>)? = $t {
+                        $($field: ::core::todo!()),*
+                    };
                 }
-                // create the drop guard
-                // SAFETY: we forget the guard later when initialization has succeeded.
-                let $field = unsafe { $crate::__private::DropGuard::new(::core::ptr::addr_of_mut!((*slot).$field)) };
-            )*
-            #[allow(unreachable_code, clippy::diverging_sub_expression)]
-            if false {
-                let _: $t $(<$($generics),*>)? = $t {
-                    $($field: ::core::todo!()),*
-                };
+                $(
+                    ::core::mem::forget($field);
+                )*
             }
-            $(
-                ::core::mem::forget($field);
-            )*
-            Ok(())
+            Ok(__InitOk)
+        };
+        let init = move |slot: *mut $ty| -> ::core::result::Result<(), _> {
+            init(slot).map(|__InitOk| ())
         };
         let init: $crate::PinInitClosure<_, $t $(<$($generics),*>)?, _> = unsafe { $crate::PinInitClosure::from_closure(init) };
         init
@@ -360,28 +372,37 @@ macro_rules! init {
         $($field:ident $(: $val:expr)?),*
         $(,)?
     }) => {{
-        let init = move |slot: *mut $t $(<$($generics),*>)?| -> ::core::result::Result<(), _> {
-            $(
-                $(let $field = $val;)?
-                // call the initializer
-                // SAFETY: slot is valid, because we are inside of an initializer closure, we return
-                //         when an error/panic occurs.
-                unsafe { $crate::__private::__InitImpl::__init($field, ::core::ptr::addr_of_mut!((*slot).$field))? };
-                // create the drop guard
-                // SAFETY: we forget the guard later when initialization has succeeded.
-                let $field = unsafe { $crate::__private::DropGuard::new(::core::ptr::addr_of_mut!((*slot).$field)) };
-            )*
-            #[allow(unreachable_code, clippy::diverging_sub_expression)]
-            if false {
-                let _: $t $(<$($generics),*>)? = $t {
-                    $($field: ::core::todo!()),*
-                };
+        // we do not want to allow arbitrary returns
+        struct __InitOk;
+        let init = move |slot: *mut $t $(<$($generics),*>)?| -> ::core::result::Result<__InitOk, _> {
+            {
+                // shadow the structure so it cannot be used to return early
+                struct __InitOk;
+                $(
+                    $(let $field = $val;)?
+                    // call the initializer
+                    // SAFETY: slot is valid, because we are inside of an initializer closure, we return
+                    //         when an error/panic occurs.
+                    unsafe { $crate::__private::__InitImpl::__init($field, ::core::ptr::addr_of_mut!((*slot).$field))? };
+                    // create the drop guard
+                    // SAFETY: we forget the guard later when initialization has succeeded.
+                    let $field = unsafe { $crate::__private::DropGuard::new(::core::ptr::addr_of_mut!((*slot).$field)) };
+                )*
+                #[allow(unreachable_code, clippy::diverging_sub_expression)]
+                if false {
+                    let _: $t $(<$($generics),*>)? = $t {
+                        $($field: ::core::todo!()),*
+                    };
+                }
+                $(
+                    // forget each guard
+                    ::core::mem::forget($field);
+                )*
             }
-            $(
-                // forget each guard
-                ::core::mem::forget($field);
-            )*
-            Ok(())
+            Ok(__InitOk)
+        };
+        let init = move |slot: *mut $t $(<$($generics),*>)?| -> ::core::result::Result<(), _> {
+            init(slot).map(|__InitOk| ())
         };
         let init: $crate::InitClosure<_, $t $(<$($generics),*>)?, _> = unsafe { $crate::InitClosure::from_closure(init) };
         init
