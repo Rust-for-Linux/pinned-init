@@ -435,14 +435,14 @@ macro_rules! pin_data {
             $crate::__private::__InitImpl::__init(init, slot)
         }
     };
-    (@make_fn(($vis:vis) (#[$next:meta] $(#[$attr:meta])*) $field:ident : $typ:ty)) => {
-        $crate::pin_data!(@make_fn(($vis) ($(#[$attr])*) $field: $typ));
+    (@make_fn(($vis:vis) (#[$next:meta] $(#[$($attr:tt)*])*) $field:ident : $typ:ty)) => {
+        $crate::pin_data!(@make_fn(($vis) ($(#[$($attr)*])*) $field: $typ));
     };
     (@filter(
         ($($pre:tt)*)
         {
             #[pin]
-            $(#[$attr:meta])*
+            $(#[$($attr:tt)*])*
             $fvis:vis $field:ident : $typ:ty,
             $($rest:tt)*
         }
@@ -451,7 +451,7 @@ macro_rules! pin_data {
         $crate::pin_data!(@filter(
             ($($pre)*)
             {
-                $(#[$attr])*
+                $(#[$($attr)*])*
                 $fvis $field: $typ,
                 $($rest)*
             }
@@ -462,7 +462,7 @@ macro_rules! pin_data {
         ($($pre:tt)*)
         {
             #[$next:meta]
-            $(#[$attr:meta])*
+            $(#[$($attr:tt)*])*
             $fvis:vis $field:ident : $typ:ty,
             $($rest:tt)*
         }
@@ -471,7 +471,7 @@ macro_rules! pin_data {
         $crate::pin_data!(@filter(
             ($($pre)*)
             {
-                $(#[$attr])*
+                $(#[$($attr)*])*
                 $fvis $field: $typ,
                 $($rest)*
             }
