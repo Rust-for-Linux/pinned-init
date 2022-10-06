@@ -17,7 +17,7 @@ pin_data! {
         next: NonNull<ListHead>,
         prev: NonNull<ListHead>,
         // ListHead is `!Unpin` because `next.prev = self`
-        #pin
+        #[pin]
         _pin: PhantomPinned,
     }
 }
@@ -39,7 +39,7 @@ pin_data! {
         next: NonNull<ListHead>,
         prev: NonNull<ListHead>,
         // ListHead is `!Unpin` because `next.prev = self`
-        #pin
+        #[pin]
         _pin: PhantomPinned,
     }
 }

@@ -176,9 +176,9 @@ macro_rules! stack_init {
 /// # }
 /// pin_data! {
 ///     struct FooContainer {
-///         #pin
+///         #[pin]
 ///         foo1: Foo,
-///         #pin
+///         #[pin]
 ///         foo2: Foo,
 ///         other: u32,
 ///     }
@@ -413,50 +413,13 @@ macro_rules! init {
 ///
 /// This is somewhat similar in purpose as
 /// [pin-project-lite](https://crates.io/crates/pin-project-lite).
-/// Place this macro around a struct definition and then `#pin` in front of the attributes of each
+/// Place this macro around a struct definition and then `#[pin]` in front of the attributes of each
 /// field you want to have structurally pinned.
 ///
 /// needed to use `pin_init`.
 #[macro_export]
 macro_rules! pin_data {
-    (
-        $(#[$struct_attr:meta])*
-        $vis:vis struct $name:ident $(<$($($life:lifetime),+ $(,)?)? $($generic:ident $(: [$($bounds:tt)*])?),* $(,)?>)? $(where $($whr:path : $bound:ty),* $(,)?)? {
-            $(
-                $(#$pin:ident)?
-                $(#[$attr:meta])*
-                $fvis:vis $field:ident : $typ:ty
-            ),*
-            $(,)?
-        }
-    ) => {
-        $(#[$struct_attr])*
-        $vis struct $name $(<$($($life),+ ,)? $($generic $(: $($bounds)*)?),*>)? $(where $($whr : $bound),*)? {
-            $(
-                $(#[$attr])*
-                $fvis $field: $typ
-            ),*
-        }
-
-        const _: () = {
-            #[doc(hidden)]
-            $vis struct __ThePinData$(<$($($life),+ ,)? $($generic $(: $($bounds)*)?),*>)? $(where $($whr : $bound),*)?
-                (::core::marker::PhantomData<fn($name$(<$($($life),+ ,)? $($generic),*>)?) -> $name$(<$($($life),+ ,)? $($generic),*>)?>);
-
-            impl$(<$($($life),+ ,)? $($generic $(: $($bounds)*)?),*>)? __ThePinData$(<$($($life),+ ,)? $($generic),*>)?
-            $(where $($whr : $bound),*)? {
-                $(
-                    $crate::pin_data!(@make_fn(($fvis) $($pin)? $field: $typ));
-                )*
-            }
-
-            unsafe impl$(<$($($life),+ ,)? $($generic $(: $($bounds)*)?),*>)? $crate::__private::__PinData for $name$(<$($($life),+ ,)? $($generic),*>)?
-            $(where $($whr : $bound),*)? {
-                type __PinData = __ThePinData$(<$($($life),+ ,)? $($generic),*>)?;
-            }
-        };
-    };
-    (@make_fn(($vis:vis) pin $field:ident : $typ:ty)) => {
+    (@make_fn(($vis:vis) (#[pin] $(#[$attr:meta])*) $field:ident : $typ:ty)) => {
         $vis unsafe fn $field<E, W: $crate::__private::InitWay>(
             slot: *mut $typ,
             init: impl $crate::__private::__PinInitImpl<$typ, E, W>,
@@ -464,13 +427,124 @@ macro_rules! pin_data {
             $crate::__private::__PinInitImpl::__pinned_init(init, slot)
         }
     };
-    (@make_fn(($vis:vis) $field:ident : $typ:ty)) => {
+    (@make_fn(($vis:vis) () $field:ident : $typ:ty)) => {
         $vis unsafe fn $field<E, W: $crate::__private::InitWay>(
             slot: *mut $typ,
             init: impl $crate::__private::__InitImpl<$typ, E, W>,
         ) -> ::core::result::Result<(), E> {
             $crate::__private::__InitImpl::__init(init, slot)
         }
+    };
+    (@make_fn(($vis:vis) (#[$next:meta] $(#[$attr:meta])*) $field:ident : $typ:ty)) => {
+        $crate::pin_data!(@make_fn(($vis) ($(#[$attr])*) $field: $typ));
+    };
+    (@filter(
+        ($($pre:tt)*)
+        {
+            #[pin]
+            $(#[$attr:meta])*
+            $fvis:vis $field:ident : $typ:ty,
+            $($rest:tt)*
+        }
+        ($($accum:tt)*)
+    )) => {
+        $crate::pin_data!(@filter(
+            ($($pre)*)
+            {
+                $(#[$attr])*
+                $fvis $field: $typ,
+                $($rest)*
+            }
+            ($($accum)*)
+        ));
+    };
+    (@filter(
+        ($($pre:tt)*)
+        {
+            #[$next:meta]
+            $(#[$attr:meta])*
+            $fvis:vis $field:ident : $typ:ty,
+            $($rest:tt)*
+        }
+        ($($accum:tt)*)
+    )) => {
+        $crate::pin_data!(@filter(
+            ($($pre)*)
+            {
+                $(#[$attr])*
+                $fvis $field: $typ,
+                $($rest)*
+            }
+            ($($accum)* #[$next])
+        ));
+    };
+    (@filter(
+        ($($pre:tt)*)
+        {
+            $fvis:vis $field:ident : $typ:ty,
+            $($rest:tt)*
+        }
+        ($($accum:tt)*)
+    )) => {
+        $crate::pin_data!(@filter(
+            ($($pre)*)
+            {
+                $($rest)*
+            }
+            ($($accum)* $fvis $field: $typ,)
+        ));
+    };
+    (@filter(
+        ($($pre:tt)*)
+        {}
+        ($($accum:tt)*)
+    )) => {
+        $($pre)* {
+            $($accum)*
+        }
+    };
+    (
+        $(#[$struct_attr:meta])*
+        $vis:vis struct $name:ident $(<$($($life:lifetime),+ $(,)?)? $($generic:ident $(: ?$qbound:ty)?),* $(,)?>)?
+        $(where $($whr:path : $bound:ty),* $(,)?)? {
+            $(
+                $(#[$($attr:tt)*])*
+                $fvis:vis $field:ident : $typ:ty
+            ),*
+            $(,)?
+        }
+    ) => {
+        $crate::pin_data!(@filter(
+            (
+                $(#[$struct_attr])*
+                $vis struct $name $(<$($($life),+ ,)? $($generic $(: ?$qbound)?),*>)? $(where $($whr : $bound),*)?
+            )
+            {
+                $(
+                    $(#[$($attr)*])*
+                    $fvis $field: $typ,
+                )*
+            }
+            ()
+        ));
+
+        const _: () = {
+            #[doc(hidden)]
+            $vis struct __ThePinData$(<$($($life),+ ,)? $($generic $(: ?$qbound)?),*>)? $(where $($whr : $bound),*)?
+                (::core::marker::PhantomData<fn($name$(<$($($life),+ ,)? $($generic),*>)?) -> $name$(<$($($life),+ ,)? $($generic),*>)?>);
+
+            impl$(<$($($life),+ ,)? $($generic $(: ?$qbound)?),*>)? __ThePinData$(<$($($life),+ ,)? $($generic),*>)?
+            $(where $($whr : $bound),*)? {
+                $(
+                    $crate::pin_data!(@make_fn(($fvis) ($(#[$($attr)*])*) $field: $typ));
+                )*
+            }
+
+            unsafe impl$(<$($($life),+ ,)? $($generic $(: ?$qbound)?),*>)? $crate::__private::__PinData for $name$(<$($($life),+ ,)? $($generic),*>)?
+            $(where $($whr : $bound),*)? {
+                type __PinData = __ThePinData$(<$($($life),+ ,)? $($generic),*>)?;
+            }
+        };
     };
 }
 

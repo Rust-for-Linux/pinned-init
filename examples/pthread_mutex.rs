@@ -16,7 +16,7 @@ use std::{
 
 pin_data! {
     pub struct PThreadMutex<T> {
-        #pin
+        #[pin]
         raw: UnsafeCell<libc::pthread_mutex_t>,
         data: UnsafeCell<T>,
         pin: PhantomPinned,
