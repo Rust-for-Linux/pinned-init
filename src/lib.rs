@@ -506,7 +506,7 @@ macro_rules! pin_data {
     (
         $(#[$struct_attr:meta])*
         $vis:vis struct $name:ident $(<$($($life:lifetime),+ $(,)?)? $($generic:ident $(: ?$qbound:ty)?),* $(,)?>)?
-        $(where $($whr:path : $bound:ty),* $(,)?)? {
+        $(where $($whr:path : $bound:path),* $(,)?)? {
             $(
                 $(#[$($attr:tt)*])*
                 $fvis:vis $field:ident : $typ:ty
@@ -530,8 +530,10 @@ macro_rules! pin_data {
 
         const _: () = {
             #[doc(hidden)]
-            $vis struct __ThePinData$(<$($($life),+ ,)? $($generic $(: ?$qbound)?),*>)? $(where $($whr : $bound),*)?
-                (::core::marker::PhantomData<fn($name$(<$($($life),+ ,)? $($generic),*>)?) -> $name$(<$($($life),+ ,)? $($generic),*>)?>);
+            $vis struct __ThePinData$(<$($($life),+ ,)? $($generic $(: ?$qbound)?),*>)?
+            $(where $($whr : $bound),*)? {
+                _pin: ::core::marker::PhantomData<fn($name$(<$($($life),+ ,)? $($generic),*>)?) -> $name$(<$($($life),+ ,)? $($generic),*>)?>,
+            }
 
             impl$(<$($($life),+ ,)? $($generic $(: ?$qbound)?),*>)? __ThePinData$(<$($($life),+ ,)? $($generic),*>)?
             $(where $($whr : $bound),*)? {
@@ -557,6 +559,7 @@ macro_rules! pin_data {
 ///     - slot can be deallocated without UB ocurring,
 ///     - slot does not need to be dropped,
 ///     - slot is not partially initialized.
+#[must_use = "An initializer must be used in order to create its value."]
 pub unsafe trait PinInit<T, E = !>: Sized {
     /// Initializes `slot`.
     ///
@@ -583,6 +586,7 @@ pub unsafe trait PinInit<T, E = !>: Sized {
 ///
 /// Contrary to its supertype [`PinInit<T, E>`] the caller is allowed to
 /// move the pointee after initialization.
+#[must_use = "An initializer must be used in order to create its value."]
 pub unsafe trait Init<T, E = !>: PinInit<T, E> {
     /// Initializes `slot`.
     ///

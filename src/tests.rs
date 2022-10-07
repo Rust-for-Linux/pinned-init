@@ -79,3 +79,15 @@ fn deny_duplicate_field() {}
 /// let b = b as Result<_, !>;
 /// ```
 fn demo() {}
+
+crate::pin_data! {
+/// docs on struct
+struct Foo<T: ?Sized>
+    where T: Iterator,
+{
+    /// other docs
+    #[pin]
+    /// some doc
+    t: Box<T>,
+}
+}
