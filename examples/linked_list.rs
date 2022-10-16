@@ -14,6 +14,7 @@ use pinned_init::*;
 pub struct ListHead {
     next: Link,
     prev: Link,
+    #[pin]
     pin: PhantomPinned,
 }
 
