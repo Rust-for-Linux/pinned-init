@@ -1,5 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0
+
 //! Workaround for specialization
+
 use super::*;
+use core::cell::Cell;
 
 mod sealed {
     use super::*;
@@ -17,27 +21,38 @@ impl InitWay for Closure {}
 pub struct Direct;
 pub struct Closure;
 
-pub unsafe trait __PinInitImpl<T, E, W: InitWay> {
+/// # Safety
+/// Same as [`PinInit`]
+pub unsafe trait __PinInitImpl<T: ?Sized, E, W: InitWay> {
+    /// # Safety
+    /// Same as [`PinInit::__pinned_init`]
     unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E>;
 }
-pub unsafe trait __InitImpl<T, E, W: InitWay>: __PinInitImpl<T, E, W> {
+
+/// # Safety
+/// Same as [`Init`]
+pub unsafe trait __InitImpl<T: ?Sized, E, W: InitWay>: __PinInitImpl<T, E, W> {
+    /// # Safety
+    /// Same as [`Init::__init`]
     unsafe fn __init(self, slot: *mut T) -> Result<(), E>;
 }
 
+/// # Safety
+/// Only implemented by pin_data!
 pub unsafe trait __PinData {
     type __PinData;
 }
 
-unsafe impl<T> __PinInitImpl<T, !, Direct> for T {
-    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), !> {
+unsafe impl<T> __PinInitImpl<T, Infallible, Direct> for T {
+    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), Infallible> {
         // SAFETY: pointer valid as per function contract
         unsafe { slot.write(self) };
         Ok(())
     }
 }
 
-unsafe impl<T> __InitImpl<T, !, Direct> for T {
-    unsafe fn __init(self, slot: *mut T) -> Result<(), !> {
+unsafe impl<T> __InitImpl<T, Infallible, Direct> for T {
+    unsafe fn __init(self, slot: *mut T) -> Result<(), Infallible> {
         // SAFETY: pointer valid as per function contract
         unsafe { slot.write(self) };
         Ok(())
@@ -49,7 +64,7 @@ where
     I: Init<T, E>,
 {
     unsafe fn __init(self, slot: *mut T) -> Result<(), E> {
-        Init::__init(self, slot)
+        unsafe { Init::__init(self, slot) }
     }
 }
 
@@ -58,12 +73,12 @@ where
     I: PinInit<T, E>,
 {
     unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
-        PinInit::__pinned_init(self, slot)
+        unsafe { PinInit::__pinned_init(self, slot) }
     }
 }
 
 /// When a value of this type is dropped, it drops something else.
-pub struct DropGuard<T: ?Sized>(*mut T);
+pub struct DropGuard<T: ?Sized>(*mut T, Cell<bool>);
 
 impl<T: ?Sized> DropGuard<T> {
     /// Creates a new [`DropGuard<T>`]. It will [`ptr::drop_in_place`] `ptr` when it gets dropped.
@@ -76,14 +91,20 @@ impl<T: ?Sized> DropGuard<T> {
     /// - is not accesible by any other means,
     /// - will not be dropped by any other means.
     pub unsafe fn new(ptr: *mut T) -> Self {
-        Self(ptr)
+        Self(ptr, Cell::new(true))
+    }
+
+    pub unsafe fn forget(&self) {
+        self.1.set(false);
     }
 }
 
 impl<T: ?Sized> Drop for DropGuard<T> {
     fn drop(&mut self) {
-        // SAFETY: safe as a `DropGuard` can only be constructed using the unsafe new function.
-        unsafe { ptr::drop_in_place(self.0) }
+        if self.1.get() {
+            // SAFETY: safe as a `DropGuard` can only be constructed using the unsafe new function.
+            unsafe { ptr::drop_in_place(self.0) }
+        }
     }
 }
 

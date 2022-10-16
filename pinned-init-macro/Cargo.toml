@@ -1,0 +1,15 @@
+[package]
+name = "pinned-init-macro"
+version = "0.0.1"
+edition = "2021"
+
+authors = ["y86-dev"]
+license = "MIT OR Apache-2.0"
+description = "Proc macros for the pinned-init crate."
+
+repository = "https://github.com/y86-dev/pinned-init"
+
+[lib]
+proc-macro = true
+
+[dependencies]

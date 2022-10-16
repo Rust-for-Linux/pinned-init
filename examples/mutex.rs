@@ -1,12 +1,3 @@
-#![feature(
-    type_alias_impl_trait,
-    never_type,
-    try_blocks,
-    stmt_expr_attributes,
-    raw_ref_op,
-    new_uninit,
-    unwrap_infallible
-)]
 use core::{
     cell::{Cell, UnsafeCell},
     ops::{Deref, DerefMut},
@@ -53,14 +44,13 @@ impl Drop for SpinLockGuard<'_> {
     }
 }
 
-pin_data! {
-    pub struct Mutex<T> {
-        #[pin]
-        wait_list: ListHead,
-        spin_lock: SpinLock,
-        locked: Cell<bool>,
-        data: UnsafeCell<T>,
-    }
+#[pin_project]
+pub struct Mutex<T> {
+    #[pin]
+    wait_list: ListHead,
+    spin_lock: SpinLock,
+    locked: Cell<bool>,
+    data: UnsafeCell<T>,
 }
 
 impl<T> Mutex<T> {
@@ -76,7 +66,10 @@ impl<T> Mutex<T> {
         let mut sguard = self.spin_lock.acquire();
         if self.locked.get() {
             stack_init!(let wait_entry = WaitEntry::insert_new(&self.wait_list));
-            let wait_entry = wait_entry.into_ok();
+            let wait_entry = match wait_entry {
+                Ok(w) => w,
+                Err(e) => match e {},
+            };
             while self.locked.get() {
                 drop(sguard);
                 park();
@@ -122,13 +115,12 @@ impl<'a, T> DerefMut for MutexGuard<'a, T> {
     }
 }
 
-pin_data! {
-    #[repr(C)]
-    struct WaitEntry {
-        #[pin]
-        wait_list: ListHead,
-        thread: Thread,
-    }
+#[pin_project]
+#[repr(C)]
+struct WaitEntry {
+    #[pin]
+    wait_list: ListHead,
+    thread: Thread,
 }
 
 impl WaitEntry {

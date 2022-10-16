@@ -1,32 +1,25 @@
-#![feature(
-    type_alias_impl_trait,
-    never_type,
-    stmt_expr_attributes,
-    raw_ref_op,
-    new_uninit
-)]
-
 use core::{
     cell::Cell,
+    convert::Infallible,
     marker::PhantomPinned,
+    pin::Pin,
     ptr::{self, NonNull},
 };
 
 use pinned_init::*;
 
-pin_data! {
-    #[repr(C)]
-    #[derive(Debug)]
-    pub struct ListHead {
-        next: Link,
-        prev: Link,
-        pin: PhantomPinned,
-    }
+#[pin_project(PinnedDrop)]
+#[repr(C)]
+#[derive(Debug)]
+pub struct ListHead {
+    next: Link,
+    prev: Link,
+    pin: PhantomPinned,
 }
 
 impl ListHead {
     #[inline]
-    pub fn new() -> impl PinInit<Self, !> {
+    pub fn new() -> impl PinInit<Self> {
         pin_init!(&this in Self {
             next: unsafe { Link::new_unchecked(this) },
             prev: unsafe { Link::new_unchecked(this) },
@@ -35,7 +28,7 @@ impl ListHead {
     }
 
     #[inline]
-    pub fn insert_next(list: &ListHead) -> impl PinInit<Self, !> + '_ {
+    pub fn insert_next(list: &ListHead) -> impl PinInit<Self> + '_ {
         pin_init!(&this in Self {
             prev: list.next.prev().replace(unsafe { Link::new_unchecked(this)}),
             next: list.next.replace(unsafe { Link::new_unchecked(this)}),
@@ -44,7 +37,7 @@ impl ListHead {
     }
 
     #[inline]
-    pub fn insert_prev(list: &ListHead) -> impl PinInit<Self, !> + '_ {
+    pub fn insert_prev(list: &ListHead) -> impl PinInit<Self> + '_ {
         pin_init!(&this in Self {
             next: list.prev.next().replace(unsafe { Link::new_unchecked(this)}),
             prev: list.prev.replace(unsafe { Link::new_unchecked(this)}),
@@ -62,10 +55,11 @@ impl ListHead {
     }
 }
 
-impl Drop for ListHead {
-    #[inline]
-    fn drop(&mut self) {
-        if !ptr::eq(self.next.as_ptr(), self) {
+#[pinned_drop]
+impl PinnedDrop for ListHead {
+    //#[inline]
+    fn drop(self: Pin<&mut Self>) {
+        if !ptr::eq(self.next.as_ptr(), &*self) {
             let next = unsafe { &*self.next.as_ptr() };
             let prev = unsafe { &*self.prev.as_ptr() };
             next.prev.set(&self.prev);
@@ -111,7 +105,7 @@ impl Link {
 }
 
 #[allow(dead_code)]
-fn main() -> Result<(), AllocOrInitError<!>> {
+fn main() -> Result<(), AllocOrInitError<Infallible>> {
     let a = Box::pin_init(ListHead::new())?;
     stack_init!(let b = ListHead::insert_next(&a));
     let b = b?;

@@ -1,5 +1,4 @@
 // inspired by https://github.com/nbdd0121/pin-init/blob/trunk/examples/pthread_mutex.rs
-#![feature(never_type)]
 use core::{
     cell::UnsafeCell,
     marker::PhantomPinned,
@@ -9,25 +8,26 @@ use core::{
 };
 use pinned_init::*;
 use std::{
+    convert::Infallible,
     sync::Arc,
     thread::{sleep, Builder},
     time::Duration,
 };
 
-pin_data! {
-    pub struct PThreadMutex<T> {
-        #[pin]
-        raw: UnsafeCell<libc::pthread_mutex_t>,
-        data: UnsafeCell<T>,
-        pin: PhantomPinned,
-    }
+#[pin_project(PinnedDrop)]
+pub struct PThreadMutex<T> {
+    #[pin]
+    raw: UnsafeCell<libc::pthread_mutex_t>,
+    data: UnsafeCell<T>,
+    pin: PhantomPinned,
 }
 
 unsafe impl<T: Send> Send for PThreadMutex<T> {}
 unsafe impl<T: Send> Sync for PThreadMutex<T> {}
 
-impl<T> Drop for PThreadMutex<T> {
-    fn drop(&mut self) {
+#[pinned_drop]
+impl<T> PinnedDrop for PThreadMutex<T> {
+    fn drop(self: Pin<&mut Self>) {
         unsafe { libc::pthread_mutex_destroy(self.raw.get()) };
     }
 }
@@ -35,8 +35,8 @@ impl<T> Drop for PThreadMutex<T> {
 #[derive(Debug)]
 pub struct Error(std::io::Error);
 
-impl From<!> for Error {
-    fn from(e: !) -> Self {
+impl From<Infallible> for Error {
+    fn from(e: Infallible) -> Self {
         match e {}
     }
 }
@@ -74,7 +74,7 @@ impl<T> PThreadMutex<T> {
                 Ok(())
             };
             // SAFETY: mutex has been initialized
-            unsafe { PinInitClosure::from_closure(init) }
+            unsafe { pin_init_from_closure(init) }
         }
         pin_init!(Self {
             data: UnsafeCell::new(data),
