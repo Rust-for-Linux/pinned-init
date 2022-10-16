@@ -1,61 +1,78 @@
-Library to safely and fallibly initialize pinned structs in-place.
+Library to safely and fallibly initialize pinned structs using in-place constructors.
 
 It also allows in-place initialization of big structs that would otherwise produce a stack overflow.
 
-# The problem 
+[Pinning][pinning] is Rust's way of ensuring data does not move.
 
-When writing self referential data structures in Rust, one runs into the issue
-of initializing them. For example we will create an intrusive, doubly linked,
-circular list in Rust:
+# Overview
+
+To initialize a struct with an in-place constructor you will need two things:
+- an in-place constructor,
+- a memory location that can hold your struct (this can be the stack, an `Arc<T>`,
+  `Box<T>` or any other smart pointer [^1]).
+
+To get an in-place constructor there are generally two options:
+- directly creating an in-place constructor,
+- a function/macro returning an in-place constructor.
+
+# Examples
+
+## Directly creating an in-place constructor
+
+If you want to use `PinInit`, then you will have to annotate your struct with `#[pin_project]`.
+It is a macro that uses `#[pin]` as a marker for [structurally pinned fields].
 
 ```rust
-use core::{ptr::NonNull, marker::PhantomPinned};
-use pinned_init::*;
-
-pin_data! {
-    pub struct ListHead {
-        next: NonNull<ListHead>,
-        prev: NonNull<ListHead>,
-        // ListHead is `!Unpin` because `next.prev = self`
-        #[pin]
-        _pin: PhantomPinned,
-    }
+#[pin_project]
+struct Foo {
+    #[pin]
+    a: Mutex<usize>,
+    b: u32,
 }
+
+let foo = pin_init!(Foo {
+    a: Mutex::new(42),
+    b: 24,
+});
 ```
 
-But now, how would one go about creating a `ListHead`? A valid initial state of
-a singular ListHead is, with `next` and `prev` pointing to `self`. But in Rust
-we cannot get a hold of `self` until we have selected a value for `next`!
+`foo` now is of the type `impl PinInit<Foo>`. We can now use any smart pointer that we like
+(or just the stack) to actually initialize a `Foo`:
 
-# This library
-
-This library provides the means to achieve this safely:
 ```rust
-use core::{ptr::NonNull, marker::PhantomPinned};
-use pinned_init::*;
+let foo: Result<Pin<Box<Foo>>, _> = Box::pin_init::<core::convert::Infallible>(foo);
+```
 
-pin_data! {
-    pub struct ListHead {
-        next: NonNull<ListHead>,
-        prev: NonNull<ListHead>,
-        // ListHead is `!Unpin` because `next.prev = self`
-        #[pin]
-        _pin: PhantomPinned,
-    }
+## Using a function/macro that returns an initializer
+
+Many types using this library supply a function/macro that returns an initializer, because the
+above method only works for types where you can access the fields.
+
+```rust
+let mtx: Result<Pin<Arc<Mutex<usize>>>, _> = Arc::pin_init(Mutex::new(42));
+```
+
+To declare an init macro/function you just return an `impl PinInit<T, E>`:
+```rust
+#[pin_project]
+struct DriverData {
+    #[pin]
+    status: Mutex<i32>,
+    buffer: Box<[u8; 1_000_000]>,
 }
 
-impl ListHead {
-    pub fn new_in_place() -> impl PinInit<ListHead> {
-        pin_init!(&this in ListHead {
-            next: this,
-            prev: this,
-            _pin: PhantomPinned,
+impl DriverData {
+    fn new() -> impl PinInit<Self, AllocOrInitError<Infallible>> {
+        pin_init!(Self {
+            status: Mutex::new(0),
+            buffer: Box::init(pinned_init::zeroed())?,
         })
     }
 }
 ```
-Insead of writing `new() -> Self` we write `new_in_place() -> impl PinInit<Self>`. This function now
-returns an in-place initializer. The `pin_init!` macro used to create this initializer has the same
-syntax as a struct initializer. You will need to specify every field and can use arbitrary
-expressions. When an expression evaluates to an in-place initializer from this library, it is used
-to initialize the value in-place.
+
+
+[^1]: That is not entirely true, only smart pointers that implement `InPlaceInit`.
+
+[pinning]: https://doc.rust-lang.org/std/pin/index.html
+[structurally pinned fields]: https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
