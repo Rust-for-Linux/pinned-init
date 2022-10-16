@@ -8,19 +8,18 @@
     feature(new_uninit, get_mut_unchecked)
 )]
 
-//! API to safely and fallibly initialize pinned structs using in-place constructors.
+//! Library to safely and fallibly initialize pinned structs using in-place constructors.
 //!
 //! It also allows in-place initialization of big structs that would otherwise produce a stack overflow.
 //!
-//! Most structs from the [sync] module need to be pinned, because they contain self referential
-//! structs from C. [Pinning][pinning] is Rust's way of ensuring data does not move.
+//! [Pinning][pinning] is Rust's way of ensuring data does not move.
 //!
 //! # Overview
 //!
 //! To initialize a struct with an in-place constructor you will need two things:
 //! - an in-place constructor,
 //! - a memory location that can hold your struct (this can be the [stack], an [`Arc<T>`],
-//!   [`UniqueArc<T>`], [`Box<T>`] or any other smart pointer [^1]).
+//!   [`Box<T>`] or any other smart pointer [^1]).
 //!
 //! To get an in-place constructor there are generally two options:
 //! - directly creating an in-place constructor,
@@ -79,7 +78,7 @@
 //!
 //! ## Using a function/macro that returns an initializer
 //!
-//! Many types from the kernel supply a function/macro that returns an initializer, because the
+//! Many types using this library supply a function/macro that returns an initializer, because the
 //! above method only works for types where you can access the fields.
 //!
 //! ```rust
@@ -120,11 +119,9 @@
 //!
 //! [^1]: That is not entirely true, only smart pointers that implement [`InPlaceInit`].
 //!
-//! [sync]: ../sync/index.html
 //! [pinning]: https://doc.rust-lang.org/std/pin/index.html
 //! [structurally pinned fields]: https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
 //! [stack]: crate::stack_init
-//! [`Arc<T>`]: crate::sync::Arc
 
 #[cfg(feature = "alloc")]
 use alloc::alloc::AllocError;
@@ -562,7 +559,7 @@ pub use pinned_init_macro::{pin_project, pinned_drop};
 /// A pinned initializer for `T`.
 ///
 /// To use this initializer, you will need a suitable memory location that can hold a `T`. This can
-/// be [`Box<T>`], [`Arc<T>`], [`UniqueArc<T>`], or even the stack (see [`stack_init!`]). Use the
+/// be [`Box<T>`], [`Arc<T>`], or even the stack (see [`stack_init!`]). Use the
 /// `pin_init` function of a smart pointer like [`Arc::pin_init`] on this.
 ///
 /// Also see the [module description](self).
@@ -580,8 +577,6 @@ pub use pinned_init_macro::{pin_project, pinned_drop};
 ///     - slot does not need to be dropped,
 ///     - slot is not partially initialized.
 ///
-/// [`Arc<T>`]: crate::sync::Arc
-/// [`Arc::pin_init`]: crate::sync::Arc::pin_init
 #[must_use = "An initializer must be used in order to create its value."]
 pub unsafe trait PinInit<T, E = Infallible>: Sized {
     /// Initializes `slot`.
@@ -598,7 +593,7 @@ pub unsafe trait PinInit<T, E = Infallible>: Sized {
 /// An initializer for `T`.
 ///
 /// To use this initializer, you will need a suitable memory location that can hold a `T`. This can
-/// be [`Box<T>`], [`Arc<T>`], [`UniqueArc<T>`], or even the stack (see [`stack_init!`]). Use the
+/// be [`Box<T>`], [`Arc<T>`], or even the stack (see [`stack_init!`]). Use the
 /// `init` function of a smart pointer like [`Box::init`] on this. Because [`PinInit<T, E>`] is a
 /// super trait, you can use every function that takes it as well.
 ///
@@ -623,7 +618,6 @@ pub unsafe trait PinInit<T, E = Infallible>: Sized {
 /// Contrary to its supertype [`PinInit<T, E>`] the caller is allowed to
 /// move the pointee after initialization.
 ///
-/// [`Arc<T>`]: crate::sync::Arc
 #[must_use = "An initializer must be used in order to create its value."]
 pub unsafe trait Init<T, E = Infallible>: PinInit<T, E> {
     /// Initializes `slot`.
@@ -718,8 +712,6 @@ pub const unsafe fn pin_init_from_closure<T, E>(
 /// # Safety
 ///
 /// This trait must be implemented with [`pinned_drop`].
-///
-/// [`pinned_drop`]: pinned_init::macros::pinned_drop
 pub unsafe trait PinnedDrop {
     /// Executes the pinned destructor of this type.
     ///
