@@ -20,6 +20,7 @@ pub struct SpinLock {
 }
 
 impl SpinLock {
+    #[inline]
     pub fn acquire(&self) -> SpinLockGuard<'_> {
         while self
             .inner
@@ -29,6 +30,7 @@ impl SpinLock {
         SpinLockGuard(self)
     }
 
+    #[inline]
     pub fn new() -> Self {
         Self {
             inner: AtomicBool::new(false),
@@ -39,6 +41,7 @@ impl SpinLock {
 pub struct SpinLockGuard<'a>(&'a SpinLock);
 
 impl Drop for SpinLockGuard<'_> {
+    #[inline]
     fn drop(&mut self) {
         self.0.inner.store(false, Ordering::Release);
     }
@@ -54,6 +57,7 @@ pub struct Mutex<T> {
 }
 
 impl<T> Mutex<T> {
+    #[inline]
     pub fn new(val: T) -> impl PinInit<Self> {
         pin_init!(Self {
             wait_list: ListHead::new(),
@@ -62,6 +66,8 @@ impl<T> Mutex<T> {
             data: UnsafeCell::new(val),
         })
     }
+
+    #[inline]
     pub fn lock(&self) -> MutexGuard<'_, T> {
         let mut sguard = self.spin_lock.acquire();
         if self.locked.get() {
@@ -90,6 +96,7 @@ pub struct MutexGuard<'a, T> {
 }
 
 impl<'a, T> Drop for MutexGuard<'a, T> {
+    #[inline]
     fn drop(&mut self) {
         let sguard = self.mtx.spin_lock.acquire();
         self.mtx.locked.set(false);
@@ -104,12 +111,14 @@ impl<'a, T> Drop for MutexGuard<'a, T> {
 impl<'a, T> Deref for MutexGuard<'a, T> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         unsafe { &*self.mtx.data.get() }
     }
 }
 
 impl<'a, T> DerefMut for MutexGuard<'a, T> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *self.mtx.data.get() }
     }
@@ -124,6 +133,7 @@ struct WaitEntry {
 }
 
 impl WaitEntry {
+    #[inline]
     fn insert_new(list: &ListHead) -> impl PinInit<Self> + '_ {
         pin_init!(Self {
             thread: current(),

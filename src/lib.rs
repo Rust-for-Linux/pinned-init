@@ -638,6 +638,7 @@ unsafe impl<T, F, E> PinInit<T, E> for InitClosure<F, T, E>
 where
     F: FnOnce(*mut T) -> Result<(), E>,
 {
+    #[inline]
     unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
         (self.0)(slot)
     }
@@ -647,6 +648,7 @@ unsafe impl<T, F, E> Init<T, E> for InitClosure<F, T, E>
 where
     F: FnOnce(*mut T) -> Result<(), E>,
 {
+    #[inline]
     unsafe fn __init(self, slot: *mut T) -> Result<(), E> {
         (self.0)(slot)
     }
@@ -663,11 +665,13 @@ where
 ///     - slot does not need to be dropped,
 ///     - slot is not partially initialized.
 /// - slot may move after initialization
+#[inline]
 pub const unsafe fn init_from_closure<T, E>(
     f: impl FnOnce(*mut T) -> Result<(), E>,
 ) -> impl Init<T, E> {
     InitClosure(f, PhantomData)
 }
+
 /// Creates a new [`PinInit<T, E>`] from the given closure.
 ///
 /// # Safety
@@ -679,6 +683,7 @@ pub const unsafe fn init_from_closure<T, E>(
 ///     - slot does not need to be dropped,
 ///     - slot is not partially initialized.
 /// - may assume that the slot does not move if `T: !Unpin`
+#[inline]
 pub const unsafe fn pin_init_from_closure<T, E>(
     f: impl FnOnce(*mut T) -> Result<(), E>,
 ) -> impl PinInit<T, E> {
@@ -736,11 +741,13 @@ pub enum AllocOrInitError<E> {
 
 #[cfg(any(feature = "alloc", feature = "std"))]
 impl<E> From<AllocError> for AllocOrInitError<E> {
+    #[inline]
     fn from(_: AllocError) -> Self {
         Self::AllocError
     }
 }
 impl<E> From<Infallible> for AllocOrInitError<E> {
+    #[inline]
     fn from(e: Infallible) -> Self {
         match e {}
     }
@@ -764,6 +771,7 @@ pub trait InPlaceInit<T>: Sized {
 impl<T> InPlaceInit<T> for Box<T> {
     type Error<E> = AllocOrInitError<E>;
 
+    #[inline]
     fn pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, Self::Error<E>> {
         let mut this = Box::try_new_uninit()?;
         let slot = this.as_mut_ptr();
@@ -774,6 +782,7 @@ impl<T> InPlaceInit<T> for Box<T> {
         Ok(unsafe { Pin::new_unchecked(this.assume_init()) })
     }
 
+    #[inline]
     fn init<E>(init: impl Init<T, E>) -> Result<Self, Self::Error<E>> {
         let mut this = Box::try_new_uninit()?;
         let slot = this.as_mut_ptr();
@@ -789,6 +798,7 @@ impl<T> InPlaceInit<T> for Box<T> {
 impl<T> InPlaceInit<T> for Arc<T> {
     type Error<E> = AllocOrInitError<E>;
 
+    #[inline]
     fn pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, Self::Error<E>> {
         let mut this = Arc::try_new_uninit()?;
         // SAFETY: `this` has refcount = 1
@@ -800,6 +810,7 @@ impl<T> InPlaceInit<T> for Arc<T> {
         Ok(unsafe { Pin::new_unchecked(this.assume_init()) })
     }
 
+    #[inline]
     fn init<E>(init: impl Init<T, E>) -> Result<Self, Self::Error<E>> {
         let mut this = Arc::try_new_uninit()?;
         // SAFETY: `this` has refcount = 1
@@ -816,6 +827,7 @@ impl<T> InPlaceInit<T> for Arc<T> {
 impl<T> InPlaceInit<T> for Rc<T> {
     type Error<E> = AllocOrInitError<E>;
 
+    #[inline]
     fn pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, Self::Error<E>> {
         let mut this = Rc::try_new_uninit()?;
         // SAFETY: `this` has refcount = 1
@@ -827,6 +839,7 @@ impl<T> InPlaceInit<T> for Rc<T> {
         Ok(unsafe { Pin::new_unchecked(this.assume_init()) })
     }
 
+    #[inline]
     fn init<E>(init: impl Init<T, E>) -> Result<Self, Self::Error<E>> {
         let mut this = Rc::try_new_uninit()?;
         // SAFETY: `this` has refcount = 1
@@ -849,6 +862,7 @@ pub unsafe trait Zeroable {}
 /// Create a new zeroed T.
 ///
 /// The returned initializer will write `0x00` to every byte of the given slot.
+#[inline]
 pub fn zeroed<T: Zeroable + Unpin>() -> impl Init<T> {
     // SAFETY: because `T: Zeroable`, all bytes zero is a valid bit pattern for `T`
     //         and because we write all zeroes, the memory is initialized.
@@ -863,6 +877,7 @@ pub fn zeroed<T: Zeroable + Unpin>() -> impl Init<T> {
 /// An initializer that leaves the memory uninitialized.
 ///
 /// The initializer is a no-op. The slot memory is not changed.
+#[inline]
 pub fn uninit<T>() -> impl Init<MaybeUninit<T>> {
     // SAFETY: The memory is allowed to be uninitialized.
     unsafe { init_from_closure(|_| Ok(())) }
@@ -871,6 +886,7 @@ pub fn uninit<T>() -> impl Init<MaybeUninit<T>> {
 /// Convert a value into an initializer.
 ///
 /// Directly moves the value into the given slot.
+#[inline]
 pub fn from_value<T>(value: T) -> impl Init<T> {
     // SAFETY: we use the value to initialize the slot.
     unsafe {

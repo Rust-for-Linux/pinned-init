@@ -24,7 +24,23 @@ pub fn pin_project(args: TokenStream, item: TokenStream) -> TokenStream {
     pin_project::pin_project(args, item)
 }
 
-/// TODO
+/// Used to implement `PinnedDrop` safely.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// #[pin_project(PinnedDrop)]
+/// struct Foo {
+///     a: usize,
+/// }
+///
+/// #[pinned_drop]
+/// impl PinnedDrop for Foo {
+///     fn drop(self: Pin<&mut Self>) {
+///         pr_info!("dropping a Foo");
+///     }
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn pinned_drop(args: TokenStream, input: TokenStream) -> TokenStream {
     pinned_drop::pinned_drop(args, input)
