@@ -13,6 +13,7 @@ use std::{
 
 use pinned_init::*;
 #[allow(unused_attributes)]
+#[path = "./linked_list.rs"]
 pub mod linked_list;
 use linked_list::*;
 
@@ -32,7 +33,7 @@ impl SpinLock {
     }
 
     #[inline]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             inner: AtomicBool::new(false),
         }
@@ -77,6 +78,7 @@ impl<T> CMutex<T> {
                 Ok(w) => w,
                 Err(e) => match e {},
             };
+            // println!("wait list length: {}", self.wait_list.size());
             while self.locked.get() {
                 drop(sguard);
                 park();

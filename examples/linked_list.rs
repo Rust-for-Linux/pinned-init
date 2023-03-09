@@ -56,6 +56,16 @@ impl ListHead {
             Some(unsafe { NonNull::new_unchecked(self.next.as_ptr() as *mut Self) })
         }
     }
+
+    pub fn size(&self) -> usize {
+        let mut size = 1;
+        let mut cur = self.next.clone();
+        while !ptr::eq(self, cur.cur()) {
+            cur = cur.next().clone();
+            size += 1;
+        }
+        size
+    }
 }
 
 #[pinned_drop]
@@ -89,6 +99,10 @@ impl Link {
     #[inline]
     fn prev(&self) -> &Link {
         unsafe { &(*self.0.get().as_ptr()).prev }
+    }
+
+    fn cur(&self) -> &ListHead {
+        unsafe { &*self.0.get().as_ptr() }
     }
 
     #[inline]
