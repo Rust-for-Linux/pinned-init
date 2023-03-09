@@ -1,5 +1,7 @@
 // inspired by https://github.com/nbdd0121/pin-init/blob/trunk/examples/pthread_mutex.rs
+#![feature(allocator_api)]
 use core::{
+    alloc::AllocError,
     cell::UnsafeCell,
     marker::PhantomPinned,
     mem::MaybeUninit,
@@ -14,7 +16,7 @@ use std::{
     time::Duration,
 };
 
-#[pin_project(PinnedDrop)]
+#[pin_data(PinnedDrop)]
 pub struct PThreadMutex<T> {
     #[pin]
     raw: UnsafeCell<libc::pthread_mutex_t>,
@@ -28,16 +30,26 @@ unsafe impl<T: Send> Sync for PThreadMutex<T> {}
 #[pinned_drop]
 impl<T> PinnedDrop for PThreadMutex<T> {
     fn drop(self: Pin<&mut Self>) {
-        unsafe { libc::pthread_mutex_destroy(self.raw.get()) };
+        unsafe {
+            libc::pthread_mutex_destroy(self.raw.get());
+        }
     }
 }
 
 #[derive(Debug)]
-pub struct Error(std::io::Error);
+pub enum Error {
+    IO(std::io::Error),
+    Alloc,
+}
 
 impl From<Infallible> for Error {
     fn from(e: Infallible) -> Self {
         match e {}
+    }
+}
+impl From<AllocError> for Error {
+    fn from(_: AllocError) -> Self {
+        Self::Alloc
     }
 }
 
@@ -52,7 +64,7 @@ impl<T> PThreadMutex<T> {
                 // SAFETY: ptr is valid
                 let ret = unsafe { libc::pthread_mutexattr_init(attr) };
                 if ret != 0 {
-                    return Err(Error(std::io::Error::from_raw_os_error(ret)));
+                    return Err(Error::IO(std::io::Error::from_raw_os_error(ret)));
                 }
                 // SAFETY: attr is initialized
                 let ret =
@@ -60,7 +72,7 @@ impl<T> PThreadMutex<T> {
                 if ret != 0 {
                     // SAFETY: attr is initialized
                     unsafe { libc::pthread_mutexattr_destroy(attr) };
-                    return Err(Error(std::io::Error::from_raw_os_error(ret)));
+                    return Err(Error::IO(std::io::Error::from_raw_os_error(ret)));
                 }
                 // SAFETY: slot is valid
                 unsafe { slot.write(libc::PTHREAD_MUTEX_INITIALIZER) };
@@ -69,18 +81,18 @@ impl<T> PThreadMutex<T> {
                 // SAFETY: attr was initialized
                 unsafe { libc::pthread_mutexattr_destroy(attr) };
                 if ret != 0 {
-                    return Err(Error(std::io::Error::from_raw_os_error(ret)));
+                    return Err(Error::IO(std::io::Error::from_raw_os_error(ret)));
                 }
                 Ok(())
             };
             // SAFETY: mutex has been initialized
             unsafe { pin_init_from_closure(init) }
         }
-        pin_init!(Self {
+        try_pin_init!(Self {
             data: UnsafeCell::new(data),
-            raw: init_raw(),
+            raw <- init_raw(),
             pin: PhantomPinned,
-        })
+        }? Error)
     }
 
     pub fn lock(&self) -> PThreadMutexGuard<'_, T> {
@@ -116,7 +128,7 @@ impl<'a, T> DerefMut for PThreadMutexGuard<'a, T> {
 }
 
 fn main() {
-    let mtx: Pin<Arc<PThreadMutex<usize>>> = Arc::pin_init(PThreadMutex::new(0)).unwrap();
+    let mtx: Pin<Arc<PThreadMutex<usize>>> = Arc::try_pin_init(PThreadMutex::new(0)).unwrap();
     let mut handles = vec![];
     let thread_count = 20;
     let workload = 1_000_000;

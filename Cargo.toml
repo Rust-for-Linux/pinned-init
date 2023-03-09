@@ -18,7 +18,7 @@ pinned-init-macro = { path = "./pinned-init-macro", version = "=0.0.1" }
 
 [features]
 default = ["std"]
-std = []
+std = ["alloc"]
 alloc = []
 
 [dev-dependencies]

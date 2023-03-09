@@ -1,4 +1,6 @@
+#![feature(allocator_api)]
 use core::{
+    alloc::AllocError,
     cell::Cell,
     convert::Infallible,
     marker::PhantomPinned,
@@ -8,7 +10,7 @@ use core::{
 
 use pinned_init::*;
 
-#[pin_project(PinnedDrop)]
+#[pin_data(PinnedDrop)]
 #[repr(C)]
 #[derive(Debug)]
 pub struct ListHead {
@@ -20,30 +22,30 @@ pub struct ListHead {
 
 impl ListHead {
     #[inline]
-    pub fn new() -> impl PinInit<Self> {
-        pin_init!(&this in Self {
+    pub fn new() -> impl PinInit<Self, Infallible> {
+        try_pin_init!(&this in Self {
             next: unsafe { Link::new_unchecked(this) },
             prev: unsafe { Link::new_unchecked(this) },
             pin: PhantomPinned,
-        })
+        }? Infallible)
     }
 
     #[inline]
-    pub fn insert_next(list: &ListHead) -> impl PinInit<Self> + '_ {
-        pin_init!(&this in Self {
+    pub fn insert_next(list: &ListHead) -> impl PinInit<Self, Infallible> + '_ {
+        try_pin_init!(&this in Self {
             prev: list.next.prev().replace(unsafe { Link::new_unchecked(this)}),
             next: list.next.replace(unsafe { Link::new_unchecked(this)}),
             pin: PhantomPinned,
-        })
+        }? Infallible)
     }
 
     #[inline]
-    pub fn insert_prev(list: &ListHead) -> impl PinInit<Self> + '_ {
-        pin_init!(&this in Self {
+    pub fn insert_prev(list: &ListHead) -> impl PinInit<Self, Infallible> + '_ {
+        try_pin_init!(&this in Self {
             next: list.prev.next().replace(unsafe { Link::new_unchecked(this)}),
             prev: list.prev.replace(unsafe { Link::new_unchecked(this)}),
             pin: PhantomPinned,
-        })
+        }? Infallible)
     }
 
     #[inline]
@@ -105,15 +107,24 @@ impl Link {
     }
 }
 
+macro_rules! into_ok {
+    ($v:expr) => {
+        match $v {
+            Ok(v) => v,
+            Err(i) => match i {},
+        }
+    };
+}
+
 #[allow(dead_code)]
-fn main() -> Result<(), AllocOrInitError<Infallible>> {
+fn main() -> Result<(), AllocError> {
     let a = Box::pin_init(ListHead::new())?;
-    stack_init!(let b = ListHead::insert_next(&a));
-    let b = b?;
-    stack_init!(let c = ListHead::insert_next(&a));
-    let c = c?;
-    stack_init!(let d = ListHead::insert_next(&b));
-    let d = d?;
+    stack_pin_init!(let b = ListHead::insert_next(&a));
+    let b = into_ok!(b);
+    stack_pin_init!(let c = ListHead::insert_next(&a));
+    let c = into_ok!(c);
+    stack_pin_init!(let d = ListHead::insert_next(&b));
+    let d = into_ok!(d);
     let e = Box::pin_init(ListHead::insert_next(&b))?;
     println!("a ({a:p}): {a:?}");
     println!("b ({b:p}): {b:?}");

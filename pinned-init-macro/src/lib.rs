@@ -1,43 +1,77 @@
-mod pin_project;
+mod pin_data;
 mod pinned_drop;
 
 use proc_macro::TokenStream;
 
-/// Used to specify the pin information of the fields of a struct.
+
+/// Used to specify the pinning information of the fields of a struct.
 ///
 /// This is somewhat similar in purpose as
 /// [pin-project-lite](https://crates.io/crates/pin-project-lite).
 /// Place this macro on a struct definition and then `#[pin]` in front of the attributes of each
 /// field you want to have structurally pinned.
 ///
+/// This macro enables the use of the [`pin_init!`] macro. When pinned-initializing a `struct`,
+/// then `#[pin]` directs the type of intializer that is required.
+///
+/// If your `struct` implements `Drop`, then you need to add `PinnedDrop` as arguments to this
+/// macro, and change your `Drop` implementation to `PinnedDrop` annotated with
+/// `#[`[`macro@pinned_drop`]`]`, since dropping pinned values requires extra care.
+///
 /// # Examples
 ///
 /// ```rust,ignore
-/// #[pin_project]
-/// struct A {
+/// #[pin_data]
+/// struct DriverData {
 ///     #[pin]
-///     a: usize,
+///     queue: Mutex<Vec<Command>>,
+///     buf: Box<[u8; 1024 * 1024]>,
 /// }
 /// ```
+///
+/// ```rust,ignore
+/// #[pin_data(PinnedDrop)]
+/// struct DriverData {
+///     #[pin]
+///     queue: Mutex<Vec<Command>>,
+///     buf: Box<[u8; 1024 * 1024]>,
+///     raw_info: *mut Info,
+/// }
+///
+/// #[pinned_drop]
+/// impl PinnedDrop for DriverData {
+///     fn drop(self: Pin<&mut Self>) {
+///         unsafe { bindings::destroy_info(self.raw_info) };
+///     }
+/// }
+/// ```
+///
+/// [`pin_init!`]: ../kernel/macro.pin_init.html
+//  ^ cannot use direct link, since `kernel` is not a dependency of `macros`
 #[proc_macro_attribute]
-pub fn pin_project(args: TokenStream, item: TokenStream) -> TokenStream {
-    pin_project::pin_project(args, item)
+pub fn pin_data(inner: TokenStream, item: TokenStream) -> TokenStream {
+    pin_data::pin_data(inner, item)
 }
 
 /// Used to implement `PinnedDrop` safely.
 ///
+/// Only works on structs that are annotated via `#[`[`macro@pin_data`]`]`.
+///
 /// # Examples
 ///
 /// ```rust,ignore
-/// #[pin_project(PinnedDrop)]
-/// struct Foo {
-///     a: usize,
+/// #[pin_data(PinnedDrop)]
+/// struct DriverData {
+///     #[pin]
+///     queue: Mutex<Vec<Command>>,
+///     buf: Box<[u8; 1024 * 1024]>,
+///     raw_info: *mut Info,
 /// }
 ///
 /// #[pinned_drop]
-/// impl PinnedDrop for Foo {
+/// impl PinnedDrop for DriverData {
 ///     fn drop(self: Pin<&mut Self>) {
-///         pr_info!("dropping a Foo");
+///         unsafe { bindings::destroy_info(self.raw_info) };
 ///     }
 /// }
 /// ```
