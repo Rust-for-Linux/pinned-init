@@ -1,6 +1,6 @@
 [package]
 name = "pinned-init"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 
 authors = ["y86-dev"]
@@ -9,7 +9,7 @@ description = "Library to facilitate safe pinned initialization"
 readme = "README.md"
 
 documentation = "https://docs.rs/pinned-init"
-repository = "https://github.com/y86-dev/pinned-init"
+repository = "https://github.com/Rust-for-Linux/pinned-init"
 keywords = ["safe", "pin", "init", "no-std", "rust-patterns"]
 categories = ["no-std", "rust-patterns", "embedded"]
 
