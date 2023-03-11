@@ -16,6 +16,8 @@
 //!
 //! This library allows you to do in-place initialization safely.
 //!
+//! This library requires unstable features and thus can only be used with a nightly compiler.
+//!
 //! # Overview
 //!
 //! To initialize a `struct` with an in-place constructor you will need two things:
@@ -118,7 +120,7 @@
 //! # impl From<AllocError> for DriverDataError {
 //! #     fn from(_: AllocError) -> Self { Self }
 //! # }
-//!
+//! #
 //! impl DriverData {
 //!     fn new() -> impl PinInit<Self, DriverDataError> {
 //!         try_pin_init!(Self {
