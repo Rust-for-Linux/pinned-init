@@ -49,7 +49,7 @@ pub(crate) fn pin_data(
             tt => {
                 if nesting == 1 {
                     match &tt {
-                        TokenTree::Ident(i) if i.to_string() == "const" => {}
+                        TokenTree::Ident(i) if *i == "const" => {}
                         TokenTree::Ident(_) if at_start => {
                             ty_generics.push(tt.clone());
                             ty_generics.push(TokenTree::Punct(Punct::new(',', Spacing::Alone)));
