@@ -21,6 +21,7 @@ pub struct PThreadMutex<T> {
     #[pin]
     raw: UnsafeCell<libc::pthread_mutex_t>,
     data: UnsafeCell<T>,
+    #[pin]
     pin: PhantomPinned,
 }
 

@@ -101,7 +101,8 @@
 //! # #![feature(allocator_api)]
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 //! # use pinned_init::*;
-//! let mtx: Result<Arc<CMutex<usize>>> = Arc::pin_init(CMutex::new(42));
+//! # use std::{alloc::AllocError, pin::Pin};
+//! let mtx: Result<Pin<Box<CMutex<usize>>>, AllocError> = Box::pin_init(CMutex::new(42));
 //! ```
 //!
 //! To declare an init macro/function you just return an [`impl PinInit<T, E>`]:
@@ -520,9 +521,10 @@ macro_rules! pin_init {
 /// # Examples
 ///
 /// ```rust
-/// # #![feature(allocator_api)]
+/// # #![feature(allocator_api, new_uninit)]
 /// # use core::alloc::AllocError;
 /// use pinned_init::*;
+/// #[pin_data]
 /// struct BigBuf {
 ///     big: Box<[u8; 1024 * 1024 * 1024]>,
 ///     small: [u8; 1024 * 1024],
@@ -1179,7 +1181,7 @@ pub const unsafe fn init_from_closure<T: ?Sized, E>(
 /// This trait must be implemented via the [`pinned_drop`] proc-macro attribute on the impl.
 ///
 /// [`pinned_drop`]: pinned_init_macro::pinned_drop
-pub unsafe trait PinnedDrop: __internal::PinData {
+pub unsafe trait PinnedDrop: __internal::HasPinData {
     /// Executes the pinned destructor of this type.
     ///
     /// While this function is marked safe, it is actually unsafe to call it manually. For this
