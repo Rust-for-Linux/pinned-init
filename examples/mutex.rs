@@ -28,7 +28,11 @@ impl SpinLock {
             .inner
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
             .is_err()
-        {}
+        {
+            while self.inner.load(Ordering::Relaxed) {
+                thread::yield_now();
+            }
+        }
         SpinLockGuard(self)
     }
 
@@ -61,7 +65,7 @@ pub struct CMutex<T> {
 impl<T> CMutex<T> {
     #[inline]
     pub fn new(val: T) -> impl PinInit<Self> {
-        pin_init!(Self {
+        pin_init!(CMutex {
             wait_list <- ListHead::new(),
             spin_lock: SpinLock::new(),
             locked: Cell::new(false),
