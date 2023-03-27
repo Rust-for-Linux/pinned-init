@@ -4,8 +4,11 @@
 //! `pinned_drop`. These macros should never be called directly, since they expect their input to be
 //! in a certain format which is internal. Use the proc-macros instead.
 //!
-//! This architecture has been chosen, because the kernel does not yet have access to `syn` which
+//! This architecture has been chosen because the kernel does not yet have access to `syn` which
 //! would make matters a lot easier for implementing these as proc-macros.
+//!
+//! Since this library and the kernel implementation should diverge as little as possible, the same
+//! approach has been taken here.
 
 /// This macro creates a `unsafe impl<...> PinnedDrop for $type` block.
 ///
@@ -25,26 +28,15 @@ macro_rules! __pinned_drop {
         unsafe $($impl_sig)* {
             // Inherit all attributes and the type/ident tokens for the signature.
             $(#[$($attr)*])*
-            unsafe fn drop($self: $st) {
+            fn drop($self: $st, _: $crate::__internal::OnlyCallFromDrop) {
                 $($inner)*
-            }
-
-            // The `drop` function has to be `unsafe`, since calling it twice is UB. But the
-            // `drop` function the user declared is safe. We need to prevent users from doing
-            // `unsafe` operations inside the body. Hence we declare this function which should not
-            // be called (see the `PinnedDrop` trait) and which does nothing, we rely on type
-            // checking to catch `unsafe` operations without `unsafe` blocks.
-            fn __ensure_no_unsafe_op_in_drop($self: $st) {
-                if false {
-                    $($inner)*
-                }
             }
         }
     }
 }
 
 /// This macro first parses the struct definition such that it separates pinned and not pinned
-/// fields. Afterwards it declares the struct and implement the `__PinData` trait safely.
+/// fields. Afterwards it declares the struct and implement the `PinData` trait safely.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __pin_data {
@@ -96,6 +88,44 @@ macro_rules! __pin_data {
             // Contains `yes` or `` to indicate if `#[pin]` was found on the current field.
             @is_pinned(),
             // The proc-macro argument, this should be `PinnedDrop` or ``.
+            @pinned_drop($($pinned_drop)?),
+        );
+    };
+    (find_pinned_fields:
+        @struct_attrs($($struct_attrs:tt)*),
+        @vis($vis:vis),
+        @name($name:ident),
+        @impl_generics($($impl_generics:tt)*),
+        @ty_generics($($ty_generics:tt)*),
+        @where($($whr:tt)*),
+        // We found a PhantomPinned field, this should generally be pinned!
+        @fields_munch($field:ident : $($($(::)?core::)?marker::)?PhantomPinned, $($rest:tt)*),
+        @pinned($($pinned:tt)*),
+        @not_pinned($($not_pinned:tt)*),
+        @fields($($fields:tt)*),
+        @accum($($accum:tt)*),
+        // This field is not pinned.
+        @is_pinned(),
+        @pinned_drop($($pinned_drop:ident)?),
+    ) => {
+        ::core::compile_error!(concat!(
+            "The field `",
+            stringify!($field),
+            "` of type `PhantomPinned` only has an effect, if it has the `#[pin]` attribute.",
+        ));
+        $crate::__pin_data!(find_pinned_fields:
+            @struct_attrs($($struct_attrs)*),
+            @vis($vis),
+            @name($name),
+            @impl_generics($($impl_generics)*),
+            @ty_generics($($ty_generics)*),
+            @where($($whr)*),
+            @fields_munch($($rest)*),
+            @pinned($($pinned)* $($accum)* $field: ::core::marker::PhantomPinned,),
+            @not_pinned($($not_pinned)*),
+            @fields($($fields)* $($accum)* $field: ::core::marker::PhantomPinned,),
+            @accum(),
+            @is_pinned(),
             @pinned_drop($($pinned_drop)?),
         );
     };
@@ -304,6 +334,16 @@ macro_rules! __pin_data {
                 >,
             }
 
+            impl<$($impl_generics)*> ::core::clone::Clone for __ThePinData<$($ty_generics)*>
+            where $($whr)*
+            {
+                fn clone(&self) -> Self { *self }
+            }
+
+            impl<$($impl_generics)*> ::core::marker::Copy for __ThePinData<$($ty_generics)*>
+            where $($whr)*
+            {}
+
             // Make all projection functions.
             $crate::__pin_data!(make_pin_data:
                 @pin_data(__ThePinData),
@@ -316,10 +356,20 @@ macro_rules! __pin_data {
 
             // SAFETY: We have added the correct projection functions above to `__ThePinData` and
             // we also use the least restrictive generics possible.
-            unsafe impl<$($impl_generics)*> $crate::__PinData for $name<$($ty_generics)*>
+            unsafe impl<$($impl_generics)*> $crate::__internal::HasPinData for $name<$($ty_generics)*>
             where $($whr)*
             {
-                type __PinData = __ThePinData<$($ty_generics)*>;
+                type PinData = __ThePinData<$($ty_generics)*>;
+
+                unsafe fn __pin_data() -> Self::PinData {
+                    __ThePinData { __phantom: ::core::marker::PhantomData }
+                }
+            }
+
+            unsafe impl<$($impl_generics)*> $crate::__internal::PinData for __ThePinData<$($ty_generics)*>
+            where $($whr)*
+            {
+                type Datee = $name<$($ty_generics)*>;
             }
 
             // This struct will be used for the unpin analysis. Since only structurally pinned
@@ -393,8 +443,13 @@ macro_rules! __pin_data {
         where $($whr)*
         {
             fn drop(&mut self) {
+                // SAFETY: since this is a destructor, `self` will not move after this function
+                // terminates, since it is inaccessible.
                 let pinned = unsafe { ::core::pin::Pin::new_unchecked(self) };
-                unsafe { $crate::PinnedDrop::drop(pinned) }
+                // SAFETY: since this is a drop function, we can create this token to call the
+                // pinned destructor of this type.
+                let token = unsafe { $crate::__internal::OnlyCallFromDrop::create() };
+                $crate::PinnedDrop::drop(pinned, token);
             }
         }
     };
@@ -430,6 +485,7 @@ macro_rules! __pin_data {
         {
             $(
                 $pvis unsafe fn $p_field<E>(
+                    self,
                     slot: *mut $p_type,
                     init: impl $crate::PinInit<$p_type, E>,
                 ) -> ::core::result::Result<(), E> {
@@ -438,6 +494,7 @@ macro_rules! __pin_data {
             )*
             $(
                 $fvis unsafe fn $field<E>(
+                    self,
                     slot: *mut $type,
                     init: impl $crate::Init<$type, E>,
                 ) -> ::core::result::Result<(), E> {

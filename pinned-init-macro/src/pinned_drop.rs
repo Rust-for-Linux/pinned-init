@@ -44,8 +44,8 @@ pub(crate) fn pinned_drop(
     if let Some(TokenTree::Group(last)) = toks.pop() {
         let last = last.stream();
         quote::quote!(::pinned_init::__pinned_drop! {
-                @impl_sig(#(#toks)*),
-                @impl_body(#last),
+            @impl_sig(#(#toks)*),
+            @impl_body(#last),
         })
         .into()
     } else {

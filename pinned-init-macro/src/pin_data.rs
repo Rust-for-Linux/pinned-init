@@ -9,7 +9,7 @@ pub(crate) fn pin_data(
     let args: TokenStream = args.into();
     let input: TokenStream = input.into();
     // This proc-macro only does some pre-parsing and then delegates the actual parsing to
-    // `pinned_init::_pin_data!`.
+    // `pinned_init::__pin_data!`.
     //
     // In here we only collect the generics, since parsing them in declarative macros is very
     // elaborate. We also do not need to analyse their structure, we only need to collect them.
@@ -73,15 +73,13 @@ pub(crate) fn pin_data(
     rest.extend(toks);
     // This should be the body of the struct `{...}`.
     let last = rest.pop();
-    quote::quote! {
-        ::pinned_init::__pin_data!{
-            parse_input:
-            @args(#args),
-            @sig(#(#rest)*),
-            @impl_generics(#(#impl_generics)*),
-            @ty_generics(#(#ty_generics)*),
-            @body(#last),
-        }
-    }
+    quote::quote!(::pinned_init::__pin_data! {
+        parse_input:
+        @args(#args),
+        @sig(#(#rest)*),
+        @impl_generics(#(#impl_generics)*),
+        @ty_generics(#(#ty_generics)*),
+        @body(#last),
+    })
     .into()
 }
