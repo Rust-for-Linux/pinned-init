@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use proc_macro::{Delimiter, Group, Ident, Punct, Spacing, Span, TokenStream, TokenTree};
+use proc_macro2::{Punct, Spacing, TokenStream, TokenTree};
 
-pub(crate) fn pin_data(args: TokenStream, input: TokenStream) -> TokenStream {
+pub(crate) fn pin_data(
+    args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let args: TokenStream = args.into();
+    let input: TokenStream = input.into();
     // This proc-macro only does some pre-parsing and then delegates the actual parsing to
     // `pinned_init::_pin_data!`.
     //
@@ -68,49 +73,15 @@ pub(crate) fn pin_data(args: TokenStream, input: TokenStream) -> TokenStream {
     rest.extend(toks);
     // This should be the body of the struct `{...}`.
     let last = rest.pop();
-    let mut ret = vec![];
-    ret.extend("::pinned_init::__pin_data!".parse::<TokenStream>().unwrap());
-    ret.push(TokenTree::Group(Group::new(
-        Delimiter::Brace,
-        TokenStream::from_iter(vec![
-            TokenTree::Ident(Ident::new("parse_input", Span::call_site())),
-            TokenTree::Punct(Punct::new(':', Spacing::Alone)),
-            TokenTree::Punct(Punct::new('@', Spacing::Alone)),
-            TokenTree::Ident(Ident::new("args", Span::call_site())),
-            TokenTree::Group(Group::new(
-                Delimiter::Parenthesis,
-                TokenStream::from_iter(args),
-            )),
-            TokenTree::Punct(Punct::new(',', Spacing::Alone)),
-            TokenTree::Punct(Punct::new('@', Spacing::Alone)),
-            TokenTree::Ident(Ident::new("sig", Span::call_site())),
-            TokenTree::Group(Group::new(
-                Delimiter::Parenthesis,
-                TokenStream::from_iter(rest),
-            )),
-            TokenTree::Punct(Punct::new(',', Spacing::Alone)),
-            TokenTree::Punct(Punct::new('@', Spacing::Alone)),
-            TokenTree::Ident(Ident::new("impl_generics", Span::call_site())),
-            TokenTree::Group(Group::new(
-                Delimiter::Parenthesis,
-                TokenStream::from_iter(impl_generics),
-            )),
-            TokenTree::Punct(Punct::new(',', Spacing::Alone)),
-            TokenTree::Punct(Punct::new('@', Spacing::Alone)),
-            TokenTree::Ident(Ident::new("ty_generics", Span::call_site())),
-            TokenTree::Group(Group::new(
-                Delimiter::Parenthesis,
-                TokenStream::from_iter(ty_generics),
-            )),
-            TokenTree::Punct(Punct::new(',', Spacing::Alone)),
-            TokenTree::Punct(Punct::new('@', Spacing::Alone)),
-            TokenTree::Ident(Ident::new("body", Span::call_site())),
-            TokenTree::Group(Group::new(
-                Delimiter::Parenthesis,
-                TokenStream::from_iter(last),
-            )),
-            TokenTree::Punct(Punct::new(',', Spacing::Alone)),
-        ]),
-    )));
-    TokenStream::from_iter(ret)
+    quote::quote! {
+        ::pinned_init::__pin_data!{
+            parse_input:
+            @args(#args),
+            @sig(#(#rest)*),
+            @impl_generics(#(#impl_generics)*),
+            @ty_generics(#(#ty_generics)*),
+            @body(#last),
+        }
+    }
+    .into()
 }

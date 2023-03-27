@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use proc_macro::{Delimiter, Group, Ident, Punct, Spacing, Span, TokenStream, TokenTree};
+use proc_macro2::{TokenStream, TokenTree};
 
-pub(crate) fn pinned_drop(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub(crate) fn pinned_drop(
+    _args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let input: TokenStream = input.into();
     let mut toks = input.into_iter().collect::<Vec<_>>();
     assert!(!toks.is_empty());
     // Ensure that we have an `impl` item.
@@ -35,38 +39,16 @@ pub(crate) fn pinned_drop(_args: TokenStream, input: TokenStream) -> TokenStream
     let idx = pinned_drop_idx
         .unwrap_or_else(|| panic!("Expected an `impl` block implementing `PinnedDrop`."));
     // Fully qualify the `PinnedDrop`, as to avoid any tampering.
-    toks.splice(idx..idx, "::pinned_init::".parse::<TokenStream>().unwrap());
+    toks.splice(idx..idx, quote::quote!(::pinned_init::));
     // Take the `{}` body and call the declarative macro.
     if let Some(TokenTree::Group(last)) = toks.pop() {
-        TokenStream::from_iter(vec![
-            TokenTree::Punct(Punct::new(':', Spacing::Joint)),
-            TokenTree::Punct(Punct::new(':', Spacing::Alone)),
-            TokenTree::Ident(Ident::new("pinned_init", Span::call_site())),
-            TokenTree::Punct(Punct::new(':', Spacing::Joint)),
-            TokenTree::Punct(Punct::new(':', Spacing::Alone)),
-            TokenTree::Ident(Ident::new("__pinned_drop", Span::call_site())),
-            TokenTree::Punct(Punct::new('!', Spacing::Alone)),
-            TokenTree::Group(Group::new(
-                Delimiter::Brace,
-                TokenStream::from_iter(vec![
-                    TokenTree::Punct(Punct::new('@', Spacing::Alone)),
-                    TokenTree::Ident(Ident::new("impl_sig", Span::call_site())),
-                    TokenTree::Group(Group::new(
-                        Delimiter::Parenthesis,
-                        TokenStream::from_iter(toks),
-                    )),
-                    TokenTree::Punct(Punct::new(',', Spacing::Alone)),
-                    TokenTree::Punct(Punct::new('@', Spacing::Alone)),
-                    TokenTree::Ident(Ident::new("impl_body", Span::call_site())),
-                    TokenTree::Group(Group::new(
-                        Delimiter::Parenthesis,
-                        TokenStream::from_iter(last.stream()),
-                    )),
-                    TokenTree::Punct(Punct::new(',', Spacing::Alone)),
-                ]),
-            )),
-        ])
+        let last = last.stream();
+        quote::quote!(::pinned_init::__pinned_drop! {
+                @impl_sig(#(#toks)*),
+                @impl_body(#last),
+        })
+        .into()
     } else {
-        TokenStream::from_iter(toks)
+        TokenStream::from_iter(toks).into()
     }
 }
