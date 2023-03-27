@@ -21,7 +21,7 @@ This library requires unstable features and thus can only be used with a nightly
 To initialize a `struct` with an in-place constructor you will need two things:
 - an in-place constructor,
 - a memory location that can hold your `struct` (this can be the [stack], an [`Arc<T>`],
-  [`Box<T>`] or any other smart pointer [^1]).
+  [`Box<T>`] or any other smart pointer that implements [`InPlaceInit`]).
 
 To get an in-place constructor there are generally three options:
 - directly creating an in-place constructor using the [`pin_init!`] macro,
@@ -42,10 +42,10 @@ pinned to be locked and thus is a prime candidate for this library.
 ## Using the [`pin_init!`] macro
 
 If you want to use [`PinInit`], then you will have to annotate your `struct` with
-`#[`[`pin_data`]`]`. It is a macro that uses `#[pin]` as a marker for [structurally pinned fields].
-After doing this, you can then create an in-place constructor via [`pin_init!`]. The syntax is
-almost the same as normal `struct` initializers. The difference is that you need to write `<-`
-instead of `:` for fields that you want to initialize in-place.
+`#[`[`pin_data`]`]`. It is a macro that uses `#[pin]` as a marker for
+[structurally pinned fields]. After doing this, you can then create an in-place constructor via
+[`pin_init!`]. The syntax is almost the same as normal `struct` initializers. The difference is
+that you need to write `<-` instead of `:` for fields that you want to initialize in-place.
 
 ```rust
 use pinned_init::*;
@@ -73,8 +73,12 @@ For more information see the [`pin_init!`] macro.
 
 ## Using a custom function/macro that returns an initializer
 
-Many types from the kernel supply a function/macro that returns an initializer, because the
-above method only works for types where you can access the fields.
+Many types that use this library supply a function/macro that returns an initializer, because
+the above method only works for types where you can access the fields.
+
+```rust
+let mtx: Result<Pin<Box<CMutex<usize>>>, AllocError> = Box::pin_init(CMutex::new(42));
+```
 
 To declare an init macro/function you just return an [`impl PinInit<T, E>`]:
 
@@ -99,7 +103,7 @@ impl DriverData {
 }
 ```
 
-## Manual creation of an Initializer
+## Manual creation of an initializer
 
 Often when working with primitives the previous approaches are not sufficient. That is where
 [`pin_init_from_closure()`] comes in. This `unsafe` function allows you to create a
@@ -112,7 +116,6 @@ actually does the initialization in the correct way. Here are the things to look
   you need to take care to clean up anything if your initialization fails mid-way,
 - you may assume that `slot` will stay pinned even after the closure returns until `drop` of
   `slot` gets called.
-
 
 ```rust
 use pinned_init::*;
@@ -166,14 +169,10 @@ impl Drop for RawFoo {
 }
 ```
 
-For more information on how to use [`pin_init_from_closure()`], take a look at the uses inside
-kernel crate.
+For more information on how to use [`pin_init_from_closure()`], you can take a look at the
+uses inside the `kernel` crate from the [Rust-for-Linux] project. The `sync` module is a good
+starting point.
 
-
-[^1]: That is not entirely true, only smart pointers that implement [`InPlaceInit`].
-
-[sync]: pinned_init::sync
-[pinning]: https://doc.rust-lang.org/std/pin/index.html
 [structurally pinned fields]:
     https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
 [stack]: crate::stack_pin_init
@@ -182,6 +181,5 @@ kernel crate.
 [`impl PinInit<Foo>`]: PinInit
 [`impl PinInit<T, E>`]: PinInit
 [`impl Init<T, E>`]: Init
-[`Opaque`]: pinned_init::types::Opaque
 [`pin_data`]: ::pinned_init_macro::pin_data
 [Rust-for-Linux]: https://rust-for-linux.com/
