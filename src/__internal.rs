@@ -120,18 +120,22 @@ impl<T> StackInit<T> {
     }
 
     /// Initializes the contents and returns the result.
-    ///
-    /// # Safety
-    ///
-    /// The caller ensures that `self` is on the stack and not accessible in any other way, if this
-    /// function returns `Ok`.
     #[inline]
-    pub unsafe fn init<E>(&mut self, init: impl PinInit<T, E>) -> Result<Pin<&mut T>, E> {
+    pub fn init<E>(self: Pin<&mut Self>, init: impl PinInit<T, E>) -> Result<Pin<&mut T>, E> {
+        // SAFETY: We never move out of `this`.
+        let this = unsafe { Pin::into_inner_unchecked(self) };
+        // The value is currently initialized, so it needs to be dropped before we can reuse
+        // the memory (this is a safety guarantee of `Pin`).
+        if this.1 {
+            // SAFETY: `this.1` is true and we set it to false after this.
+            unsafe { this.0.assume_init_drop() };
+            this.1 = false;
+        }
         // SAFETY: The memory slot is valid and this type ensures that it will stay pinned.
-        unsafe { init.__pinned_init(self.0.as_mut_ptr())? };
-        self.1 = true;
+        unsafe { init.__pinned_init(this.0.as_mut_ptr())? };
+        this.1 = true;
         // SAFETY: The slot is now pinned, since we will never give access to `&mut T`.
-        Ok(unsafe { Pin::new_unchecked(self.0.assume_init_mut()) })
+        Ok(unsafe { Pin::new_unchecked(this.0.assume_init_mut()) })
     }
 }
 
@@ -189,7 +193,42 @@ impl OnlyCallFromDrop {
     ///
     /// This function should only be called from the [`Drop::drop`] function and only be used to
     /// delegate the destruction to the pinned destructor [`PinnedDrop::drop`] of the same type.
-    pub unsafe fn create() -> Self {
+    pub unsafe fn new() -> Self {
         Self(())
+    }
+}
+
+/// See the [nomicon] for what subtyping is. See also [this table].
+///
+/// [nomicon]: https://doc.rust-lang.org/nomicon/subtyping.html
+/// [this table]: https://doc.rust-lang.org/nomicon/phantom-data.html#table-of-phantomdata-patterns
+type Invariant<T> = PhantomData<fn(*mut T) -> *mut T>;
+
+/// This is the module-internal type implementing `PinInit` and `Init`. It is unsafe to create this
+/// type, since the closure needs to fulfill the same safety requirement as the
+/// `__pinned_init`/`__init` functions.
+pub(crate) struct InitClosure<F, T: ?Sized, E>(pub(crate) F, pub(crate) Invariant<(E, T)>);
+
+// SAFETY: While constructing the `InitClosure`, the user promised that it upholds the
+// `__pinned_init` invariants.
+unsafe impl<T: ?Sized, F, E> PinInit<T, E> for InitClosure<F, T, E>
+where
+    F: FnOnce(*mut T) -> Result<(), E>,
+{
+    #[inline]
+    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
+        (self.0)(slot)
+    }
+}
+
+// SAFETY: While constructing the `InitClosure`, the user promised that it upholds the
+// `__init` invariants.
+unsafe impl<T: ?Sized, F, E> Init<T, E> for InitClosure<F, T, E>
+where
+    F: FnOnce(*mut T) -> Result<(), E>,
+{
+    #[inline]
+    unsafe fn __init(self, slot: *mut T) -> Result<(), E> {
+        (self.0)(slot)
     }
 }

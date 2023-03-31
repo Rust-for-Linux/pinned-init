@@ -23,7 +23,7 @@ pub(crate) fn pin_data(
     // The current level of `<`.
     let mut nesting = 0;
     let mut toks = input.into_iter();
-    // if we are at the beginning of a generic parameter
+    // If we are at the beginning of a generic parameter.
     let mut at_start = true;
     for tt in &mut toks {
         match tt.clone() {

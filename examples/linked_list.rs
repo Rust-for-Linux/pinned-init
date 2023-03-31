@@ -121,24 +121,12 @@ impl Link {
     }
 }
 
-macro_rules! into_ok {
-    ($v:expr) => {
-        match $v {
-            Ok(v) => v,
-            Err(i) => match i {},
-        }
-    };
-}
-
 #[allow(dead_code)]
 fn main() -> Result<(), AllocError> {
     let a = Box::pin_init(ListHead::new())?;
     stack_pin_init!(let b = ListHead::insert_next(&a));
-    let b = into_ok!(b);
     stack_pin_init!(let c = ListHead::insert_next(&a));
-    let c = into_ok!(c);
     stack_pin_init!(let d = ListHead::insert_next(&b));
-    let d = into_ok!(d);
     let e = Box::pin_init(ListHead::insert_next(&b))?;
     println!("a ({a:p}): {a:?}");
     println!("b ({b:p}): {b:?}");

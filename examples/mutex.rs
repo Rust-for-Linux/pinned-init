@@ -78,10 +78,6 @@ impl<T> CMutex<T> {
         let mut sguard = self.spin_lock.acquire();
         if self.locked.get() {
             stack_pin_init!(let wait_entry = WaitEntry::insert_new(&self.wait_list));
-            let wait_entry = match wait_entry {
-                Ok(w) => w,
-                Err(e) => match e {},
-            };
             // println!("wait list length: {}", self.wait_list.size());
             while self.locked.get() {
                 drop(sguard);

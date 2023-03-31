@@ -31,7 +31,7 @@
 //! - using the unsafe function [`pin_init_from_closure()`] to manually create an initializer.
 //!
 //! Aside from pinned initialization, this library also supports in-place construction without pinning,
-//! the marcos/types/functions are generally named like the pinned variants without the `pin`
+//! the macros/types/functions are generally named like the pinned variants without the `pin`
 //! prefix.
 //!
 //! # Examples
@@ -156,7 +156,7 @@
 //! ```rust
 //! # #![feature(extern_types)]
 //! use pinned_init::*;
-//! use core::{ptr::addr_of_mut, marker::PhantomPinned, cell::UnsafeCell};
+//! use core::{ptr::addr_of_mut, marker::PhantomPinned, cell::UnsafeCell, pin::Pin};
 //! mod bindings {
 //!     extern "C" {
 //!         pub type foo;
@@ -166,8 +166,15 @@
 //!         pub fn enable_foo(ptr: *mut foo, flags: u32) -> i32;
 //!     }
 //! }
+//!
+//! /// # Invariants
+//! ///
+//! /// `foo` is always initialized
+//! #[pin_data(PinnedDrop)]
 //! pub struct RawFoo {
+//!     #[pin]
 //!     _p: PhantomPinned,
+//!     #[pin]
 //!     foo: UnsafeCell<bindings::foo>,
 //! }
 //!
@@ -181,8 +188,10 @@
 //!             pin_init_from_closure(move |slot: *mut Self| {
 //!                 // `slot` contains uninit memory, avoid creating a reference.
 //!                 let foo = addr_of_mut!((*slot).foo);
+//!
 //!                 // Initialize the `foo`
 //!                 bindings::init_foo(UnsafeCell::raw_get(foo));
+//!
 //!                 // Try to enable it.
 //!                 let err = bindings::enable_foo(UnsafeCell::raw_get(foo), flags);
 //!                 if err != 0 {
@@ -198,9 +207,10 @@
 //!     }
 //! }
 //!
-//! impl Drop for RawFoo {
-//!     fn drop(&mut self) {
-//!         // SAFETY: since foo has been initialized, destroying is safe
+//! #[pinned_drop]
+//! impl PinnedDrop for RawFoo {
+//!     fn drop(self: Pin<&mut Self>) {
+//!         // SAFETY: Since `foo` is initialized, destroying is safe.
 //!         unsafe { bindings::destroy_foo(self.foo.get()) };
 //!     }
 //! }
@@ -236,10 +246,11 @@ use core::{
     alloc::AllocError,
     cell::Cell,
     convert::Infallible,
-    marker::{PhantomData, Unpin},
+    marker::PhantomData,
     mem::MaybeUninit,
+    num::*,
     pin::Pin,
-    ptr,
+    ptr::{self, NonNull},
 };
 
 #[doc(hidden)]
@@ -271,37 +282,123 @@ pub use pinned_init_macro::{pin_data, pinned_drop};
 ///     x: u32,
 /// }
 ///
-/// let a = CMutex::new(42);
-///
-/// stack_pin_init!(let foo =? pin_init!(Foo {
-///     a <- a,
+/// stack_pin_init!(let foo = pin_init!(Foo {
+///     a <- CMutex::new(42),
 ///     b: Bar {
 ///         x: 64,
 ///     },
 /// }));
 /// let foo: Pin<&mut Foo> = foo;
-/// # Ok::<(), core::convert::Infallible>(())
+/// println!("a: {}", &*foo.a.lock());
 /// ```
 ///
 /// # Syntax
 ///
 /// A normal `let` binding with optional type annotation. The expression is expected to implement
-/// [`PinInit`]. Additionally a `?` can be put after the `=`, this will assign `Pin<&mut T>` to the
-/// variable instead of `Result<Pin<&mut T>, E>`.
+/// [`PinInit`]/[`Init`] with the error type [`Infallible`]. If you want to use a different error
+/// type, then use [`stack_try_pin_init!`].
 #[macro_export]
 macro_rules! stack_pin_init {
     (let $var:ident $(: $t:ty)? = $val:expr) => {
-        let mut $var = $crate::__internal::StackInit$(::<$t>)?::uninit();
+        let mut $var = ::core::pin::pin!($crate::__internal::StackInit$(::<$t>)?::uninit());
         let mut $var = {
             let val = $val;
-            unsafe { $crate::__internal::StackInit::init(&mut $var, val) }
+            match $crate::__internal::StackInit::init($var, val) {
+                Ok(res) => res,
+                Err(x) => {
+                    let x: ::core::convert::Infallible = x;
+                    match x {}
+                }
+            }
+        };
+    };
+}
+
+/// Initialize and pin a type directly on the stack.
+///
+/// # Examples
+///
+/// ```rust
+/// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
+/// # #![feature(allocator_api)]
+/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// # use pinned_init::*;
+/// # use core::{alloc::AllocError, pin::Pin, convert::Infallible};
+/// # #[derive(Debug)]
+/// # struct FooError;
+/// # impl From<AllocError> for FooError { fn from(_: AllocError) -> Self { Self } }
+/// # impl From<Infallible> for FooError { fn from(_: Infallible) -> Self { Self } }
+/// #[pin_data]
+/// struct Foo {
+///     #[pin]
+///     a: CMutex<usize>,
+///     b: Box<Bar>,
+/// }
+///
+/// struct Bar {
+///     x: u32,
+/// }
+///
+/// stack_try_pin_init!(let foo: Foo = try_pin_init!(Foo {
+///     a <- CMutex::new(42),
+///     b: Box::try_new(Bar {
+///         x: 64,
+///     })?,
+/// }? FooError));
+/// let foo = foo.unwrap();
+/// println!("a: {}", &*foo.a.lock());
+/// ```
+///
+/// ```rust
+/// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
+/// # #![feature(allocator_api)]
+/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// # use pinned_init::*;
+/// # use core::{alloc::AllocError, pin::Pin, convert::Infallible};
+/// # #[derive(Debug)]
+/// # struct FooError;
+/// # impl From<AllocError> for FooError { fn from(_: AllocError) -> Self { Self } }
+/// # impl From<Infallible> for FooError { fn from(_: Infallible) -> Self { Self } }
+/// #[pin_data]
+/// struct Foo {
+///     #[pin]
+///     a: CMutex<usize>,
+///     b: Box<Bar>,
+/// }
+///
+/// struct Bar {
+///     x: u32,
+/// }
+///
+/// stack_try_pin_init!(let foo: Foo =? try_pin_init!(Foo {
+///     a <- CMutex::new(42),
+///     b: Box::try_new(Bar {
+///         x: 64,
+///     })?,
+/// }? FooError));
+/// println!("a: {}", &*foo.a.lock());
+/// # Ok::<_, FooError>(())
+/// ```
+///
+/// # Syntax
+///
+/// A normal `let` binding with optional type annotation. The expression is expected to implement
+/// [`PinInit`]/[`Init`]. This macro assigns a result to the given variable, adding a `?` after the
+/// `=` will propagate this error.
+#[macro_export]
+macro_rules! stack_try_pin_init {
+    (let $var:ident $(: $t:ty)? = $val:expr) => {
+        let mut $var = ::core::pin::pin!($crate::__internal::StackInit$(::<$t>)?::uninit());
+        let mut $var = {
+            let val = $val;
+            $crate::__internal::StackInit::init($var, val)
         };
     };
     (let $var:ident $(: $t:ty)? =? $val:expr) => {
-        let mut $var = $crate::__internal::StackInit$(::<$t>)?::uninit();
+        let mut $var = ::core::pin::pin!($crate::__internal::StackInit$(::<$t>)?::uninit());
         let mut $var = {
             let val = $val;
-            unsafe { $crate::__internal::StackInit::init(&mut $var, val)? }
+            $crate::__internal::StackInit::init($var, val)?
         };
     };
 }
@@ -371,7 +468,6 @@ macro_rules! stack_pin_init {
 /// # struct Bar {
 /// #     x: u32,
 /// # }
-///
 /// impl Foo {
 ///     fn new() -> impl PinInit<Self> {
 ///         pin_init!(Self {
@@ -476,6 +572,7 @@ macro_rules! stack_pin_init {
 /// # use core::{ptr::addr_of_mut, marker::PhantomPinned};
 /// #[pin_data]
 /// struct Buf {
+///     // `ptr` points into `buf`.
 ///     ptr: *mut u8,
 ///     buf: [u8; 64],
 ///     #[pin]
@@ -489,6 +586,8 @@ macro_rules! stack_pin_init {
 /// ```
 ///
 /// [`NonNull<Self>`]: core::ptr::NonNull
+// For a detailed example of how this macro works, see the module documentation of the hidden
+// module `__internal` inside of `__internal.rs`.
 #[macro_export]
 macro_rules! pin_init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
@@ -534,16 +633,15 @@ macro_rules! pin_init {
 /// impl BigBuf {
 ///     fn new() -> impl PinInit<Self, AllocError> {
 ///         try_pin_init!(Self {
-///             big: {
-///                 let zero = Box::try_new_zeroed()?;
-///                 unsafe { zero.assume_init() }
-///             },
+///             big: Box::init(zeroed())?,
 ///             small: [0; 1024 * 1024],
 ///             ptr: core::ptr::null_mut(),
 ///         })
 ///     }
 /// }
 /// ```
+// For a detailed example of how this macro works, see the module documentation of the hidden
+// module `__internal` inside of `__internal.rs`.
 #[macro_export]
 macro_rules! try_pin_init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
@@ -577,7 +675,10 @@ macro_rules! try_pin_init {
         // no possibility of returning without `unsafe`.
         struct __InitOk;
         // Get the pin data from the supplied type.
-        let data = unsafe { use $crate::__internal::HasPinData; $t$(::<$($generics),*>)?::__pin_data() };
+        let data = unsafe {
+            use $crate::__internal::HasPinData;
+            $t$(::<$($generics),*>)?::__pin_data()
+        };
         // Ensure that `data` really is of type `PinData` and help with type inference:
         let init = $crate::__internal::PinData::make_closure::<_, __InitOk, $err>(
             data,
@@ -662,7 +763,7 @@ macro_rules! try_pin_init {
         @munch_fields($field:ident $(: $val:expr)?, $($rest:tt)*),
     ) => {
         $(let $field = $val;)?
-        // Call the initializer.
+        // Initialize the field.
         //
         // SAFETY: The memory at `slot` is uninitialized.
         unsafe { ::core::ptr::write(::core::ptr::addr_of_mut!((*$slot).$field), $field) };
@@ -760,6 +861,8 @@ macro_rules! try_pin_init {
 ///
 /// This initializer is for initializing data in-place that might later be moved. If you want to
 /// pin-initialize, use [`pin_init!`].
+// For a detailed example of how this macro works, see the module documentation of the hidden
+// module `__internal` inside of `__internal.rs`.
 #[macro_export]
 macro_rules! init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
@@ -810,6 +913,8 @@ macro_rules! init {
 ///     }
 /// }
 /// ```
+// For a detailed example of how this macro works, see the module documentation of the hidden
+// module `__internal` inside of `__internal.rs`.
 #[macro_export]
 macro_rules! try_init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
@@ -843,7 +948,10 @@ macro_rules! try_init {
         // no possibility of returning without `unsafe`.
         struct __InitOk;
         // Get the init data from the supplied type.
-        let data = unsafe { use $crate::__internal::HasInitData; $t$(::<$($generics),*>)?::__init_data() };
+        let data = unsafe {
+            use $crate::__internal::HasInitData;
+            $t$(::<$($generics),*>)?::__init_data()
+        };
         // Ensure that `data` really is of type `InitData` and help with type inference:
         let init = $crate::__internal::InitData::make_closure::<_, __InitOk, $err>(
             data,
@@ -851,8 +959,8 @@ macro_rules! try_init {
                 {
                     // Shadow the structure so it cannot be used to return early.
                     struct __InitOk;
-                    // Create the `this` so it can be referenced by the user inside of the expressions
-                    // creating the individual fields.
+                    // Create the `this` so it can be referenced by the user inside of the
+                    // expressions creating the individual fields.
                     $(let $this = unsafe { ::core::ptr::NonNull::new_unchecked(slot) };)?
                     // Initialize every field.
                     $crate::try_init!(init_slot:
@@ -1007,7 +1115,7 @@ macro_rules! try_init {
     };
 }
 
-/// A pinned initializer for `T`.
+/// A pin-initializer for the type `T`.
 ///
 /// To use this initializer, you will need a suitable memory location that can hold a `T`. This can
 /// be [`Box<T>`], [`Arc<T>`] or even the stack (see [`stack_pin_init!`]). Use the
@@ -1018,8 +1126,7 @@ macro_rules! try_init {
 /// # Safety
 ///
 /// When implementing this type you will need to take great care. Also there are probably very few
-/// cases where a manual implementation is necessary. Use [`from_value`] and
-/// [`pin_init_from_closure`] where possible.
+/// cases where a manual implementation is necessary. Use [`pin_init_from_closure`] where possible.
 ///
 /// The [`PinInit::__pinned_init`] function
 /// - returns `Ok(())` if it initialized every field of `slot`,
@@ -1055,8 +1162,7 @@ pub unsafe trait PinInit<T: ?Sized, E = Infallible>: Sized {
 /// # Safety
 ///
 /// When implementing this type you will need to take great care. Also there are probably very few
-/// cases where a manual implementation is necessary. Use [`from_value`] and
-/// [`init_from_closure`] where possible.
+/// cases where a manual implementation is necessary. Use [`init_from_closure`] where possible.
 ///
 /// The [`Init::__init`] function
 /// - returns `Ok(())` if it initialized every field of `slot`,
@@ -1085,36 +1191,6 @@ pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
     unsafe fn __init(self, slot: *mut T) -> Result<(), E>;
 }
 
-type Invariant<T> = PhantomData<fn(*mut T) -> *mut T>;
-// This is the module-internal type implementing `PinInit` and `Init`. It is unsafe to create this
-// type, since the closure needs to fulfill the same safety requirement as the
-// `__pinned_init`/`__init` functions.
-struct InitClosure<F, T: ?Sized, E>(F, Invariant<(E, T)>);
-
-// SAFETY: While constructing the `InitClosure`, the user promised that it upholds the
-// `__pinned_init` invariants.
-unsafe impl<T: ?Sized, F, E> PinInit<T, E> for InitClosure<F, T, E>
-where
-    F: FnOnce(*mut T) -> Result<(), E>,
-{
-    #[inline]
-    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
-        (self.0)(slot)
-    }
-}
-
-// SAFETY: While constructing the `InitClosure`, the user promised that it upholds the
-// `__init` invariants.
-unsafe impl<T: ?Sized, F, E> Init<T, E> for InitClosure<F, T, E>
-where
-    F: FnOnce(*mut T) -> Result<(), E>,
-{
-    #[inline]
-    unsafe fn __init(self, slot: *mut T) -> Result<(), E> {
-        (self.0)(slot)
-    }
-}
-
 /// Creates a new [`PinInit<T, E>`] from the given closure.
 ///
 /// # Safety
@@ -1131,7 +1207,7 @@ where
 pub const unsafe fn pin_init_from_closure<T: ?Sized, E>(
     f: impl FnOnce(*mut T) -> Result<(), E>,
 ) -> impl PinInit<T, E> {
-    InitClosure(f, PhantomData)
+    __internal::InitClosure(f, PhantomData)
 }
 
 /// Creates a new [`Init<T, E>`] from the given closure.
@@ -1150,7 +1226,130 @@ pub const unsafe fn pin_init_from_closure<T: ?Sized, E>(
 pub const unsafe fn init_from_closure<T: ?Sized, E>(
     f: impl FnOnce(*mut T) -> Result<(), E>,
 ) -> impl Init<T, E> {
-    InitClosure(f, PhantomData)
+    __internal::InitClosure(f, PhantomData)
+}
+
+/// An initializer that leaves the memory uninitialized.
+///
+/// The initializer is a no-op. The `slot` memory is not changed.
+#[inline]
+pub fn uninit<T, E>() -> impl Init<MaybeUninit<T>, E> {
+    // SAFETY: The memory is allowed to be uninitialized.
+    unsafe { init_from_closure(|_| Ok(())) }
+}
+
+// SAFETY: Every type can be initialized by-value.
+unsafe impl<T> PinInit<T> for T {
+    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), Infallible> {
+        unsafe { slot.write(self) };
+        Ok(())
+    }
+}
+
+// SAFETY: Every type can be initialized by-value.
+unsafe impl<T> Init<T> for T {
+    unsafe fn __init(self, slot: *mut T) -> Result<(), Infallible> {
+        unsafe { slot.write(self) };
+        Ok(())
+    }
+}
+
+/// Smart pointer that can initialize memory in-place.
+pub trait InPlaceInit<T>: Sized {
+    /// Use the given pin-initializer to pin-initialize a `T` inside of a new smart pointer of this
+    /// type.
+    ///
+    /// If `T: !Unpin` it will not be able to move afterwards.
+    fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
+    where
+        E: From<AllocError>;
+
+    /// Use the given pin-initializer to pin-initialize a `T` inside of a new smart pointer of this
+    /// type.
+    ///
+    /// If `T: !Unpin` it will not be able to move afterwards.
+    fn pin_init(init: impl PinInit<T>) -> Result<Pin<Self>, AllocError> {
+        // SAFETY: We delegate to `init` and only change the error type.
+        let init = unsafe {
+            pin_init_from_closure(|slot| init.__pinned_init(slot).map_err(|_| AllocError))
+        };
+        Self::try_pin_init(init)
+    }
+
+    /// Use the given initializer to in-place initialize a `T`.
+    fn try_init<E>(init: impl Init<T, E>) -> Result<Self, E>
+    where
+        E: From<AllocError>;
+
+    /// Use the given initializer to in-place initialize a `T`.
+    fn init(init: impl Init<T>) -> Result<Self, AllocError> {
+        let init = unsafe { init_from_closure(|slot| init.__init(slot).map_err(|_| AllocError)) };
+        Self::try_init(init)
+    }
+}
+
+#[cfg(any(feature = "alloc"))]
+impl<T> InPlaceInit<T> for Box<T> {
+    #[inline]
+    fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
+    where
+        E: From<AllocError>,
+    {
+        let mut this = Box::try_new_uninit()?;
+        let slot = this.as_mut_ptr();
+        // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
+        // slot is valid and will not be moved, because we pin it later.
+        unsafe { init.__pinned_init(slot)? };
+        // SAFETY: All fields have been initialized.
+        Ok(unsafe { this.assume_init() }.into())
+    }
+
+    #[inline]
+    fn try_init<E>(init: impl Init<T, E>) -> Result<Self, E>
+    where
+        E: From<AllocError>,
+    {
+        let mut this = Box::try_new_uninit()?;
+        let slot = this.as_mut_ptr();
+        // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
+        // slot is valid.
+        unsafe { init.__init(slot)? };
+        // SAFETY: All fields have been initialized.
+        Ok(unsafe { this.assume_init() })
+    }
+}
+
+#[cfg(any(feature = "alloc"))]
+impl<T> InPlaceInit<T> for Arc<T> {
+    #[inline]
+    fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
+    where
+        E: From<AllocError>,
+    {
+        let mut this = Arc::try_new_uninit()?;
+        let slot = unsafe { Arc::get_mut_unchecked(&mut this) };
+        let slot = slot.as_mut_ptr();
+        // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
+        // slot is valid and will not be moved, because we pin it later.
+        unsafe { init.__pinned_init(slot)? };
+        // SAFETY: All fields have been initialized and this is the only `Arc` to that data.
+        Ok(unsafe { Pin::new_unchecked(this.assume_init()) })
+    }
+
+    #[inline]
+    fn try_init<E>(init: impl Init<T, E>) -> Result<Self, E>
+    where
+        E: From<AllocError>,
+    {
+        let mut this = Arc::try_new_uninit()?;
+        let slot = unsafe { Arc::get_mut_unchecked(&mut this) };
+        let slot = slot.as_mut_ptr();
+        // SAFETY: when init errors/panics, slot will get deallocated but not dropped,
+        // slot is valid.
+        unsafe { init.__init(slot)? };
+        // SAFETY: All fields have been initialized.
+        Ok(unsafe { this.assume_init() })
+    }
 }
 
 /// Trait facilitating pinned destruction.
@@ -1193,101 +1392,6 @@ pub unsafe trait PinnedDrop: __internal::HasPinData {
     fn drop(self: Pin<&mut Self>, only_call_from_drop: __internal::OnlyCallFromDrop);
 }
 
-/// Smart pointer that can initialize memory in-place.
-pub trait InPlaceInit<T>: Sized {
-    /// Use the given initializer to in-place initialize a `T`.
-    ///
-    /// If `T: !Unpin` it will not be able to move afterwards.
-    fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
-    where
-        E: From<AllocError>;
-
-    /// Use the given initializer to in-place initialize a `T`.
-    ///
-    /// If `T: !Unpin` it will not be able to move afterwards.
-    fn pin_init(init: impl PinInit<T>) -> Result<Pin<Self>, AllocError> {
-        let init = unsafe {
-            pin_init_from_closure(|slot| init.__pinned_init(slot).map_err(|_| AllocError))
-        };
-        Self::try_pin_init(init)
-    }
-
-    /// Use the given initializer to in-place initialize a `T`.
-    fn try_init<E>(init: impl Init<T, E>) -> Result<Self, E>
-    where
-        E: From<AllocError>;
-
-    /// Use the given initializer to in-place initialize a `T`.
-    fn init(init: impl Init<T>) -> Result<Self, AllocError> {
-        let init = unsafe { init_from_closure(|slot| init.__init(slot).map_err(|_| AllocError)) };
-        Self::try_init(init)
-    }
-}
-
-#[cfg(any(feature = "alloc"))]
-impl<T> InPlaceInit<T> for Box<T> {
-    #[inline]
-    fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
-    where
-        E: From<AllocError>,
-    {
-        let mut this = Box::try_new_uninit()?;
-        let slot = this.as_mut_ptr();
-        // SAFETY: when init errors/panics, slot will get deallocated but not dropped,
-        // slot is valid and will not be moved because of the `Pin::new_unchecked`
-        unsafe { init.__pinned_init(slot)? };
-        // SAFETY: all fields have been initialized
-        Ok(unsafe { Pin::new_unchecked(this.assume_init()) })
-    }
-
-    #[inline]
-    fn try_init<E>(init: impl Init<T, E>) -> Result<Self, E>
-    where
-        E: From<AllocError>,
-    {
-        let mut this = Box::try_new_uninit()?;
-        let slot = this.as_mut_ptr();
-        // SAFETY: when init errors/panics, slot will get deallocated but not dropped,
-        // slot is valid
-        unsafe { init.__init(slot)? };
-        // SAFETY: all fields have been initialized
-        Ok(unsafe { this.assume_init() })
-    }
-}
-
-#[cfg(any(feature = "alloc"))]
-impl<T> InPlaceInit<T> for Arc<T> {
-    #[inline]
-    fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
-    where
-        E: From<AllocError>,
-    {
-        let mut this = Arc::try_new_uninit()?;
-        let slot = unsafe { Arc::get_mut_unchecked(&mut this) };
-        let slot = slot.as_mut_ptr();
-        // SAFETY: when init errors/panics, slot will get deallocated but not dropped,
-        // slot is valid and will not be moved because of the `Pin::new_unchecked`
-        unsafe { init.__pinned_init(slot)? };
-        // SAFETY: all fields have been initialized
-        Ok(unsafe { Pin::new_unchecked(this.assume_init()) })
-    }
-
-    #[inline]
-    fn try_init<E>(init: impl Init<T, E>) -> Result<Self, E>
-    where
-        E: From<AllocError>,
-    {
-        let mut this = Arc::try_new_uninit()?;
-        let slot = unsafe { Arc::get_mut_unchecked(&mut this) };
-        let slot = slot.as_mut_ptr();
-        // SAFETY: when init errors/panics, slot will get deallocated but not dropped,
-        // slot is valid
-        unsafe { init.__init(slot)? };
-        // SAFETY: all fields have been initialized
-        Ok(unsafe { this.assume_init() })
-    }
-}
-
 /// Marker trait for types that can be initialized by writing just zeroes.
 ///
 /// # Safety
@@ -1315,53 +1419,12 @@ pub fn zeroed<T: Zeroable + Unpin>() -> impl Init<T> {
     }
 }
 
-/// An initializer that leaves the memory uninitialized.
-///
-/// The initializer is a no-op. The `slot` memory is not changed.
-#[inline]
-pub fn uninit<T>() -> impl Init<MaybeUninit<T>> {
-    // SAFETY: The memory is allowed to be uninitialized.
-    unsafe { init_from_closure(|_| Ok(())) }
-}
-
-/// Convert a value into an initializer.
-///
-/// Directly moves the value into the given `slot`.
-///
-/// Note that you can just write `field: value,` in all initializer macros. This function's purpose
-/// is to provide compatibility with APIs that only have `PinInit`/`Init` as parameters.
-#[inline]
-pub fn from_value<T>(value: T) -> impl Init<T> {
-    // SAFETY: We use the value to initialize the slot.
-    unsafe {
-        init_from_closure(move |slot: *mut T| {
-            slot.write(value);
-            Ok(())
-        })
-    }
-}
-
-// SAFETY: Every type can be initialized by-value.
-unsafe impl<T> PinInit<T> for T {
-    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), Infallible> {
-        unsafe { slot.write(self) };
-        Ok(())
-    }
-}
-
-// SAFETY: Every type can be initialized by-value.
-unsafe impl<T> Init<T> for T {
-    unsafe fn __init(self, slot: *mut T) -> Result<(), Infallible> {
-        unsafe { slot.write(self) };
-        Ok(())
-    }
-}
-
 macro_rules! impl_zeroable {
-    ($($t:ty, )*) => {
-        $(unsafe impl Zeroable for $t {})*
+    ($($({$($generics:tt)*})? $t:ty, )*) => {
+        $(unsafe impl$($($generics)*)? Zeroable for $t {})*
     };
 }
+
 impl_zeroable! {
     // SAFETY: All primitives that are allowed to be zero.
     bool,
@@ -1369,19 +1432,38 @@ impl_zeroable! {
     u8, u16, u32, u64, u128, usize,
     i8, i16, i32, i64, i128, isize,
     f32, f64,
-    // SAFETY: There is nothing to zero.
-    core::marker::PhantomPinned, Infallible, (),
+
+    // SAFETY: These are ZSTs, there is nothing to zero.
+    {<T: ?Sized>} PhantomData<T>, core::marker::PhantomPinned, Infallible, (),
+
+    // SAFETY: Type is allowed to take any value, including all zeros.
+    {<T>} MaybeUninit<T>,
+
+    // SAFETY: All zeros is equivalent to `None` (option layout optimization guarantee).
+    Option<NonZeroU8>, Option<NonZeroU16>, Option<NonZeroU32>, Option<NonZeroU64>,
+    Option<NonZeroU128>, Option<NonZeroUsize>,
+    Option<NonZeroI8>, Option<NonZeroI16>, Option<NonZeroI32>, Option<NonZeroI64>,
+    Option<NonZeroI128>, Option<NonZeroIsize>,
+
+    // SAFETY: All zeros is equivalent to `None` (option layout optimization guarantee).
+    //
+    // In this case we are allowed to use `T: ?Sized`, since all zeros is the `None` variant.
+    {<T: ?Sized>} Option<NonNull<T>>,
+    {<T: ?Sized>} Option<Box<T>>,
+
+    // SAFETY: `null` pointer is valid.
+    //
+    // We cannot use `T: ?Sized`, since the VTABLE pointer part of fat pointers is not allowed to be
+    // null.
+    {<T>} *mut T, {<T>} *const T,
+
+    // SAFETY: `null` pointer is valid and the metadata part of these fat pointers is allowed to be
+    // zero.
+    {<T>} *mut [T], {<T>} *const [T], *mut str, *const str,
+
+    // SAFETY: `T` is `Zeroable`.
+    {<const N: usize, T: Zeroable>} [T; N], {<T: Zeroable>} Wrapping<T>,
 }
-
-// SAFETY: We are allowed to zero padding bytes.
-unsafe impl<const N: usize, T: Zeroable> Zeroable for [T; N] {}
-
-// SAFETY: There is nothing to zero.
-unsafe impl<T: ?Sized> Zeroable for PhantomData<T> {}
-
-// SAFETY: `null` pointer is valid.
-unsafe impl<T: ?Sized> Zeroable for *mut T {}
-unsafe impl<T: ?Sized> Zeroable for *const T {}
 
 macro_rules! impl_tuple_zeroable {
     ($(,)?) => {};
