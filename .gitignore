@@ -1,4 +1,3 @@
 target/
 simple-safe-init-internal/target/
-Cargo.lock
 *.swp
