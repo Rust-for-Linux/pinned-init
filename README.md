@@ -29,7 +29,7 @@ To get an in-place constructor there are generally three options:
 - using the unsafe function [`pin_init_from_closure()`] to manually create an initializer.
 
 Aside from pinned initialization, this library also supports in-place construction without pinning,
-the marcos/types/functions are generally named like the pinned variants without the `pin`
+the macros/types/functions are generally named like the pinned variants without the `pin`
 prefix.
 
 # Examples
@@ -119,7 +119,7 @@ actually does the initialization in the correct way. Here are the things to look
 
 ```rust
 use pinned_init::*;
-use core::{ptr::addr_of_mut, marker::PhantomPinned, cell::UnsafeCell};
+use core::{ptr::addr_of_mut, marker::PhantomPinned, cell::UnsafeCell, pin::Pin};
 mod bindings {
     extern "C" {
         pub type foo;
@@ -129,8 +129,15 @@ mod bindings {
         pub fn enable_foo(ptr: *mut foo, flags: u32) -> i32;
     }
 }
+
+/// # Invariants
+///
+/// `foo` is always initialized
+#[pin_data(PinnedDrop)]
 pub struct RawFoo {
+    #[pin]
     _p: PhantomPinned,
+    #[pin]
     foo: UnsafeCell<bindings::foo>,
 }
 
@@ -144,8 +151,10 @@ impl RawFoo {
             pin_init_from_closure(move |slot: *mut Self| {
                 // `slot` contains uninit memory, avoid creating a reference.
                 let foo = addr_of_mut!((*slot).foo);
+
                 // Initialize the `foo`
                 bindings::init_foo(UnsafeCell::raw_get(foo));
+
                 // Try to enable it.
                 let err = bindings::enable_foo(UnsafeCell::raw_get(foo), flags);
                 if err != 0 {
@@ -161,9 +170,10 @@ impl RawFoo {
     }
 }
 
-impl Drop for RawFoo {
-    fn drop(&mut self) {
-        // SAFETY: since foo has been initialized, destroying is safe
+#[pinned_drop]
+impl PinnedDrop for RawFoo {
+    fn drop(self: Pin<&mut Self>) {
+        // SAFETY: Since `foo` is initialized, destroying is safe.
         unsafe { bindings::destroy_foo(self.foo.get()) };
     }
 }
