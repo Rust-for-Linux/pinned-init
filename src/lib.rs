@@ -1420,8 +1420,11 @@ pub fn zeroed<T: Zeroable + Unpin>() -> impl Init<T> {
 }
 
 macro_rules! impl_zeroable {
-    ($($({$($generics:tt)*})? $t:ty, )*) => {
-        $(unsafe impl$($($generics)*)? Zeroable for $t {})*
+    ($($(#[$attr:meta])*$({$($generics:tt)*})? $t:ty, )*) => {
+        $(
+            $(#[$attr])*
+            unsafe impl$($($generics)*)? Zeroable for $t {}
+        )*
     };
 }
 
@@ -1449,6 +1452,7 @@ impl_zeroable! {
     //
     // In this case we are allowed to use `T: ?Sized`, since all zeros is the `None` variant.
     {<T: ?Sized>} Option<NonNull<T>>,
+    #[cfg(feature = "alloc")]
     {<T: ?Sized>} Option<Box<T>>,
 
     // SAFETY: `null` pointer is valid.

@@ -11,7 +11,7 @@ jobs:
     name: ubuntu / ${{ matrix.toolchain }}
     strategy:
       matrix:
-        toolchain: [stable, beta]
+        toolchain: [nightly]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -20,6 +20,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
+          components: rust-src
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
@@ -29,26 +30,9 @@ jobs:
       # https://github.com/rust-lang/cargo/issues/6669
       - name: cargo test --doc
         run: cargo test --locked --all-features --doc
-  minimal:
-    runs-on: ubuntu-latest
-    name: ubuntu / stable / minimal-versions
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - name: Install stable
-        uses: dtolnay/rust-toolchain@stable
-      - name: Install nightly for -Zminimal-versions
-        uses: dtolnay/rust-toolchain@nightly
-      - name: rustup default stable
-        run: rustup default stable
-      - name: cargo update -Zminimal-versions
-        run: cargo +nightly update -Zminimal-versions
-      - name: cargo test
-        run: cargo test --locked --all-features --all-targets
   os-check:
     runs-on: ${{ matrix.os }}
-    name: ${{ matrix.os }} / stable
+    name: ${{ matrix.os }} / nightly
     strategy:
       fail-fast: false
       matrix:
@@ -57,32 +41,35 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Install stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
       - name: cargo test
         run: cargo test --locked --all-features --all-targets
-  coverage:
-    runs-on: ubuntu-latest
-    name: ubuntu / stable / coverage
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - name: Install stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
-      - name: cargo install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-      - name: cargo generate-lockfile
-        if: hashFiles('Cargo.lock') == ''
-        run: cargo generate-lockfile
-      - name: cargo llvm-cov
-        run: cargo llvm-cov --locked --all-features --lcov --output-path lcov.info
-      - name: Upload to codecov.io
-        uses: codecov/codecov-action@v3
-        with:
-          fail_ci_if_error: true
+# for now disable coverage
+# coverage:
+#   runs-on: ubuntu-latest
+#   name: ubuntu / nightly / coverage
+#   steps:
+#     - uses: actions/checkout@v3
+#       with:
+#         submodules: true
+#     - name: Install nightly
+#       uses: dtolnay/rust-toolchain@nightly
+#       with:
+#         components: llvm-tools-preview,rust-src
+#     - name: cargo install cargo-llvm-cov
+#       uses: taiki-e/install-action@cargo-llvm-cov
+#     - name: cargo generate-lockfile
+#       if: hashFiles('Cargo.lock') == ''
+#       run: cargo generate-lockfile
+#     - name: cargo llvm-cov
+#       run: cargo llvm-cov --locked --all-features --lcov --output-path lcov.info
+#     - name: Upload to codecov.io
+#       uses: codecov/codecov-action@v3
+#       with:
+#         fail_ci_if_error: true
