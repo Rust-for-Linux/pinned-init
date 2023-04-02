@@ -1,5 +1,5 @@
 permissions:
-  contents: read
+  contents: write
 on:
   push:
     branches: [main]
@@ -69,15 +69,18 @@ jobs:
       - name: cargo llvm-cov
         run: |
           mkdir -p coverage/coverage
-          cargo llvm-cov --locked --all-features --html
-          mv "target/llvm-cov/html" "coverage/coverage/${{ github.ref_name }}-${{ github.sha }}.html"
+          cargo llvm-cov --locked --all-features --doctests --html
+          mv "target/llvm-cov/html" "coverage/coverage/${{ github.sha }}"
       - name: Upload to gh-pages
         run: |
           cd coverage
+          git config --global init.defaultBranch gh-pages
           git init
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY"
+          git fetch origin
+          git pull origin gh-pages
           git config user.name CI
           git config user.email ""
-          git diff
-          #git add .
-          #git commit -m "Deploy $GITHUB_SHA to branch `gh-pages`"
-          #git push --force "https://x-token:${{ secrets.GITHUB_TOKEN }}@github.com/$GITHUB_REPOSITORY" HEAD:gh-pages
+          git add .
+          git commit -m "create coverage of `${{ github.head_ref }}` (${{ github.sha }})"
+          git push "https://x-token:${{ secrets.GITHUB_TOKEN }}@github.com/$GITHUB_REPOSITORY" HEAD:gh-pages
