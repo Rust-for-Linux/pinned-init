@@ -3,6 +3,7 @@
 [![Dependency status](https://deps.rs/repo/github/Rust-for-Linux/pinned-init/status.svg)](https://deps.rs/repo/github/Rust-for-Linux/pinned-init)
 ![License](https://img.shields.io/crates/l/pinned-init)
 [![Toolchain](https://img.shields.io/badge/toolchain-nightly-red)](#nightly-only)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Rust-for-Linux/pinned-init/test.yml)
 
 Library to safely and fallibly initialize pinned `struct`s using in-place constructors.
 
