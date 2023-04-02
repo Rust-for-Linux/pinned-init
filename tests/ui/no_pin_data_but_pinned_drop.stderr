@@ -7,7 +7,7 @@ error[E0277]: the trait bound `Foo: HasPinData` is not satisfied
 note: required by a bound in `PinnedDrop`
     --> $SRC_DIR/src/lib.rs:1383:30
      |
-1383 | pub unsafe trait PinnedDrop: __internal::HasPinData {
+1393 | pub unsafe trait PinnedDrop: __internal::HasPinData {
      |                              ^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `PinnedDrop`
 
 error: aborting due to previous error
