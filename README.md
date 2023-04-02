@@ -1,3 +1,9 @@
+[![Crates.io](https://img.shields.io/crates/v/pinned-init.svg)](https://crates.io/crates/pinned-init)
+[![Documentation](https://docs.rs/pinned-init/badge.svg)](https://docs.rs/pinned-init/)
+[![Dependency status](https://deps.rs/repo/github/Rust-for-Linux/pinned-init/status.svg)](https://deps.rs/repo/github/Rust-for-Linux/pinned-init)
+![License](https://img.shields.io/crates/l/pinned-init)
+[![Toolchain](https://img.shields.io/badge/toolchain-nightly-red)](#nightly-only)
+
 Library to safely and fallibly initialize pinned `struct`s using in-place constructors.
 
 It also allows in-place initialization of big `struct`s that would otherwise produce a stack
@@ -14,7 +20,16 @@ it into it's final memory location.
 
 This library allows you to do in-place initialization safely.
 
+# Nightly only
+
 This library requires unstable features and thus can only be used with a nightly compiler.
+The used features are:
+- `allocator_api`
+- `new_uninit` (only if the `alloc` or `std` features are enabled)
+- `get_mut_unchecked` (only if the `alloc` or `std` features are enabled)
+
+The user will be required to activate these features:
+- `allocator_api`
 
 # Overview
 
