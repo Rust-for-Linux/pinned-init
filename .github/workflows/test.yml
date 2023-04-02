@@ -69,7 +69,8 @@ jobs:
       - name: cargo llvm-cov
         run: |
           mkdir -p coverage/coverage
-          cargo llvm-cov --locked --all-features --html --output-path "coverage/coverage/${{ github.ref_name }}-${{ github.sha }}.html"
+          cargo llvm-cov --locked --all-features --html
+          mv "target/llvm-cov/html" "coverage/coverage/${{ github.ref_name }}-${{ github.sha }}.html"
       - name: Upload to gh-pages
         run: |
           cd coverage
