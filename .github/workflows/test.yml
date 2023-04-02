@@ -82,5 +82,5 @@ jobs:
           git config user.name CI
           git config user.email ""
           git add .
-          git commit -m "create coverage of `${{ github.head_ref }}` (${{ github.sha }})"
+          git commit -m "Create coverage of PR #${{ github.event.number }} \`\"${{ github.head_ref }}\"\` (${{ github.sha }})"
           git push "https://x-token:${{ secrets.GITHUB_TOKEN }}@github.com/$GITHUB_REPOSITORY" HEAD:gh-pages
