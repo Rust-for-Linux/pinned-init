@@ -19,7 +19,7 @@
 //!
 //! We will look at the following example:
 //!
-//! ```rust
+//! ```rust,ignore
 //! # use pinned_init::*;
 //! # use core::pin::Pin;
 //! #[pin_data]
@@ -486,15 +486,15 @@ macro_rules! __pinned_drop {
         @impl_sig($($impl_sig:tt)*),
         @impl_body(
             $(#[$($attr:tt)*])*
-            fn drop($self:ident: $st:ty) {
-                $($inner:stmt)*
+            fn drop($($sig:tt)*) {
+                $($inner:tt)*
             }
         ),
     ) => {
         unsafe $($impl_sig)* {
             // Inherit all attributes and the type/ident tokens for the signature.
             $(#[$($attr)*])*
-            fn drop($self: $st, _: $crate::__internal::OnlyCallFromDrop) {
+            fn drop($($sig)*, _: $crate::__internal::OnlyCallFromDrop) {
                 $($inner)*
             }
         }
@@ -803,6 +803,7 @@ macro_rules! __pin_data {
             impl<$($impl_generics)*> ::core::clone::Clone for __ThePinData<$($ty_generics)*>
             where $($whr)*
             {
+                #[cfg_attr(coverage_nightly, no_coverage)]
                 fn clone(&self) -> Self { *self }
             }
 

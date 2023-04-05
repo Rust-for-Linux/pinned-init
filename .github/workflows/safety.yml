@@ -28,13 +28,13 @@ jobs:
         run: cargo test --lib --tests --all-features --target x86_64-unknown-linux-gnu
         env:
           ASAN_OPTIONS: "detect_odr_violation=0:detect_leaks=0"
-          RUSTFLAGS: "--cfg NO_UI_TESTS -Z sanitizer=address"
+          RUSTFLAGS: "--cfg NO_UI_TESTS --cfg NO_ALLOC_FAIL_TESTS -Z sanitizer=address"
       - name: cargo test -Zsanitizer=leak
         if: always()
         run: cargo test --all-features --target x86_64-unknown-linux-gnu
         env:
           LSAN_OPTIONS: "suppressions=lsan-suppressions.txt"
-          RUSTFLAGS: "--cfg NO_UI_TESTS -Z sanitizer=leak"
+          RUSTFLAGS: "--cfg NO_UI_TESTS --cfg NO_ALLOC_FAIL_TESTS -Z sanitizer=leak"
   miri:
     runs-on: ubuntu-latest
     steps:

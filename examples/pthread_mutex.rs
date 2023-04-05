@@ -1,5 +1,5 @@
 // inspired by https://github.com/nbdd0121/pin-init/blob/trunk/examples/pthread_mutex.rs
-#![feature(allocator_api)]
+#![feature(allocator_api, no_coverage)]
 #[cfg(not(windows))]
 mod pthread_mtx {
     use core::{

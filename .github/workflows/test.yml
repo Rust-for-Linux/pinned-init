@@ -1,5 +1,5 @@
 permissions:
-  contents: write
+  contents: read
 on:
   push:
     branches: [main]
@@ -50,37 +50,3 @@ jobs:
         run: cargo generate-lockfile
       - name: cargo test
         run: cargo test --locked --all-features --all-targets
-  coverage:
-    runs-on: ubuntu-latest
-    name: ubuntu / nightly / coverage
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - name: Install nightly
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: llvm-tools-preview,rust-src
-      - name: cargo install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-      - name: cargo generate-lockfile
-        if: hashFiles('Cargo.lock') == ''
-        run: cargo generate-lockfile
-      - name: cargo llvm-cov
-        run: |
-          mkdir -p coverage/coverage
-          cargo llvm-cov --locked --all-features --doctests --html
-          mv "target/llvm-cov/html" "coverage/coverage/${{ github.sha }}"
-      - name: Upload to gh-pages
-        run: |
-          cd coverage
-          git config --global init.defaultBranch gh-pages
-          git init
-          git remote add origin "https://github.com/$GITHUB_REPOSITORY"
-          git fetch origin
-          git pull origin gh-pages
-          git config user.name CI
-          git config user.email ""
-          git add .
-          git commit -m "Create coverage of PR #${{ github.event.number }} \`\"${{ github.head_ref }}\"\` (${{ github.sha }})"
-          git push "https://x-token:${{ secrets.GITHUB_TOKEN }}@github.com/$GITHUB_REPOSITORY" HEAD:gh-pages
