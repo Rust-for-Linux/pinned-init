@@ -1,4 +1,4 @@
-#![feature(allocator_api, once_cell)]
+#![feature(allocator_api, no_coverage)]
 
 use core::{
     cell::{Cell, UnsafeCell},

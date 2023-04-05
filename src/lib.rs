@@ -60,7 +60,7 @@
 //!
 //! ```rust
 //! # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
-//! # #![feature(allocator_api)]
+//! # #![feature(allocator_api, no_coverage)]
 //! use pinned_init::*;
 //! # use core::pin::Pin;
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
@@ -75,6 +75,7 @@
 //!     a <- CMutex::new(42),
 //!     b: 24,
 //! });
+//! # let _ = Box::pin_init(foo);
 //! ```
 //!
 //! `foo` now is of the type [`impl PinInit<Foo>`]. We can now use any smart pointer that we like
@@ -82,7 +83,7 @@
 //!
 //! ```rust
 //! # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
-//! # #![feature(allocator_api)]
+//! # #![feature(allocator_api, no_coverage)]
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 //! # use pinned_init::*;
 //! # use core::pin::Pin;
@@ -107,7 +108,7 @@
 //! the above method only works for types where you can access the fields.
 //!
 //! ```rust
-//! # #![feature(allocator_api)]
+//! # #![feature(allocator_api, no_coverage)]
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 //! # use pinned_init::*;
 //! # use std::{alloc::AllocError, pin::Pin};
@@ -118,7 +119,7 @@
 //!
 //! ```rust
 //! # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
-//! # #![feature(allocator_api)]
+//! # #![feature(allocator_api, no_coverage)]
 //! # use pinned_init::*;
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 //! use core::alloc::AllocError;
@@ -146,6 +147,7 @@
 //!         }? DriverDataError)
 //!     }
 //! }
+//! # let _ = Box::pin_init(DriverData::new());
 //! ```
 //!
 //! ## Manual creation of an initializer
@@ -164,6 +166,7 @@
 //!
 //! ```rust
 //! # #![feature(extern_types)]
+//! # #![cfg_attr(coverage_nightly, feature(no_coverage))]
 //! use pinned_init::*;
 //! use core::{ptr::addr_of_mut, marker::PhantomPinned, cell::UnsafeCell, pin::Pin};
 //! mod bindings {
@@ -188,6 +191,7 @@
 //! }
 //!
 //! impl RawFoo {
+//! #   #[cfg_attr(coverage_nightly, no_coverage)]
 //!     pub fn new(flags: u32) -> impl PinInit<Self, i32> {
 //!         // SAFETY:
 //!         // - when the closure returns `Ok(())`, then it has successfully initialized and
@@ -218,6 +222,7 @@
 //!
 //! #[pinned_drop]
 //! impl PinnedDrop for RawFoo {
+//! #   #[cfg_attr(coverage_nightly, no_coverage)]
 //!     fn drop(self: Pin<&mut Self>) {
 //!         // SAFETY: Since `foo` is initialized, destroying is safe.
 //!         unsafe { bindings::destroy_foo(self.foo.get()) };
@@ -245,6 +250,7 @@
 #![feature(allocator_api)]
 #![cfg_attr(any(feature = "alloc"), feature(new_uninit))]
 #![cfg_attr(any(feature = "alloc"), feature(get_mut_unchecked))]
+#![cfg_attr(coverage_nightly, feature(no_coverage))]
 
 #[cfg(any(feature = "alloc"))]
 extern crate alloc;
@@ -275,7 +281,7 @@ pub use pinned_init_macro::{pin_data, pinned_drop};
 ///
 /// ```rust
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
-/// # #![feature(allocator_api)]
+/// # #![feature(allocator_api, no_coverage)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -309,15 +315,13 @@ pub use pinned_init_macro::{pin_data, pinned_drop};
 #[macro_export]
 macro_rules! stack_pin_init {
     (let $var:ident $(: $t:ty)? = $val:expr) => {
+        let val = $val;
         let mut $var = ::core::pin::pin!($crate::__internal::StackInit$(::<$t>)?::uninit());
-        let mut $var = {
-            let val = $val;
-            match $crate::__internal::StackInit::init($var, val) {
-                Ok(res) => res,
-                Err(x) => {
-                    let x: ::core::convert::Infallible = x;
-                    match x {}
-                }
+        let mut $var = match $crate::__internal::StackInit::init($var, val) {
+            Ok(res) => res,
+            Err(x) => {
+                let x: ::core::convert::Infallible = x;
+                match x {}
             }
         };
     };
@@ -329,7 +333,7 @@ macro_rules! stack_pin_init {
 ///
 /// ```rust
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
-/// # #![feature(allocator_api)]
+/// # #![feature(allocator_api, no_coverage)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// # use core::{alloc::AllocError, pin::Pin, convert::Infallible};
@@ -360,7 +364,7 @@ macro_rules! stack_pin_init {
 ///
 /// ```rust
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
-/// # #![feature(allocator_api)]
+/// # #![feature(allocator_api, no_coverage)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// # use core::{alloc::AllocError, pin::Pin, convert::Infallible};
@@ -397,18 +401,16 @@ macro_rules! stack_pin_init {
 #[macro_export]
 macro_rules! stack_try_pin_init {
     (let $var:ident $(: $t:ty)? = $val:expr) => {
+        let val = $val;
         let mut $var = ::core::pin::pin!($crate::__internal::StackInit$(::<$t>)?::uninit());
         let mut $var = {
-            let val = $val;
             $crate::__internal::StackInit::init($var, val)
         };
     };
     (let $var:ident $(: $t:ty)? =? $val:expr) => {
+        let val = $val;
         let mut $var = ::core::pin::pin!($crate::__internal::StackInit$(::<$t>)?::uninit());
-        let mut $var = {
-            let val = $val;
-            $crate::__internal::StackInit::init($var, val)?
-        };
+        let mut $var = $crate::__internal::StackInit::init($var, val)?;
     };
 }
 
@@ -420,6 +422,7 @@ macro_rules! stack_try_pin_init {
 /// The syntax is almost identical to that of a normal `struct` initializer:
 ///
 /// ```rust
+/// # #![feature(allocator_api, no_coverage)]
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -465,6 +468,7 @@ macro_rules! stack_try_pin_init {
 /// To create an initializer function, simply declare it like this:
 ///
 /// ```rust
+/// # #![feature(allocator_api, no_coverage)]
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -487,11 +491,13 @@ macro_rules! stack_try_pin_init {
 ///         })
 ///     }
 /// }
+/// # let _ = Box::pin_init(Foo::new());
 /// ```
 ///
 /// Users of `Foo` can now create it like this:
 ///
 /// ```rust
+/// # #![feature(allocator_api, no_coverage)]
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -520,6 +526,7 @@ macro_rules! stack_try_pin_init {
 /// They can also easily embed it into their own `struct`s:
 ///
 /// ```rust
+/// # #![feature(allocator_api, no_coverage)]
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -560,6 +567,7 @@ macro_rules! stack_try_pin_init {
 ///         })
 ///     }
 /// }
+/// # let _ = Box::pin_init(FooContainer::new(0));
 /// ```
 ///
 /// Here we see that when using `pin_init!` with `PinInit`, one needs to write `<-` instead of `:`.
@@ -577,6 +585,7 @@ macro_rules! stack_try_pin_init {
 /// For instance:
 ///
 /// ```rust
+/// # #![feature(allocator_api, no_coverage)]
 /// # use pinned_init::*;
 /// # use core::{ptr::addr_of_mut, marker::PhantomPinned};
 /// #[pin_data]
@@ -587,11 +596,13 @@ macro_rules! stack_try_pin_init {
 ///     #[pin]
 ///     pin: PhantomPinned,
 /// }
-/// pin_init!(&this in Buf {
+///
+/// let init = pin_init!(&this in Buf {
 ///     buf: [0; 64],
 ///     ptr: unsafe { addr_of_mut!((*this.as_ptr()).buf).cast() },
 ///     pin: PhantomPinned,
 /// });
+/// # let _ = Box::pin_init(init);
 /// ```
 ///
 /// [`NonNull<Self>`]: core::ptr::NonNull
@@ -629,7 +640,7 @@ macro_rules! pin_init {
 /// # Examples
 ///
 /// ```rust
-/// # #![feature(allocator_api, new_uninit)]
+/// # #![feature(allocator_api, new_uninit, no_coverage)]
 /// # use core::alloc::AllocError;
 /// use pinned_init::*;
 /// #[pin_data]
@@ -648,6 +659,7 @@ macro_rules! pin_init {
 ///         })
 ///     }
 /// }
+/// # let _ = Box::pin_init(BigBuf::new());
 /// ```
 // For a detailed example of how this macro works, see the module documentation of the hidden
 // module `__internal` inside of `__internal.rs`.
@@ -870,6 +882,27 @@ macro_rules! try_pin_init {
 ///
 /// This initializer is for initializing data in-place that might later be moved. If you want to
 /// pin-initialize, use [`pin_init!`].
+/// # Examples
+///
+/// ```rust
+/// # #![feature(allocator_api, no_coverage)]
+/// # use core::alloc::AllocError;
+/// use pinned_init::*;
+/// struct BigBuf {
+///     big: Box<[u8; 1024 * 1024 * 1024]>,
+///     small: [u8; 1024 * 1024],
+/// }
+///
+/// impl BigBuf {
+///     fn new() -> impl Init<Self, AllocError> {
+///         try_init!(Self {
+///             small <- zeroed(),
+///             big: Box::init(zeroed())?,
+///         }? AllocError)
+///     }
+/// }
+/// # let _ = Box::init(BigBuf::new());
+/// ```
 // For a detailed example of how this macro works, see the module documentation of the hidden
 // module `__internal` inside of `__internal.rs`.
 #[macro_export]
@@ -902,7 +935,7 @@ macro_rules! init {
 /// # Examples
 ///
 /// ```rust
-/// # #![feature(allocator_api)]
+/// # #![feature(allocator_api, no_coverage)]
 /// # use core::alloc::AllocError;
 /// use pinned_init::*;
 /// struct BigBuf {
@@ -913,14 +946,12 @@ macro_rules! init {
 /// impl BigBuf {
 ///     fn new() -> impl Init<Self, AllocError> {
 ///         try_init!(Self {
-///             big: {
-///                 let zero = Box::try_new_zeroed()?;
-///                 unsafe { zero.assume_init() }
-///             },
+///             big: Box::init(zeroed())?,
 ///             small: [0; 1024 * 1024],
 ///         }? AllocError)
 ///     }
 /// }
+/// # let _ = Box::init(BigBuf::new());
 /// ```
 // For a detailed example of how this macro works, see the module documentation of the hidden
 // module `__internal` inside of `__internal.rs`.
@@ -1284,7 +1315,9 @@ pub trait InPlaceInit<T>: Sized {
     fn pin_init(init: impl PinInit<T>) -> Result<Pin<Self>, AllocError> {
         // SAFETY: We delegate to `init` and only change the error type.
         let init = unsafe {
-            pin_init_from_closure(|slot| init.__pinned_init(slot).map_err(|_| AllocError))
+            pin_init_from_closure(|slot| {
+                Ok(init.__pinned_init(slot).unwrap()) // cannot fail
+            })
         };
         Self::try_pin_init(init)
     }
@@ -1296,7 +1329,9 @@ pub trait InPlaceInit<T>: Sized {
 
     /// Use the given initializer to in-place initialize a `T`.
     fn init(init: impl Init<T>) -> Result<Self, AllocError> {
-        let init = unsafe { init_from_closure(|slot| init.__init(slot).map_err(|_| AllocError)) };
+        let init = unsafe {
+            init_from_closure(|slot| Ok(init.__init(slot).unwrap())) //cannot fail
+        };
         Self::try_init(init)
     }
 }
@@ -1370,7 +1405,7 @@ impl<T> InPlaceInit<T> for Arc<T> {
 /// Use [`pinned_drop`] to implement this trait safely:
 ///
 /// ```rust
-/// # #![feature(allocator_api)]
+/// # #![feature(allocator_api, no_coverage)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// use pinned_init::*;
 /// use core::pin::Pin;
@@ -1386,6 +1421,7 @@ impl<T> InPlaceInit<T> for Arc<T> {
 ///         println!("Foo is being dropped!");
 ///     }
 /// }
+/// # let _ = Box::pin_init(pin_init!(Foo { mtx <- CMutex::new(0) }));
 /// ```
 ///
 /// # Safety
@@ -1421,7 +1457,7 @@ pub unsafe trait Zeroable {}
 ///
 /// The returned initializer will write `0x00` to every byte of the given `slot`.
 #[inline]
-pub fn zeroed<T: Zeroable + Unpin>() -> impl Init<T> {
+pub fn zeroed<T: Zeroable + Unpin, E>() -> impl Init<T, E> {
     // SAFETY: Because `T: Zeroable`, all bytes zero is a valid bit pattern for `T`
     // and because we write all zeroes, the memory is initialized.
     unsafe {

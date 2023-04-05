@@ -1,6 +1,6 @@
 #![feature(allocator_api)]
 
-use core::alloc::AllocError;
+use core::{alloc::AllocError, convert::Infallible};
 use pinned_init::*;
 
 // Struct with size over 1GiB
@@ -21,14 +21,14 @@ pub struct ManagedBuf {
 
 impl ManagedBuf {
     pub fn new() -> impl Init<Self> {
-        init!(ManagedBuf { buf <- zeroed() })
+        init!(ManagedBuf { buf <- zeroed::<_, Infallible>() })
     }
 }
 
 fn main() {
     // we want to initialize the struct in-place, otherwise we would get a stackoverflow
     let buf: Result<Box<BigStruct>, AllocError> = Box::init(init!(BigStruct {
-        buf <- zeroed(),
+        buf <- zeroed::<_, Infallible>(),
         a: 7,
         b: 186,
         c: 7789,

@@ -121,8 +121,7 @@ fn inject_rust_src(file_path: &Path, rust_src_path: &str) -> std::io::Result<Ori
     Ok(orig)
 }
 
-#[test]
+#[cfg_attr(not(any(miri, NO_UI_TESTS)), test)]
 fn compile_test() {
-    #[cfg(not(any(miri, NO_UI_TESTS)))]
     run_mode("ui");
 }

@@ -1,6 +1,7 @@
-#![feature(allocator_api)]
+#![feature(allocator_api, no_coverage)]
 use core::{
     cell::{Cell, UnsafeCell},
+    marker::PhantomPinned,
     ops::{Deref, DerefMut},
     pin::Pin,
     sync::atomic::{AtomicBool, Ordering},
@@ -59,22 +60,25 @@ pub struct CMutex<T> {
     wait_list: ListHead,
     spin_lock: SpinLock,
     locked: Cell<bool>,
+    #[pin]
     data: UnsafeCell<T>,
 }
 
 impl<T> CMutex<T> {
     #[inline]
-    pub fn new(val: T) -> impl PinInit<Self> {
+    pub fn new(val: impl PinInit<T>) -> impl PinInit<Self> {
         pin_init!(CMutex {
             wait_list <- ListHead::new(),
             spin_lock: SpinLock::new(),
             locked: Cell::new(false),
-            data: UnsafeCell::new(val),
+            data <- unsafe {
+                pin_init_from_closure(|slot: *mut UnsafeCell<T>| val.__pinned_init(slot.cast::<T>()))
+            },
         })
     }
 
     #[inline]
-    pub fn lock(&self) -> CMutexGuard<'_, T> {
+    pub fn lock(&self) -> Pin<CMutexGuard<'_, T>> {
         let mut sguard = self.spin_lock.acquire();
         if self.locked.get() {
             stack_pin_init!(let wait_entry = WaitEntry::insert_new(&self.wait_list));
@@ -87,7 +91,12 @@ impl<T> CMutex<T> {
             drop(wait_entry);
         }
         self.locked.set(true);
-        CMutexGuard { mtx: self }
+        unsafe {
+            Pin::new_unchecked(CMutexGuard {
+                mtx: self,
+                pin: PhantomPinned,
+            })
+        }
     }
 }
 
@@ -96,6 +105,7 @@ unsafe impl<T: Send> Sync for CMutex<T> {}
 
 pub struct CMutexGuard<'a, T> {
     mtx: &'a CMutex<T>,
+    pin: PhantomPinned,
 }
 
 impl<'a, T> Drop for CMutexGuard<'a, T> {
@@ -145,11 +155,12 @@ impl WaitEntry {
     }
 }
 
+#[cfg_attr(test, test)]
 fn main() {
     let mtx: Pin<Arc<CMutex<usize>>> = Arc::pin_init(CMutex::new(0)).unwrap();
     let mut handles = vec![];
     let thread_count = 20;
-    let workload = 1_000_000;
+    let workload = if cfg!(miri) { 100 } else { 1_000_000 };
     for i in 0..thread_count {
         let mtx = mtx.clone();
         handles.push(

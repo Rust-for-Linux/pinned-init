@@ -1,4 +1,4 @@
-#![feature(allocator_api)]
+#![feature(allocator_api, no_coverage)]
 use core::{
     alloc::AllocError,
     cell::Cell,
