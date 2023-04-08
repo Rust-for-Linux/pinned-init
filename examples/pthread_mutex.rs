@@ -127,6 +127,7 @@ mod pthread_mtx {
     }
 }
 
+#[cfg_attr(test, test)]
 fn main() {
     #[cfg(not(windows))]
     {

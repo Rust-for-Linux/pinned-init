@@ -94,7 +94,7 @@ impl<T> CMutex<T> {
         unsafe {
             Pin::new_unchecked(CMutexGuard {
                 mtx: self,
-                pin: PhantomPinned,
+                _pin: PhantomPinned,
             })
         }
     }
@@ -105,7 +105,7 @@ unsafe impl<T: Send> Sync for CMutex<T> {}
 
 pub struct CMutexGuard<'a, T> {
     mtx: &'a CMutex<T>,
-    pin: PhantomPinned,
+    _pin: PhantomPinned,
 }
 
 impl<'a, T> Drop for CMutexGuard<'a, T> {
@@ -155,6 +155,7 @@ impl WaitEntry {
     }
 }
 
+#[allow(dead_code)]
 #[cfg_attr(test, test)]
 fn main() {
     let mtx: Pin<Arc<CMutex<usize>>> = Arc::pin_init(CMutex::new(0)).unwrap();

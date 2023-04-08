@@ -57,6 +57,7 @@ impl ListHead {
         }
     }
 
+    #[allow(dead_code)]
     pub fn size(&self) -> usize {
         let mut size = 1;
         let mut cur = self.next.clone();
@@ -101,6 +102,7 @@ impl Link {
         unsafe { &(*self.0.get().as_ptr()).prev }
     }
 
+    #[allow(dead_code)]
     fn cur(&self) -> &ListHead {
         unsafe { &*self.0.get().as_ptr() }
     }
@@ -122,6 +124,7 @@ impl Link {
 }
 
 #[allow(dead_code)]
+#[cfg_attr(test, test)]
 fn main() -> Result<(), AllocError> {
     let a = Box::pin_init(ListHead::new())?;
     stack_pin_init!(let b = ListHead::insert_next(&a));

@@ -25,7 +25,7 @@ jobs:
         id: gen-coverage
         run: |
           mkdir -p coverage/coverage
-          cargo llvm-cov --locked --all-features --doctests --html
+          RUSTFLAGS="--cfg NO_UI_TESTS" cargo llvm-cov --locked --all-features --examples --tests --html
           mv "target/llvm-cov/html" "coverage/coverage/${{ github.sha }}"
       - name: Upload to gh-pages
         run: |
