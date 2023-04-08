@@ -173,7 +173,7 @@ dependencies = [
 
 [[package]]
 name = "pinned-init"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "compiletest_rs",
  "libc",
@@ -182,7 +182,7 @@ dependencies = [
 
 [[package]]
 name = "pinned-init-macro"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "proc-macro2",
  "quote",
