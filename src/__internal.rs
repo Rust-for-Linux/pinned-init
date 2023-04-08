@@ -119,7 +119,7 @@ unsafe impl<T: ?Sized> HasInitData for T {
 ///
 /// If `self.is_init` is true, then `self.value` is initialized.
 ///
-/// [`stack_pin_init`]: pinned_init::stack_pin_init
+/// [`stack_pin_init`]: crate::stack_pin_init
 pub struct StackInit<T> {
     value: MaybeUninit<T>,
     is_init: bool,
