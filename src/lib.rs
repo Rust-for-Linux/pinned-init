@@ -1457,7 +1457,7 @@ pub unsafe trait Zeroable {}
 ///
 /// The returned initializer will write `0x00` to every byte of the given `slot`.
 #[inline]
-pub fn zeroed<T: Zeroable + Unpin, E>() -> impl Init<T, E> {
+pub fn zeroed<T: Zeroable, E>() -> impl Init<T, E> {
     // SAFETY: Because `T: Zeroable`, all bytes zero is a valid bit pattern for `T`
     // and because we write all zeroes, the memory is initialized.
     unsafe {
@@ -1508,6 +1508,9 @@ impl_zeroable! {
     //
     // We cannot use `T: ?Sized`, since the VTABLE pointer part of fat pointers is not allowed to be
     // null.
+    //
+    // When `Pointee` gets stabilized, we could use
+    // `T: ?Sized where <T as Pointee>::Metadata: Zeroable`
     {<T>} *mut T, {<T>} *const T,
 
     // SAFETY: `null` pointer is valid and the metadata part of these fat pointers is allowed to be
