@@ -117,18 +117,21 @@ unsafe impl<T: ?Sized> HasInitData for T {
 ///
 /// # Invariants
 ///
-/// If `self.1` is true, then `self.0` is initialized.
+/// If `self.is_init` is true, then `self.value` is initialized.
 ///
 /// [`stack_pin_init`]: pinned_init::stack_pin_init
-pub struct StackInit<T>(MaybeUninit<T>, bool);
+pub struct StackInit<T> {
+    value: MaybeUninit<T>,
+    is_init: bool,
+}
 
 impl<T> Drop for StackInit<T> {
     #[inline]
     fn drop(&mut self) {
-        if self.1 {
-            // SAFETY: As we are being dropped, we only call this once. And since `self.1 == true`,
-            // `self.0` has to be initialized.
-            unsafe { self.0.assume_init_drop() };
+        if self.is_init {
+            // SAFETY: As we are being dropped, we only call this once. And since `self.is_init` is
+            // true, `self.value` is initialized.
+            unsafe { self.value.assume_init_drop() };
         }
     }
 }
@@ -140,7 +143,10 @@ impl<T> StackInit<T> {
     /// [`stack_pin_init`]: pinned_init::stack_pin_init
     #[inline]
     pub fn uninit() -> Self {
-        Self(MaybeUninit::uninit(), false)
+        Self {
+            value: MaybeUninit::uninit(),
+            is_init: false,
+        }
     }
 
     /// Initializes the contents and returns the result.
@@ -150,16 +156,17 @@ impl<T> StackInit<T> {
         let this = unsafe { Pin::into_inner_unchecked(self) };
         // The value is currently initialized, so it needs to be dropped before we can reuse
         // the memory (this is a safety guarantee of `Pin`).
-        if this.1 {
-            // SAFETY: `this.1` is true and we set it to false after this.
-            unsafe { this.0.assume_init_drop() };
-            this.1 = false;
+        if this.is_init {
+            this.is_init = false;
+            // SAFETY: `this.is_init` was true and therefore `this.value` is initialized.
+            unsafe { this.value.assume_init_drop() };
         }
         // SAFETY: The memory slot is valid and this type ensures that it will stay pinned.
-        unsafe { init.__pinned_init(this.0.as_mut_ptr())? };
-        this.1 = true;
+        unsafe { init.__pinned_init(this.value.as_mut_ptr())? };
+        // INVARIANT: `this.value` is initialized above.
+        this.is_init = true;
         // SAFETY: The slot is now pinned, since we will never give access to `&mut T`.
-        Ok(unsafe { Pin::new_unchecked(this.0.assume_init_mut()) })
+        Ok(unsafe { Pin::new_unchecked(this.value.assume_init_mut()) })
     }
 }
 
@@ -191,7 +198,10 @@ fn stack_init_reuse() {
 /// When a value of this type is dropped, it drops a `T`.
 ///
 /// Can be forgotton to prevent the drop.
-pub struct DropGuard<T: ?Sized>(*mut T, Cell<bool>);
+pub struct DropGuard<T: ?Sized> {
+    ptr: *mut T,
+    do_drop: Cell<bool>,
+}
 
 impl<T: ?Sized> DropGuard<T> {
     /// Creates a new [`DropGuard<T>`]. It will [`ptr::drop_in_place`] `ptr` when it gets dropped.
@@ -206,7 +216,10 @@ impl<T: ?Sized> DropGuard<T> {
     /// - will not be dropped by any other means.
     #[inline]
     pub unsafe fn new(ptr: *mut T) -> Self {
-        Self(ptr, Cell::new(true))
+        Self {
+            ptr,
+            do_drop: Cell::new(true),
+        }
     }
 
     /// Prevents this guard from dropping the supplied pointer.
@@ -217,17 +230,17 @@ impl<T: ?Sized> DropGuard<T> {
     /// only be called by the macros in this module.
     #[inline]
     pub unsafe fn forget(&self) {
-        self.1.set(false);
+        self.do_drop.set(false);
     }
 }
 
 impl<T: ?Sized> Drop for DropGuard<T> {
     #[inline]
     fn drop(&mut self) {
-        if self.1.get() {
+        if self.do_drop.get() {
             // SAFETY: A `DropGuard` can only be constructed using the unsafe `new` function
             // ensuring that this operation is safe.
-            unsafe { ptr::drop_in_place(self.0) }
+            unsafe { ptr::drop_in_place(self.ptr) }
         }
     }
 }
