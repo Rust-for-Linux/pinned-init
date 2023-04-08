@@ -5,6 +5,8 @@
 [![Toolchain](https://img.shields.io/badge/toolchain-nightly-red)](#nightly-only)
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Rust-for-Linux/pinned-init/test.yml)
 
+# Pinned-init
+
 Library to safely and fallibly initialize pinned `struct`s using in-place constructors.
 
 It also allows in-place initialization of big `struct`s that would otherwise produce a stack
@@ -199,13 +201,16 @@ For more information on how to use [`pin_init_from_closure()`], you can take a l
 uses inside the `kernel` crate from the [Rust-for-Linux] project. The `sync` module is a good
 starting point.
 
-[structurally pinned fields]:
-    https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
-[stack]: crate::stack_pin_init
-[`Arc<T>`]: alloc::sync::Arc
-[`Box<T>`]: alloc::boxed::Box
-[`impl PinInit<Foo>`]: PinInit
-[`impl PinInit<T, E>`]: PinInit
-[`impl Init<T, E>`]: Init
-[`pin_data`]: ::pinned_init_macro::pin_data
+[structurally pinned fields]: https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
+[stack]: https://docs.rs/pinned-init/latest/pinned_init/macro.stack_pin_init.html
+[`Arc<T>`]: https://doc.rust-lang.org/alloc/sync/struct.Arc.html
+[`Box<T>`]: https://doc.rust-lang.org/alloc/boxed/struct.Box.html
+[`impl PinInit<Foo>`]: https://docs.rs/pinned-init/latest/pinned_init/trait.PinInit.html
+[`impl PinInit<T, E>`]: https://docs.rs/pinned-init/latest/pinned_init/trait.PinInit.html
+[`impl Init<T, E>`]: https://docs.rs/pinned-init/latest/pinned_init/trait.Init.html
 [Rust-for-Linux]: https://rust-for-linux.com/
+[`InPlaceInit`]: https://docs.rs/pinned-init/latest/pinned_init/trait.InPlaceInit.html
+[`pin_init!`]: https://docs.rs/pinned-init/latest/pinned_init/macro.pin_init.html
+[`pin_init_from_closure()`]: https://docs.rs/pinned-init/latest/pinned_init/fn.pin_init_from_closure.html
+[`PinInit`]: https://docs.rs/pinned-init/latest/pinned_init/trait.PinInit.html
+[`pin_data`]: https://docs.rs/pinned-init/latest/pinned_init/attr.pin_data.html
