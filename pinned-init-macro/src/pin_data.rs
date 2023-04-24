@@ -94,9 +94,6 @@ pub(crate) fn pin_data(
     let args: TokenStream = args.into();
     // This proc-macro only does some pre-parsing and then delegates the actual parsing to
     // `pinned_init::__pin_data!`.
-    //
-    // In here we only collect the generics, since parsing them in declarative macros is very
-    // elaborate. We also do not need to analyse their structure, we only need to collect them.
 
     let (
         Generics {
