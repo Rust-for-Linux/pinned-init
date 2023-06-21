@@ -13,9 +13,9 @@ error[E0308]: mismatched types
      = note:   expected struct `Bar`
              found opaque type `impl pinned_init::PinInit<Bar>`
 note: function defined here
-    --> $RUSTC_SRC/library/core/src/ptr/mod.rs:1359:21
+    --> $RUSTC_SRC/library/core/src/ptr/mod.rs:1360:21
      |
-1359 | pub const unsafe fn write<T>(dst: *mut T, src: T) {
+1360 | pub const unsafe fn write<T>(dst: *mut T, src: T) {
      |                     ^^^^^
      = note: this error originates in the macro `$crate::try_pin_init` which comes from the expansion of the macro `pin_init` (in Nightly builds, run with -Z macro-backtrace for more info)
 
