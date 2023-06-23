@@ -1,8 +1,9 @@
 mod helpers;
 mod pin_data;
 mod pinned_drop;
+mod zeroable;
 
-use proc_macro::TokenStream;
+use proc_macro::{Group, TokenStream, TokenTree};
 
 /// Used to specify the pinning information of the fields of a struct.
 ///
@@ -78,4 +79,38 @@ pub fn pin_data(inner: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn pinned_drop(args: TokenStream, input: TokenStream) -> TokenStream {
     pinned_drop::pinned_drop(args, input)
+}
+
+/// Derives the [`Zeroable`] trait for the given struct.
+///
+/// This can only be used for structs where every field implements the [`Zeroable`] trait.
+///
+/// # Examples
+///
+/// ```rust
+/// #[derive(Zeroable)]
+/// pub struct DriverData {
+///     id: i64,
+///     buf_ptr: *mut u8,
+///     len: usize,
+/// }
+/// ```
+#[proc_macro_derive(Zeroable)]
+pub fn derive_zeroable(input: TokenStream) -> TokenStream {
+    zeroable::derive(input.into()).into()
+}
+
+/// Does not modify the given TokenStream, but removes any declarative macro information.
+#[proc_macro]
+pub fn retokenize(input: TokenStream) -> TokenStream {
+    fn id(tt: TokenTree) -> TokenTree {
+        match tt {
+            TokenTree::Group(g) => TokenTree::Group(Group::new(
+                g.delimiter(),
+                g.stream().into_iter().map(id).collect(),
+            )),
+            x => x,
+        }
+    }
+    input.into_iter().map(id).collect()
 }

@@ -9,6 +9,8 @@
 
 use super::*;
 
+pub use pinned_init_macro::retokenize;
+
 /// See the [nomicon] for what subtyping is. See also [this table].
 ///
 /// [nomicon]: https://doc.rust-lang.org/nomicon/subtyping.html
