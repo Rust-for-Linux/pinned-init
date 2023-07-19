@@ -1,23 +1,9 @@
-#![feature(allocator_api)]
-extern crate pinned_init;
-use pinned_init::*;
+error[E0425]: cannot find value `a` in this scope
+  --> $DIR/try_access_guard.rs:16:34
+   |
+16 |                 println!("{:?}", a);
+   |                                  ^ a field by this name exists in `Self`
 
-#[pin_data]
-struct Foo {
-    a: usize,
-    b: usize,
-}
+error: aborting due to previous error
 
-impl Foo {
-    fn new() -> impl PinInit<Self> {
-        pin_init!(Self {
-            a: 0,
-            b: {
-                println!("{:?}", a);
-                0
-            }
-        })
-    }
-}
-
-fn main() {}
+For more information about this error, try `rustc --explain E0425`.

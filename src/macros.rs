@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 //! This module provides the macros that actually implement the proc-macros `pin_data` and
-//! `pinned_drop`.
+//! `pinned_drop`. It also contains `__init_internal` the implementation of the `{try_}{pin_}init!`
+//! macros.
 //!
 //! These macros should never be called directly, since they expect their input to be
-//! in a certain format which is internal. Use the proc-macros instead.
+//! in a certain format which is internal. If used incorrectly, these macros can lead to UB even in
+//! safe code! Use the public facing macros instead.
 //!
 //! This architecture has been chosen because the kernel does not yet have access to `syn` which
 //! would make matters a lot easier for implementing these as proc-macros.
@@ -1108,7 +1110,7 @@ macro_rules! __init_internal {
         // Get the data about fields from the supplied type.
         let data = unsafe {
             use $crate::__internal::$has_data;
-            $crate::__internal::retokenize!($t::$get_data())
+            $crate::__internal::paste!($t::$get_data())
         };
         // Ensure that `data` really is of type `$data` and help with type inference:
         let init = $crate::__internal::$data::make_closure::<_, __InitOk, $err>(
@@ -1121,7 +1123,7 @@ macro_rules! __init_internal {
                     // error when fields are missing (since they will be zeroed). We also have to
                     // check that the type actually implements `Zeroable`.
                     $({
-                        fn assert_zeroable<T: Zeroable>(ptr: *mut T) {}
+                        fn assert_zeroable<T: $crate::Zeroable>(_: *mut T) {}
                         // Ensure that the struct is indeed `Zeroable`.
                         assert_zeroable(slot);
                         // SAFETY:  The type implements `Zeroable` by the check above.
@@ -1177,28 +1179,30 @@ macro_rules! __init_internal {
         // In-place initialization syntax.
         @munch_fields($field:ident <- $val:expr, $($rest:tt)*),
     ) => {
-        let $field = $val;
+        let init = $val;
         // Call the initializer.
         //
         // SAFETY: `slot` is valid, because we are inside of an initializer closure, we
         // return when an error/panic occurs.
         // We also use the `data` to require the correct trait (`Init` or `PinInit`) for `$field`.
-        unsafe { $data.$field(::core::ptr::addr_of_mut!((*$slot).$field), $field)? };
+        unsafe { $data.$field(::core::ptr::addr_of_mut!((*$slot).$field), init)? };
         // Create the drop guard:
         //
         // We rely on macro hygiene to make it impossible for users to access this local variable.
-        //
-        // SAFETY: We forget the guard later when initialization has succeeded.
-        let guard = unsafe {
-            $crate::__internal::DropGuard::new(::core::ptr::addr_of_mut!((*$slot).$field))
-        };
+        // We use `paste!` to create new hygiene for $field.
+        $crate::__internal::paste! {
+            // SAFETY: We forget the guard later when initialization has succeeded.
+            let [<$field>] = unsafe {
+                $crate::__internal::DropGuard::new(::core::ptr::addr_of_mut!((*$slot).$field))
+            };
 
-        $crate::__init_internal!(init_slot($use_data):
-            @data($data),
-            @slot($slot),
-            @guards(guard, $($guards,)*),
-            @munch_fields($($rest)*),
-        );
+            $crate::__init_internal!(init_slot($use_data):
+                @data($data),
+                @slot($slot),
+                @guards([<$field>], $($guards,)*),
+                @munch_fields($($rest)*),
+            );
+        }
     };
     (init_slot(): // no use_data, so we use `Init::__init` directly.
         @data($data:ident),
@@ -1207,27 +1211,29 @@ macro_rules! __init_internal {
         // In-place initialization syntax.
         @munch_fields($field:ident <- $val:expr, $($rest:tt)*),
     ) => {
-        let $field = $val;
+        let init = $val;
         // Call the initializer.
         //
         // SAFETY: `slot` is valid, because we are inside of an initializer closure, we
         // return when an error/panic occurs.
-        unsafe { $crate::Init::__init($field, ::core::ptr::addr_of_mut!((*$slot).$field))? };
+        unsafe { $crate::Init::__init(init, ::core::ptr::addr_of_mut!((*$slot).$field))? };
         // Create the drop guard:
         //
         // We rely on macro hygiene to make it impossible for users to access this local variable.
-        //
-        // SAFETY: We forget the guard later when initialization has succeeded.
-        let guard = unsafe {
-            $crate::__internal::DropGuard::new(::core::ptr::addr_of_mut!((*$slot).$field))
-        };
+        // We use `paste!` to create new hygiene for $field.
+        $crate::__internal::paste! {
+            // SAFETY: We forget the guard later when initialization has succeeded.
+            let [<$field>] = unsafe {
+                $crate::__internal::DropGuard::new(::core::ptr::addr_of_mut!((*$slot).$field))
+            };
 
-        $crate::__init_internal!(init_slot():
-            @data($data),
-            @slot($slot),
-            @guards(guard, $($guards,)*),
-            @munch_fields($($rest)*),
-        );
+            $crate::__init_internal!(init_slot():
+                @data($data),
+                @slot($slot),
+                @guards([<$field>], $($guards,)*),
+                @munch_fields($($rest)*),
+            );
+        }
     };
     (init_slot($($use_data:ident)?):
         @data($data:ident),
@@ -1236,26 +1242,30 @@ macro_rules! __init_internal {
         // Init by-value.
         @munch_fields($field:ident $(: $val:expr)?, $($rest:tt)*),
     ) => {
-        $(let $field = $val;)?
-        // Initialize the field.
-        //
-        // SAFETY: The memory at `slot` is uninitialized.
-        unsafe { ::core::ptr::write(::core::ptr::addr_of_mut!((*$slot).$field), $field) };
+        {
+            $(let $field = $val;)?
+            // Initialize the field.
+            //
+            // SAFETY: The memory at `slot` is uninitialized.
+            unsafe { ::core::ptr::write(::core::ptr::addr_of_mut!((*$slot).$field), $field) };
+        }
         // Create the drop guard:
         //
         // We rely on macro hygiene to make it impossible for users to access this local variable.
-        //
-        // SAFETY: We forget the guard later when initialization has succeeded.
-        let guard = unsafe {
-            $crate::__internal::DropGuard::new(::core::ptr::addr_of_mut!((*$slot).$field))
-        };
+        // We use `paste!` to create new hygiene for $field.
+        $crate::__internal::paste! {
+            // SAFETY: We forget the guard later when initialization has succeeded.
+            let [<$field>] = unsafe {
+                $crate::__internal::DropGuard::new(::core::ptr::addr_of_mut!((*$slot).$field))
+            };
 
-        $crate::__init_internal!(init_slot($($use_data)?):
-            @data($data),
-            @slot($slot),
-            @guards(guard, $($guards,)*),
-            @munch_fields($($rest)*),
-        );
+            $crate::__init_internal!(init_slot($($use_data)?):
+                @data($data),
+                @slot($slot),
+                @guards([<$field>], $($guards,)*),
+                @munch_fields($($rest)*),
+            );
+        }
     };
     (make_initializer:
         @slot($slot:ident),
@@ -1269,13 +1279,18 @@ macro_rules! __init_internal {
         // actually accessible by using the struct update syntax ourselves.
         // Since we are in the `if false` branch, this will never get executed. We abuse `slot` to
         // get the correct type inference here:
+        #[allow(unused_assignments)]
         unsafe {
             let mut zeroed = ::core::mem::zeroed();
             // We have to use type inference here to make zeroed have the correct type. This does
             // not get executed, so it has no effect.
             ::core::ptr::write($slot, zeroed);
             zeroed = ::core::mem::zeroed();
-            $crate::__internal::retokenize!(
+            // Here we abuse `paste!` to retokenize `$t`. Declarative macros have some internal
+            // information that is associated to already parsed fragments, so a path fragment
+            // cannot be used in this position. Doing the retokenization results in valid rust
+            // code.
+            $crate::__internal::paste!(
                 ::core::ptr::write($slot, $t {
                     $($acc)*
                     ..zeroed
@@ -1290,10 +1305,14 @@ macro_rules! __init_internal {
         @acc($($acc:tt)*),
     ) => {
         // Endpoint, nothing more to munch, create the initializer.
-        // Since we are in the `if false` branch, this will never get executed. We abuse `slot` to
-        // get the correct type inference here:
+        // Since we are in the closure that is never called, this will never get executed.
+        // We abuse `slot` to get the correct type inference here:
         unsafe {
-            $crate::__internal::retokenize!(
+            // Here we abuse `paste!` to retokenize `$t`. Declarative macros have some internal
+            // information that is associated to already parsed fragments, so a path fragment
+            // cannot be used in this position. Doing the retokenization results in valid rust
+            // code.
+            $crate::__internal::paste!(
                 ::core::ptr::write($slot, $t {
                     $($acc)*
                 });
