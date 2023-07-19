@@ -105,7 +105,7 @@ pub unsafe trait InitData: Copy {
     }
 }
 
-pub struct AllData<T: ?Sized>(PhantomData<fn(Box<T>) -> Box<T>>);
+pub struct AllData<T: ?Sized>(Invariant<T>);
 
 impl<T: ?Sized> Clone for AllData<T> {
     #[cfg_attr(coverage_nightly, no_coverage)]
