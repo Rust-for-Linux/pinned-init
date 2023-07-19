@@ -1,3 +1,4 @@
+#![feature(allocator_api, no_coverage)]
 use pinned_init::*;
 
 #[pin_data]
