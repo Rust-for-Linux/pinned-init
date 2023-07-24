@@ -1364,8 +1364,15 @@ macro_rules! __derive_zeroable {
         #[automatically_derived]
         unsafe impl<$($impl_generics)*> $crate::Zeroable for $name<$($ty_generics)*>
         where
-            $($field_ty: $crate::Zeroable,)*
             $($($whr)*)?
         {}
+        const _: () = {
+            fn assert_zeroable<T: $crate::Zeroable + ?::core::marker::Sized>() {}
+            fn ensure_zeroable<$($impl_generics)*>()
+                where $($($whr)*)?
+            {
+                $(assert_zeroable::<$field_ty>();)*
+            }
+        };
     };
 }
