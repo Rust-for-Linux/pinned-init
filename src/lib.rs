@@ -259,6 +259,7 @@ extern crate alloc;
 use alloc::{boxed::Box, sync::Arc};
 use core::{
     alloc::AllocError,
+    cell::UnsafeCell,
     convert::Infallible,
     marker::PhantomData,
     mem::MaybeUninit,
@@ -1384,6 +1385,9 @@ impl_zeroable! {
 
     // SAFETY: Type is allowed to take any value, including all zeros.
     {<T>} MaybeUninit<T>,
+
+    // SAFETY: `T: Zeroable` and `UnsafeCell` is `repr(transparent)`.
+    {<T: ?Sized + Zeroable>} UnsafeCell<T>,
 
     // SAFETY: All zeros is equivalent to `None` (option layout optimization guarantee).
     Option<NonZeroU8>, Option<NonZeroU16>, Option<NonZeroU32>, Option<NonZeroU64>,
