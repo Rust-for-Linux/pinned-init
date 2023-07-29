@@ -18,6 +18,7 @@ use pinned_init::*;
 pub mod linked_list;
 use linked_list::*;
 
+#[derive(Debug)]
 pub struct SpinLock {
     inner: AtomicBool,
 }
@@ -55,6 +56,7 @@ impl Drop for SpinLockGuard<'_> {
 }
 
 #[pin_data]
+#[derive(Debug)]
 pub struct CMutex<T> {
     #[pin]
     wait_list: ListHead,

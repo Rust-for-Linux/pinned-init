@@ -44,7 +44,7 @@ impl<T, const SIZE: usize> RingBuffer<T, SIZE> {
             // SAFETY: `this` is a valid pointer.
             head: unsafe { addr_of_mut!((*this.as_ptr()).buffer).cast::<T>() },
             tail: unsafe { addr_of_mut!((*this.as_ptr()).buffer).cast::<T>() },
-            _pin <- PhantomPinned,
+            _pin: PhantomPinned,
         })
     }
 
@@ -107,26 +107,26 @@ impl<T, const SIZE: usize> RingBuffer<T, SIZE> {
 
 #[test]
 fn on_stack() -> Result<(), Infallible> {
-    stack_pin_init!(let buf = RingBuffer::<u8, 64>::new());
+    stack_pin_init!(let buf: RingBuffer<u8, 64> = RingBuffer::<u8, 64>::new());
     while let Some(elem) = buf.as_mut().pop() {
         panic!("found in empty buffer!: {elem}");
     }
-    assert!(buf.as_mut().push(10)?);
-    assert!(buf.as_mut().push(42)?);
+    assert!(buf.as_mut().push::<Infallible>(10)?);
+    assert!(buf.as_mut().push::<Infallible>(42)?);
     assert_eq!(buf.as_mut().pop(), Some(10));
     assert_eq!(buf.as_mut().pop(), Some(42));
     assert_eq!(buf.as_mut().pop(), None);
-    assert!(buf.as_mut().push(42)?);
-    assert!(buf.as_mut().push(24)?);
+    assert!(buf.as_mut().push::<Infallible>(42)?);
+    assert!(buf.as_mut().push::<Infallible>(24)?);
     assert_eq!(buf.as_mut().pop(), Some(42));
-    assert!(buf.as_mut().push(25)?);
+    assert!(buf.as_mut().push::<Infallible>(25)?);
     assert_eq!(buf.as_mut().pop(), Some(24));
     assert_eq!(buf.as_mut().pop(), Some(25));
     assert_eq!(buf.as_mut().pop(), None);
     for i in 0..63 {
-        assert!(buf.as_mut().push(i)?);
+        assert!(buf.as_mut().push::<Infallible>(i)?);
     }
-    assert!(!buf.as_mut().push(42)?);
+    assert!(!buf.as_mut().push::<Infallible>(42)?);
     for i in 0..63 {
         if let Some(value) = buf.as_mut().pop_no_stack() {
             stack_pin_init!(let value = value);

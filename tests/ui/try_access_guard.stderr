@@ -1,0 +1,9 @@
+error[E0425]: cannot find value `a` in this scope
+  --> $DIR/try_access_guard.rs:16:34
+   |
+16 |                 println!("{:?}", a);
+   |                                  ^ a field by this name exists in `Self`
+
+error: aborting due to previous error
+
+For more information about this error, try `rustc --explain E0425`.

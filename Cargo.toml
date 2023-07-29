@@ -15,6 +15,7 @@ categories = ["no-std", "rust-patterns", "embedded"]
 
 [dependencies]
 pinned-init-macro = { path = "./pinned-init-macro", version = "=0.0.4" }
+paste = "1.0.14"
 
 [features]
 default = ["std"]

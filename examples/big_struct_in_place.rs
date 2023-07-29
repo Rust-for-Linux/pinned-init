@@ -1,7 +1,8 @@
 #![feature(allocator_api)]
 
-use core::{alloc::AllocError, convert::Infallible};
+use core::alloc::AllocError;
 use pinned_init::*;
+use std::convert::Infallible;
 
 // Struct with size over 1GiB
 #[derive(Debug)]
