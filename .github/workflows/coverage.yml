@@ -40,7 +40,7 @@ jobs:
           git add .
           git commit -m "Create coverage of PR #${{ github.event.number }} \`\"${{ github.head_ref }}\"\` (${{ github.sha }})"
           git push "https://x-token:${{ secrets.GITHUB_TOKEN }}@github.com/$GITHUB_REPOSITORY" HEAD:gh-pages
-      - uses: actions/github-script@v6
+      - uses: actions/github-script@v7
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
