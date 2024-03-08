@@ -1485,8 +1485,9 @@ impl_zeroable! {
     i8, i16, i32, i64, i128, isize,
     f32, f64,
 
-    // SAFETY: These are ZSTs, there is nothing to zero.
-    {<T: ?Sized>} PhantomData<T>, core::marker::PhantomPinned, Infallible, (),
+    // SAFETY: These are inhabited ZSTs, there is nothing to zero
+    // and a valid value exists.
+    {<T: ?Sized>} PhantomData<T>, core::marker::PhantomPinned, (),
 
     // SAFETY: Type is allowed to take any value, including all zeros.
     {<T>} MaybeUninit<T>,
