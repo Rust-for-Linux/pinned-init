@@ -1,6 +1,5 @@
 #![feature(allocator_api)]
 use core::{
-    alloc::AllocError,
     cell::Cell,
     convert::Infallible,
     marker::PhantomPinned,
@@ -9,6 +8,8 @@ use core::{
 };
 
 use pinned_init::*;
+mod error;
+pub use error::AllocError;
 
 #[pin_data(PinnedDrop)]
 #[repr(C)]

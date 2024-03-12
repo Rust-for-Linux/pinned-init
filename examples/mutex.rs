@@ -16,6 +16,7 @@ use pinned_init::*;
 #[allow(unused_attributes)]
 #[path = "./linked_list.rs"]
 pub mod linked_list;
+pub use linked_list::AllocError;
 use linked_list::*;
 
 pub struct SpinLock {

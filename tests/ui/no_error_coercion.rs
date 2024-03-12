@@ -17,7 +17,7 @@ impl Foo {
         try_init!(Self {
             a: Box::new(42),
             bar <- init!(Bar { b: 42 }),
-        })
+        }? AllocError)
     }
 }
 
