@@ -241,13 +241,13 @@ struct BigStruct {
 #[test]
 fn big_struct() {
     let x = Arc::init(init!(BigStruct {
-        buf <- zeroed::<_, Infallible>(),
-        oth <- zeroed::<_, Infallible>(),
+        buf <- zeroed::<_>(),
+        oth <- zeroed::<_>(),
     }));
     println!("{x:?}");
     let x = Box::init(init!(BigStruct {
-        buf <- zeroed::<_, Infallible>(),
-        oth <- zeroed::<_, Infallible>(),
+        buf <- zeroed::<_>(),
+        oth <- zeroed::<_>(),
     }));
     println!("{x:?}");
 }
@@ -260,7 +260,7 @@ fn with_big_struct() {
     for _ in 0..63 {
         assert_eq!(
             buf.as_mut().push(init!(BigStruct{
-                buf <- zeroed::<_, Infallible>(),
+                buf <- zeroed::<_>(),
                 oth <- uninit::<_, Infallible>(),
             })),
             Ok(true)
@@ -268,7 +268,7 @@ fn with_big_struct() {
     }
     assert_eq!(
         buf.as_mut().push(init!(BigStruct{
-            buf <- zeroed::<_, Infallible>(),
+            buf <- zeroed::<_>(),
             oth <- uninit::<_, Infallible>(),
         })),
         Ok(false)
