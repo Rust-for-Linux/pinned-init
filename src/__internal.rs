@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-//! This module contains library-internal items.
+//! This module contains library internal items.
 //!
-//! These items must not be used outside of
-//! - `lib.rs`
-//! - `../pinned-init-macro/src/pin_data.rs`
+//! These items must not be used outside of these files in the case of the kernel repository:
+//! - `../kernel/init.rs`
+//! - `./lib.rs`
+//! - `./macros.rs`
+//! - `../macros/pin_data.rs`
+//! - `../macros/pinned_drop.rs`
+//!
+//! And in the case of the `pinned-init` repository:
+//! - `./lib.rs`
+//! - `./macros.rs`
 //! - `../pinned-init-macro/src/pinned_drop.rs`
+//! - `../pinned-init-macro/src/pin_data.rs`
 
 use super::*;
 
@@ -151,7 +159,7 @@ impl<T> StackInit<T> {
     /// Creates a new [`StackInit<T>`] that is uninitialized. Use [`stack_pin_init`] instead of this
     /// primitive.
     ///
-    /// [`stack_pin_init`]: pinned_init::stack_pin_init
+    /// [`stack_pin_init`]: crate::stack_pin_init
     #[inline]
     pub fn uninit() -> Self {
         Self {

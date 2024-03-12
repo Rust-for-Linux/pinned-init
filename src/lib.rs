@@ -19,7 +19,7 @@
 //! # Nightly only
 //!
 //! This library requires unstable features and thus can only be used with a nightly compiler.
-//! The used features are:
+//! The internally used features are:
 //! - `allocator_api`
 //! - `new_uninit` (only if the `alloc` or `std` features are enabled)
 //! - `get_mut_unchecked` (only if the `alloc` or `std` features are enabled)
@@ -45,10 +45,10 @@
 //!
 //! # Examples
 //!
-//! Throught some examples we will make use of the `CMutex` type which can be found in the examples
-//! directory of the repository. It is essentially a rebuild of the `mutex` from the Linux kernel
-//! in userland. So it also uses a wait list and a basic spinlock. Importantly it needs to be
-//! pinned to be locked and thus is a prime candidate for this library.
+//! Throught some examples we will make use of the `CMutex` type which can be found in
+//! `../examples/mutex.rs`. It is essentially a rebuild of the `mutex` from the Linux kernel in userland. So
+//! it also uses a wait list and a basic spinlock. Importantly it needs to be pinned to be locked
+//! and thus is a prime candidate for using this library.
 //!
 //! ## Using the [`pin_init!`] macro
 //!
@@ -97,7 +97,7 @@
 //! #     a <- CMutex::new(42),
 //! #     b: 24,
 //! # });
-//! let foo: Result<Pin<Box<Foo>>, core::alloc::AllocError> = Box::pin_init(foo);
+//! let foo: Result<Pin<Box<Foo>>, _> = Box::pin_init(foo);
 //! ```
 //!
 //! For more information see the [`pin_init!`] macro.
@@ -111,8 +111,9 @@
 //! # #![feature(allocator_api)]
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 //! # use pinned_init::*;
-//! # use std::{alloc::AllocError, pin::Pin};
-//! let mtx: Result<Pin<Box<CMutex<usize>>>, AllocError> = Box::pin_init(CMutex::new(42));
+//! # use std::sync::Arc;
+//! # use core::pin::Pin;
+//! let mtx: Result<Pin<Arc<CMutex<usize>>>, _> = Arc::pin_init(CMutex::new(42));
 //! ```
 //!
 //! To declare an init macro/function you just return an [`impl PinInit<T, E>`]:
@@ -122,7 +123,6 @@
 //! # #![feature(allocator_api)]
 //! # use pinned_init::*;
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-//! use core::alloc::AllocError;
 //! #[pin_data]
 //! struct DriverData {
 //!     #[pin]
@@ -130,24 +130,14 @@
 //!     buffer: Box<[u8; 1_000_000]>,
 //! }
 //!
-//! struct DriverDataError;
-//!
-//! # impl From<core::convert::Infallible> for DriverDataError {
-//! #     fn from(i: core::convert::Infallible) -> Self { match i {} }
-//! # }
-//! # impl From<AllocError> for DriverDataError {
-//! #     fn from(_: AllocError) -> Self { Self }
-//! # }
-//! #
 //! impl DriverData {
-//!     fn new() -> impl PinInit<Self, DriverDataError> {
+//!     fn new() -> impl PinInit<Self, AllocError> {
 //!         try_pin_init!(Self {
 //!             status <- CMutex::new(0),
-//!             buffer: Box::init(zeroed())?,
-//!         }? DriverDataError)
+//!             buffer: Box::init(pinned_init::zeroed())?,
+//!         }? AllocError)
 //!     }
 //! }
-//! # let _ = Box::pin_init(DriverData::new());
 //! ```
 //!
 //! ## Manual creation of an initializer
@@ -227,10 +217,11 @@
 //! }
 //! ```
 //!
-//! For more information on how to use [`pin_init_from_closure()`], you can take a look at the
-//! uses inside the `kernel` crate from the [Rust-for-Linux] project. The `sync` module is a good
-//! starting point.
+//! For more information on how to use [`pin_init_from_closure()`], take a look at the uses inside
+//! the `kernel` crate. The [`sync`] module is a good starting point.
 //!
+//! [`sync`]: https://github.com/Rust-for-Linux/linux/tree/rust-next/rust/kernel/sync
+//! [pinning]: https://doc.rust-lang.org/std/pin/index.html
 //! [structurally pinned fields]:
 //!     https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
 //! [stack]: crate::stack_pin_init
@@ -240,7 +231,7 @@
 //! [`impl PinInit<T, E>`]: PinInit
 //! [`impl Init<T, E>`]: Init
 //! [`pin_data`]: ::pinned_init_macro::pin_data
-//! [Rust-for-Linux]: https://rust-for-linux.com/
+//! [`pin_init!`]: crate::pin_init!
 
 #![forbid(missing_docs, unsafe_op_in_unsafe_fn)]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -311,6 +302,8 @@ extern crate self as pinned_init;
 /// A normal `let` binding with optional type annotation. The expression is expected to implement
 /// [`PinInit`]/[`Init`] with the error type [`Infallible`]. If you want to use a different error
 /// type, then use [`stack_try_pin_init!`].
+///
+/// [`stack_try_pin_init!`]: crate::stack_try_pin_init!
 #[macro_export]
 macro_rules! stack_pin_init {
     (let $var:ident $(: $t:ty)? = $val:expr) => {
@@ -335,11 +328,7 @@ macro_rules! stack_pin_init {
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
-/// # use core::{alloc::AllocError, pin::Pin, convert::Infallible};
-/// # #[derive(Debug)]
-/// # struct FooError;
-/// # impl From<AllocError> for FooError { fn from(_: AllocError) -> Self { Self } }
-/// # impl From<Infallible> for FooError { fn from(_: Infallible) -> Self { Self } }
+/// # use core::pin::Pin;
 /// #[pin_data]
 /// struct Foo {
 ///     #[pin]
@@ -356,7 +345,7 @@ macro_rules! stack_pin_init {
 ///     b: Box::try_new(Bar {
 ///         x: 64,
 ///     })?,
-/// }? FooError));
+/// }? AllocError));
 /// let foo = foo.unwrap();
 /// println!("a: {}", &*foo.a.lock());
 /// ```
@@ -366,11 +355,7 @@ macro_rules! stack_pin_init {
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
-/// # use core::{alloc::AllocError, pin::Pin, convert::Infallible};
-/// # #[derive(Debug)]
-/// # struct FooError;
-/// # impl From<AllocError> for FooError { fn from(_: AllocError) -> Self { Self } }
-/// # impl From<Infallible> for FooError { fn from(_: Infallible) -> Self { Self } }
+/// # use core::pin::Pin;
 /// #[pin_data]
 /// struct Foo {
 ///     #[pin]
@@ -387,9 +372,9 @@ macro_rules! stack_pin_init {
 ///     b: Box::try_new(Bar {
 ///         x: 64,
 ///     })?,
-/// }? FooError));
+/// }? AllocError));
 /// println!("a: {}", &*foo.a.lock());
-/// # Ok::<_, FooError>(())
+/// # Ok::<_, AllocError>(())
 /// ```
 ///
 /// # Syntax
@@ -486,7 +471,6 @@ macro_rules! stack_try_pin_init {
 ///         })
 ///     }
 /// }
-/// # let _ = Box::pin_init(Foo::new());
 /// ```
 ///
 /// Users of `Foo` can now create it like this:
@@ -560,7 +544,6 @@ macro_rules! stack_try_pin_init {
 ///         })
 ///     }
 /// }
-/// # let _ = Box::pin_init(FooContainer::new(0));
 /// ```
 ///
 /// Here we see that when using `pin_init!` with `PinInit`, one needs to write `<-` instead of `:`.
@@ -783,16 +766,16 @@ macro_rules! try_init {
 ///
 /// To use this initializer, you will need a suitable memory location that can hold a `T`. This can
 /// be [`Box<T>`], [`Arc<T>`] or even the stack (see [`stack_pin_init!`]). Use the
-/// [`InPlaceInit::pin_init`] function of a smart pointer like [`Arc<T>`] on this.
+/// [`InPlaceInit::try_pin_init`] function of a smart pointer like [`Arc<T>`] on this.
 ///
 /// Also see the [module description](self).
 ///
 /// # Safety
 ///
-/// When implementing this type you will need to take great care. Also there are probably very few
+/// When implementing this trait you will need to take great care. Also there are probably very few
 /// cases where a manual implementation is necessary. Use [`pin_init_from_closure`] where possible.
 ///
-/// The [`PinInit::__pinned_init`] function
+/// The [`PinInit::__pinned_init`] function:
 /// - returns `Ok(())` if it initialized every field of `slot`,
 /// - returns `Err(err)` if it encountered an error and then cleaned `slot`, this means:
 ///     - `slot` can be deallocated without UB occurring,
@@ -870,17 +853,17 @@ where
 ///
 /// To use this initializer, you will need a suitable memory location that can hold a `T`. This can
 /// be [`Box<T>`], [`Arc<T>`] or even the stack (see [`stack_pin_init!`]). Use the
-/// [`InPlaceInit::init`] function of a smart pointer like [`Arc<T>`] on this. Because
+/// [`InPlaceInit::try_init`] function of a smart pointer like [`Arc<T>`] on this. Because
 /// [`PinInit<T, E>`] is a super trait, you can use every function that takes it as well.
 ///
 /// Also see the [module description](self).
 ///
 /// # Safety
 ///
-/// When implementing this type you will need to take great care. Also there are probably very few
+/// When implementing this trait you will need to take great care. Also there are probably very few
 /// cases where a manual implementation is necessary. Use [`init_from_closure`] where possible.
 ///
-/// The [`Init::__init`] function
+/// The [`Init::__init`] function:
 /// - returns `Ok(())` if it initialized every field of `slot`,
 /// - returns `Err(err)` if it encountered an error and then cleaned `slot`, this means:
 ///     - `slot` can be deallocated without UB occurring,
@@ -1147,7 +1130,7 @@ impl<T> InPlaceInit<T> for Arc<T> {
 /// ```rust
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// use pinned_init::*;
+/// # use pinned_init::*;
 /// use core::pin::Pin;
 /// #[pin_data(PinnedDrop)]
 /// struct Foo {
@@ -1161,14 +1144,13 @@ impl<T> InPlaceInit<T> for Arc<T> {
 ///         println!("Foo is being dropped!");
 ///     }
 /// }
-/// # let _ = Box::pin_init(pin_init!(Foo { mtx <- CMutex::new(0) }));
 /// ```
 ///
 /// # Safety
 ///
 /// This trait must be implemented via the [`pinned_drop`] proc-macro attribute on the impl.
 ///
-/// [`pinned_drop`]: pinned_init_macro::pinned_drop
+/// [`pinned_drop`]: ::pinned_init_macro::pinned_drop
 pub unsafe trait PinnedDrop: __internal::HasPinData {
     /// Executes the pinned destructor of this type.
     ///

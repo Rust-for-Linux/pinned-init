@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-//! This module provides the macros that actually implement the proc-macros `pin_data` and
-//! `pinned_drop`.
+//! This module provides the macros that actually implement the proc-macros `pin_data`,
+//! `pinned_drop` and the derive macro for zeroable. It also contains `__init_internal` the
+//! implementation of the `{try_}{pin_}init!` macros.
 //!
 //! These macros should never be called directly, since they expect their input to be
-//! in a certain format which is internal. Use the proc-macros instead.
+//! in a certain format which is internal. If used incorrectly, these macros can lead to UB even in
+//! safe code! Use the public facing macros instead.
 //!
 //! This architecture has been chosen because the kernel does not yet have access to `syn` which
 //! would make matters a lot easier for implementing these as proc-macros.
@@ -15,12 +17,11 @@
 //! # Macro expansion example
 //!
 //! This section is intended for readers trying to understand the macros in this module and the
-//! `pin_init!` macros from `init.rs`.
+//! `{try_}{pin_}init!` macros from `lib.rs`.
 //!
 //! We will look at the following example:
 //!
 //! ```rust,ignore
-//! # use pinned_init::*;
 //! # use core::pin::Pin;
 //! #[pin_data]
 //! #[repr(C)]
@@ -76,7 +77,6 @@
 //! Here is the definition of `Bar` from our example:
 //!
 //! ```rust,ignore
-//! # use pinned_init::*;
 //! #[pin_data]
 //! #[repr(C)]
 //! struct Bar<T> {
@@ -171,8 +171,10 @@
 //!         t: T,
 //!     }
 //!     #[doc(hidden)]
-//!     impl<'__pin, T>
-//!         ::core::marker::Unpin for Bar<T> where __Unpin<'__pin, T>: ::core::marker::Unpin {}
+//!     impl<'__pin, T> ::core::marker::Unpin for Bar<T>
+//!     where
+//!         __Unpin<'__pin, T>: ::core::marker::Unpin,
+//!     {}
 //!     // Now we need to ensure that `Bar` does not implement `Drop`, since that would give users
 //!     // access to `&mut self` inside of `drop` even if the struct was pinned. This could lead to
 //!     // UB with only safe code, so we disallow this by giving a trait implementation error using
@@ -189,8 +191,9 @@
 //!     // for safety, but a good sanity check, since no normal code calls `PinnedDrop::drop`.
 //!     #[allow(non_camel_case_types)]
 //!     trait UselessPinnedDropImpl_you_need_to_specify_PinnedDrop {}
-//!     impl<T: ::pinned_init::PinnedDrop>
-//!         UselessPinnedDropImpl_you_need_to_specify_PinnedDrop for T {}
+//!     impl<
+//!         T: ::pinned_init::PinnedDrop,
+//!     > UselessPinnedDropImpl_you_need_to_specify_PinnedDrop for T {}
 //!     impl<T> UselessPinnedDropImpl_you_need_to_specify_PinnedDrop for Bar<T> {}
 //! };
 //! ```
@@ -220,7 +223,7 @@
 //!             // return type and shadow it later when we insert the arbitrary user code. That way
 //!             // there will be no possibility of returning without `unsafe`.
 //!             struct __InitOk;
-//!             // Get the pin-data type from the initialized type.
+//!             // Get the data about fields from the supplied type.
 //!             // - the function is unsafe, hence the unsafe block
 //!             // - we `use` the `HasPinData` trait in the block, it is only available in that
 //!             //   scope.
@@ -228,8 +231,7 @@
 //!                 use ::pinned_init::__internal::HasPinData;
 //!                 Self::__pin_data()
 //!             };
-//!             // Use `data` to help with type inference, the closure supplied will have the type
-//!             // `FnOnce(*mut Self) -> Result<__InitOk, Infallible>`.
+//!             // Ensure that `data` really is of type `PinData` and help with type inference:
 //!             let init = ::pinned_init::__internal::PinData::make_closure::<
 //!                 _,
 //!                 __InitOk,
@@ -237,71 +239,75 @@
 //!             >(data, move |slot| {
 //!                 {
 //!                     // Shadow the structure so it cannot be used to return early. If a user
-//!                     // tries to write `return Ok(__InitOk)`, then they get a type error, since
-//!                     // that will refer to this struct instead of the one defined above.
+//!                     // tries to write `return Ok(__InitOk)`, then they get a type error,
+//!                     // since that will refer to this struct instead of the one defined
+//!                     // above.
 //!                     struct __InitOk;
 //!                     // This is the expansion of `t,`, which is syntactic sugar for `t: t,`.
-//!                     unsafe { ::core::ptr::write(::core::addr_of_mut!((*slot).t), t) };
-//!                     // Since initialization could fail later (not in this case, since the error
-//!                     // type is `Infallible`) we will need to drop this field if there is an
-//!                     // error later. This `DropGuard` will drop the field when it gets dropped
-//!                     // and has not yet been forgotten. We make a reference to it, so users
-//!                     // cannot `mem::forget` it from the initializer, since the name is the same
-//!                     // as the field (including hygiene).
-//!                     let t = &unsafe {
-//!                         ::pinned_init::__internal::DropGuard::new(
-//!                             ::core::addr_of_mut!((*slot).t),
-//!                         )
+//!                     {
+//!                         unsafe { ::core::ptr::write(::core::addr_of_mut!((*slot).t), t) };
+//!                     }
+//!                     // Since initialization could fail later (not in this case, since the
+//!                     // error type is `Infallible`) we will need to drop this field if there
+//!                     // is an error later. This `DropGuard` will drop the field when it gets
+//!                     // dropped and has not yet been forgotten.
+//!                     let t = unsafe {
+//!                         ::pinned_init::__internal::DropGuard::new(::core::addr_of_mut!((*slot).t))
 //!                     };
 //!                     // Expansion of `x: 0,`:
-//!                     // Since this can be an arbitrary expression we cannot place it inside of
-//!                     // the `unsafe` block, so we bind it here.
-//!                     let x = 0;
-//!                     unsafe { ::core::ptr::write(::core::addr_of_mut!((*slot).x), x) };
+//!                     // Since this can be an arbitrary expression we cannot place it inside
+//!                     // of the `unsafe` block, so we bind it here.
+//!                     {
+//!                         let x = 0;
+//!                         unsafe { ::core::ptr::write(::core::addr_of_mut!((*slot).x), x) };
+//!                     }
 //!                     // We again create a `DropGuard`.
-//!                     let x = &unsafe {
-//!                         ::pinned_init::__internal::DropGuard::new(
-//!                             ::core::addr_of_mut!((*slot).x),
-//!                         )
+//!                     let x = unsafe {
+//!                         ::pinned_init::__internal::DropGuard::new(::core::addr_of_mut!((*slot).x))
 //!                     };
-//!
+//!                     // Since initialization has successfully completed, we can now forget
+//!                     // the guards. This is not `mem::forget`, since we only have
+//!                     // `&DropGuard`.
+//!                     ::core::mem::forget(x);
+//!                     ::core::mem::forget(t);
 //!                     // Here we use the type checker to ensure that every field has been
 //!                     // initialized exactly once, since this is `if false` it will never get
 //!                     // executed, but still type-checked.
-//!                     // Additionally we abuse `slot` to automatically infer the correct type for
-//!                     // the struct. This is also another check that every field is accessible
-//!                     // from this scope.
+//!                     // Additionally we abuse `slot` to automatically infer the correct type
+//!                     // for the struct. This is also another check that every field is
+//!                     // accessible from this scope.
 //!                     #[allow(unreachable_code, clippy::diverging_sub_expression)]
-//!                     if false {
+//!                     let _ = || {
 //!                         unsafe {
 //!                             ::core::ptr::write(
 //!                                 slot,
 //!                                 Self {
-//!                                     // We only care about typecheck finding every field here,
-//!                                     // the expression does not matter, just conjure one using
-//!                                     // `panic!()`:
+//!                                     // We only care about typecheck finding every field
+//!                                     // here, the expression does not matter, just conjure
+//!                                     // one using `panic!()`:
 //!                                     t: ::core::panic!(),
 //!                                     x: ::core::panic!(),
 //!                                 },
 //!                             );
 //!                         };
-//!                     }
-//!                     // Since initialization has successfully completed, we can now forget the
-//!                     // guards. This is not `mem::forget`, since we only have `&DropGuard`.
-//!                     unsafe { ::pinned_init::__internal::DropGuard::forget(t) };
-//!                     unsafe { ::pinned_init::__internal::DropGuard::forget(x) };
+//!                     };
 //!                 }
 //!                 // We leave the scope above and gain access to the previously shadowed
 //!                 // `__InitOk` that we need to return.
 //!                 Ok(__InitOk)
 //!             });
 //!             // Change the return type from `__InitOk` to `()`.
-//!             let init = move |slot| -> ::core::result::Result<(), ::core::convert::Infallible> {
+//!             let init = move |
+//!                 slot,
+//!             | -> ::core::result::Result<(), ::core::convert::Infallible> {
 //!                 init(slot).map(|__InitOk| ())
 //!             };
 //!             // Construct the initializer.
 //!             let init = unsafe {
-//!                 ::pinned_init::pin_init_from_closure::<_, ::core::convert::Infallible>(init)
+//!                 ::pinned_init::pin_init_from_closure::<
+//!                     _,
+//!                     ::core::convert::Infallible,
+//!                 >(init)
 //!             };
 //!             init
 //!         }
@@ -375,7 +381,10 @@
 //!         b: Bar<u32>,
 //!     }
 //!     #[doc(hidden)]
-//!     impl<'__pin> ::core::marker::Unpin for Foo where __Unpin<'__pin>: ::core::marker::Unpin {}
+//!     impl<'__pin> ::core::marker::Unpin for Foo
+//!     where
+//!         __Unpin<'__pin>: ::core::marker::Unpin,
+//!     {}
 //!     // Since we specified `PinnedDrop` as the argument to `#[pin_data]`, we expect `Foo` to
 //!     // implement `PinnedDrop`. Thus we do not need to prevent `Drop` implementations like
 //!     // before, instead we implement `Drop` here and delegate to `PinnedDrop`.
@@ -450,18 +459,21 @@
 //!     >(data, move |slot| {
 //!         {
 //!             struct __InitOk;
-//!             unsafe { ::core::ptr::write(::core::addr_of_mut!((*slot).a), a) };
-//!             let a = &unsafe {
+//!             {
+//!                 unsafe { ::core::ptr::write(::core::addr_of_mut!((*slot).a), a) };
+//!             }
+//!             let a = unsafe {
 //!                 ::pinned_init::__internal::DropGuard::new(::core::addr_of_mut!((*slot).a))
 //!             };
-//!             let b = Bar::new(36);
+//!             let init = Bar::new(36);
 //!             unsafe { data.b(::core::addr_of_mut!((*slot).b), b)? };
-//!             let b = &unsafe {
+//!             let b = unsafe {
 //!                 ::pinned_init::__internal::DropGuard::new(::core::addr_of_mut!((*slot).b))
 //!             };
-//!
+//!             ::core::mem::forget(b);
+//!             ::core::mem::forget(a);
 //!             #[allow(unreachable_code, clippy::diverging_sub_expression)]
-//!             if false {
+//!             let _ = || {
 //!                 unsafe {
 //!                     ::core::ptr::write(
 //!                         slot,
@@ -471,17 +483,18 @@
 //!                         },
 //!                     );
 //!                 };
-//!             }
-//!             unsafe { ::pinned_init::__internal::DropGuard::forget(a) };
-//!             unsafe { ::pinned_init::__internal::DropGuard::forget(b) };
+//!             };
 //!         }
 //!         Ok(__InitOk)
 //!     });
-//!     let init = move |slot| -> ::core::result::Result<(), ::core::convert::Infallible> {
+//!     let init = move |
+//!         slot,
+//!     | -> ::core::result::Result<(), ::core::convert::Infallible> {
 //!         init(slot).map(|__InitOk| ())
 //!     };
-//!     let init =
-//!         unsafe { ::pinned_init::pin_init_from_closure::<_, ::core::convert::Infallible>(init) };
+//!     let init = unsafe {
+//!         ::pinned_init::pin_init_from_closure::<_, ::core::convert::Infallible>(init)
+//!     };
 //!     init
 //! };
 //! ```
