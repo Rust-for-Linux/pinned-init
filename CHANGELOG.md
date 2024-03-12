@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- return type of `zeroed()` from `impl Init<T, E>` to `impl Init<T>` (also removing the generic
+  parameter `E`)
+
 ## [0.0.7] - 2024-04-09
 
 ### Added

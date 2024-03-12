@@ -22,14 +22,14 @@ pub struct ManagedBuf {
 
 impl ManagedBuf {
     pub fn new() -> impl Init<Self> {
-        init!(ManagedBuf { buf <- zeroed::<_, Infallible>() })
+        init!(ManagedBuf { buf <- zeroed() })
     }
 }
 
 fn main() {
     // we want to initialize the struct in-place, otherwise we would get a stackoverflow
     let buf: Box<BigStruct> = Box::init(init!(BigStruct {
-        buf <- zeroed::<_, Infallible>(),
+        buf <- zeroed(),
         a: 7,
         b: 186,
         c: 7789,
