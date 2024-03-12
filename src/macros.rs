@@ -22,8 +22,6 @@
 //! We will look at the following example:
 //!
 //! ```rust,ignore
-//! # use pinned_init::*;
-//! # use core::pin::Pin;
 //! #[pin_data]
 //! #[repr(C)]
 //! struct Bar<T> {
@@ -78,7 +76,6 @@
 //! Here is the definition of `Bar` from our example:
 //!
 //! ```rust,ignore
-//! # use pinned_init::*;
 //! #[pin_data]
 //! #[repr(C)]
 //! struct Bar<T> {
@@ -306,7 +303,10 @@
 //!             };
 //!             // Construct the initializer.
 //!             let init = unsafe {
-//!                 ::pinned_init::pin_init_from_closure::<_, ::core::convert::Infallible>(init)
+//!                 ::pinned_init::pin_init_from_closure::<
+//!                     _,
+//!                     ::core::convert::Infallible,
+//!                 >(init)
 //!             };
 //!             init
 //!         }
@@ -491,8 +491,9 @@
 //!     | -> ::core::result::Result<(), ::core::convert::Infallible> {
 //!         init(slot).map(|__InitOk| ())
 //!     };
-//!     let init =
-//!         unsafe { ::pinned_init::pin_init_from_closure::<_, ::core::convert::Infallible>(init) };
+//!     let init = unsafe {
+//!         ::pinned_init::pin_init_from_closure::<_, ::core::convert::Infallible>(init)
+//!     };
 //!     init
 //! };
 //! ```
