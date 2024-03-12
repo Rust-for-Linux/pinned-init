@@ -85,7 +85,7 @@ let foo = pin_init!(Foo {
 (or just the stack) to actually initialize a `Foo`:
 
 ```rust
-let foo: Result<Pin<Box<Foo>>, core::alloc::AllocError> = Box::pin_init(foo);
+let foo: Result<Pin<Box<Foo>>, _> = Box::pin_init(foo);
 ```
 
 For more information see the [`pin_init!`] macro.
@@ -96,13 +96,12 @@ Many types that use this library supply a function/macro that returns an initial
 the above method only works for types where you can access the fields.
 
 ```rust
-let mtx: Result<Pin<Box<CMutex<usize>>>, AllocError> = Box::pin_init(CMutex::new(42));
+let mtx: Result<Pin<Arc<CMutex<usize>>>, _> = Arc::pin_init(CMutex::new(42));
 ```
 
 To declare an init macro/function you just return an [`impl PinInit<T, E>`]:
 
 ```rust
-use core::alloc::AllocError;
 #[pin_data]
 struct DriverData {
     #[pin]
@@ -110,14 +109,12 @@ struct DriverData {
     buffer: Box<[u8; 1_000_000]>,
 }
 
-struct DriverDataError;
-
 impl DriverData {
-    fn new() -> impl PinInit<Self, DriverDataError> {
+    fn new() -> impl PinInit<Self, Error> {
         try_pin_init!(Self {
             status <- CMutex::new(0),
-            buffer: Box::init(zeroed())?,
-        }? DriverDataError)
+            buffer: Box::init(pinned_init::zeroed())?,
+        }? Error)
     }
 }
 ```
