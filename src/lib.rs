@@ -628,7 +628,7 @@ macro_rules! pin_init {
 ///
 /// ```rust
 /// # #![feature(allocator_api)]
-/// # use core::alloc::AllocError;
+/// # #[path = "../examples/error.rs"] mod error; use error::Error;
 /// use pinned_init::*;
 /// #[pin_data]
 /// struct BigBuf {
@@ -638,12 +638,12 @@ macro_rules! pin_init {
 /// }
 ///
 /// impl BigBuf {
-///     fn new() -> impl PinInit<Self, AllocError> {
+///     fn new() -> impl PinInit<Self, Error> {
 ///         try_pin_init!(Self {
 ///             big: Box::init(zeroed())?,
 ///             small: [0; 1024 * 1024],
 ///             ptr: core::ptr::null_mut(),
-///         })
+///         }? Error)
 ///     }
 /// }
 /// # let _ = Box::pin_init(BigBuf::new());
@@ -700,7 +700,6 @@ macro_rules! try_pin_init {
 /// ```rust
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// # use core::convert::Infallible;
 /// use pinned_init::*;
 /// struct BigBuf {
 ///     big: Box<[u8; 1024 * 1024 * 1024]>,
@@ -710,8 +709,8 @@ macro_rules! try_pin_init {
 /// impl BigBuf {
 ///     fn new() -> impl Init<Self, Error> {
 ///         try_init!(Self {
-///             small <- zeroed::<_, Error>(),
-///             big: Box::init(zeroed::<_, Infallible>())?,
+///             small <- zeroed(),
+///             big: Box::init(zeroed())?,
 ///         }? Error)
 ///     }
 /// }
@@ -977,7 +976,7 @@ pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
     /// }
     ///
     /// let foo = init!(Foo {
-    ///     buf <- zeroed::<_, Infallible>()
+    ///     buf <- zeroed()
     /// }).chain(|foo| {
     ///     foo.setup();
     ///     Ok(())
@@ -1338,7 +1337,7 @@ pub unsafe trait Zeroable {}
 ///
 /// The returned initializer will write `0x00` to every byte of the given `slot`.
 #[inline]
-pub fn zeroed<T: Zeroable, E>() -> impl Init<T, E> {
+pub fn zeroed<T: Zeroable>() -> impl Init<T> {
     // SAFETY: Because `T: Zeroable`, all bytes zero is a valid bit pattern for `T`
     // and because we write all zeroes, the memory is initialized.
     unsafe {

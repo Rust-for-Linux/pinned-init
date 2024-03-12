@@ -9,6 +9,6 @@ struct Array<const N: usize = 0> {
 
 #[test]
 fn create_array() {
-    stack_pin_init!(let array: Array<1024> = init!(Array { array <- zeroed::<_, Infallible>() }));
+    stack_pin_init!(let array: Array<1024> = init!(Array { array <- zeroed() }));
     println!("{}", array.array.len());
 }
