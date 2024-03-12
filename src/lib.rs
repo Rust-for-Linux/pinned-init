@@ -236,17 +236,17 @@
 #![forbid(missing_docs, unsafe_op_in_unsafe_fn)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(allocator_api)]
-#![cfg_attr(any(feature = "alloc"), feature(new_uninit))]
-#![cfg_attr(any(feature = "alloc"), feature(get_mut_unchecked))]
+#![cfg_attr(feature = "alloc", feature(new_uninit))]
+#![cfg_attr(feature = "alloc", feature(get_mut_unchecked))]
 
-#[cfg(any(feature = "alloc"))]
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
-#[cfg(any(feature = "alloc"))]
+#[cfg(feature = "alloc")]
 use alloc::{boxed::Box, sync::Arc};
 use core::{
     alloc::AllocError,
-    cell::Cell,
+    cell::UnsafeCell,
     convert::Infallible,
     marker::PhantomData,
     mem::MaybeUninit,
@@ -879,7 +879,7 @@ where
 ///
 /// [`Arc<T>`]: alloc::sync::Arc
 #[must_use = "An initializer must be used in order to create its value."]
-pub unsafe trait Init<T: ?Sized, E = Infallible>: Sized {
+pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
     /// Initializes `slot`.
     ///
     /// # Safety
@@ -1006,6 +1006,101 @@ pub fn uninit<T, E>() -> impl Init<MaybeUninit<T>, E> {
     unsafe { init_from_closure(|_| Ok(())) }
 }
 
+/* TODO: decide what to do with ScopeGuard
+
+/// Initializes an array by initializing each element via the provided initializer.
+///
+/// # Examples
+///
+/// ```rust
+/// # use pinned_init::*;
+/// let array: Box<[usize; 1_000]> = Box::init::<Error>(init_array_from_fn(|i| i)).unwrap();
+/// assert_eq!(array.len(), 1_000);
+/// ```
+pub fn init_array_from_fn<I, const N: usize, T, E>(
+    mut make_init: impl FnMut(usize) -> I,
+) -> impl Init<[T; N], E>
+where
+    I: Init<T, E>,
+{
+    let init = move |slot: *mut [T; N]| {
+        let slot = slot.cast::<T>();
+        // Counts the number of initialized elements and when dropped drops that many elements from
+        // `slot`.
+        let mut init_count = ScopeGuard::new_with_data(0, |i| {
+            // We now free every element that has been initialized before.
+            // SAFETY: The loop initialized exactly the values from 0..i and since we
+            // return `Err` below, the caller will consider the memory at `slot` as
+            // uninitialized.
+            unsafe { ptr::drop_in_place(ptr::slice_from_raw_parts_mut(slot, i)) };
+        });
+        for i in 0..N {
+            let init = make_init(i);
+            // SAFETY: Since 0 <= `i` < N, it is still in bounds of `[T; N]`.
+            let ptr = unsafe { slot.add(i) };
+            // SAFETY: The pointer is derived from `slot` and thus satisfies the `__init`
+            // requirements.
+            unsafe { init.__init(ptr) }?;
+            *init_count += 1;
+        }
+        init_count.dismiss();
+        Ok(())
+    };
+    // SAFETY: The initializer above initializes every element of the array. On failure it drops
+    // any initialized elements and returns `Err`.
+    unsafe { init_from_closure(init) }
+}
+
+
+/// Initializes an array by initializing each element via the provided initializer.
+///
+/// # Examples
+///
+/// ```rust
+/// # #![feature(allocator_api)]
+/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// # use pinned_init::*;
+/// # use std::sync::Arc;
+/// let array: Arc<[CMutex<usize>; 1_000]> =
+///     Arc::pin_init(pin_init_array_from_fn(|i| CMutex::new(i))).unwrap();
+/// assert_eq!(array.len(), 1_000);
+/// ```
+pub fn pin_init_array_from_fn<I, const N: usize, T, E>(
+    mut make_init: impl FnMut(usize) -> I,
+) -> impl PinInit<[T; N], E>
+where
+    I: PinInit<T, E>,
+{
+    let init = move |slot: *mut [T; N]| {
+        let slot = slot.cast::<T>();
+        // Counts the number of initialized elements and when dropped drops that many elements from
+        // `slot`.
+        let mut init_count = ScopeGuard::new_with_data(0, |i| {
+            // We now free every element that has been initialized before.
+            // SAFETY: The loop initialized exactly the values from 0..i and since we
+            // return `Err` below, the caller will consider the memory at `slot` as
+            // uninitialized.
+            unsafe { ptr::drop_in_place(ptr::slice_from_raw_parts_mut(slot, i)) };
+        });
+        for i in 0..N {
+            let init = make_init(i);
+            // SAFETY: Since 0 <= `i` < N, it is still in bounds of `[T; N]`.
+            let ptr = unsafe { slot.add(i) };
+            // SAFETY: The pointer is derived from `slot` and thus satisfies the `__init`
+            // requirements.
+            unsafe { init.__pinned_init(ptr) }?;
+            *init_count += 1;
+        }
+        init_count.dismiss();
+        Ok(())
+    };
+    // SAFETY: The initializer above initializes every element of the array. On failure it drops
+    // any initialized elements and returns `Err`.
+    unsafe { pin_init_from_closure(init) }
+}
+
+*/
+
 // SAFETY: Every type can be initialized by-value.
 unsafe impl<T, E> Init<T, E> for T {
     unsafe fn __init(self, slot: *mut T) -> Result<(), E> {
@@ -1038,8 +1133,9 @@ pub trait InPlaceInit<T>: Sized {
     fn pin_init(init: impl PinInit<T>) -> Result<Pin<Self>, AllocError> {
         // SAFETY: We delegate to `init` and only change the error type.
         let init = unsafe {
-            pin_init_from_closure(|slot| {
-                Ok(init.__pinned_init(slot).unwrap()) // cannot fail
+            pin_init_from_closure(|slot| match init.__pinned_init(slot) {
+                Ok(()) => Ok(()),
+                Err(i) => match i {},
             })
         };
         Self::try_pin_init(init)
@@ -1052,14 +1148,18 @@ pub trait InPlaceInit<T>: Sized {
 
     /// Use the given initializer to in-place initialize a `T`.
     fn init(init: impl Init<T>) -> Result<Self, AllocError> {
+        // SAFETY: We delegate to `init` and only change the error type.
         let init = unsafe {
-            init_from_closure(|slot| Ok(init.__init(slot).unwrap())) //cannot fail
+            init_from_closure(|slot| match init.__init(slot) {
+                Ok(()) => Ok(()),
+                Err(i) => match i {},
+            })
         };
         Self::try_init(init)
     }
 }
 
-#[cfg(any(feature = "alloc"))]
+#[cfg(feature = "alloc")]
 impl<T> InPlaceInit<T> for Box<T> {
     #[inline]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
@@ -1090,7 +1190,7 @@ impl<T> InPlaceInit<T> for Box<T> {
     }
 }
 
-#[cfg(any(feature = "alloc"))]
+#[cfg(feature = "alloc")]
 impl<T> InPlaceInit<T> for Arc<T> {
     #[inline]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
@@ -1191,7 +1291,7 @@ pub fn zeroed<T: Zeroable>() -> impl Init<T> {
 }
 
 macro_rules! impl_zeroable {
-    ($($(#[$attr:meta])*$({$($generics:tt)*})? $t:ty, )*) => {
+    ($($(#[$attr:meta])* $({$($generics:tt)*})? $t:ty, )*) => {
         $(
             $(#[$attr])*
             unsafe impl$($($generics)*)? Zeroable for $t {}
@@ -1212,6 +1312,9 @@ impl_zeroable! {
 
     // SAFETY: Type is allowed to take any value, including all zeros.
     {<T>} MaybeUninit<T>,
+
+    // SAFETY: `T: Zeroable` and `UnsafeCell` is `repr(transparent)`.
+    {<T: ?Sized + Zeroable>} UnsafeCell<T>,
 
     // SAFETY: All zeros is equivalent to `None` (option layout optimization guarantee).
     Option<NonZeroU8>, Option<NonZeroU16>, Option<NonZeroU32>, Option<NonZeroU64>,

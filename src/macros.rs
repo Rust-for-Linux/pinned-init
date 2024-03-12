@@ -499,6 +499,8 @@
 //! };
 //! ```
 
+pub use ::paste::paste;
+
 /// Creates a `unsafe impl<...> PinnedDrop for $type` block.
 ///
 /// See [`PinnedDrop`] for more information.
