@@ -1,5 +1,6 @@
 mod pin_data;
 mod pinned_drop;
+mod zeroable;
 
 use proc_macro::TokenStream;
 
@@ -77,4 +78,9 @@ pub fn pin_data(inner: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn pinned_drop(args: TokenStream, input: TokenStream) -> TokenStream {
     pinned_drop::pinned_drop(args, input)
+}
+
+#[proc_macro_derive(Zeroable)]
+pub fn derive_zeroable(input: TokenStream) -> TokenStream {
+    zeroable::derive(input)
 }

@@ -269,7 +269,7 @@ pub mod __internal;
 #[doc(hidden)]
 pub mod macros;
 
-pub use pinned_init_macro::{pin_data, pinned_drop};
+pub use pinned_init_macro::{pin_data, pinned_drop, Zeroable};
 
 /// Initialize and pin a type directly on the stack.
 ///
@@ -580,6 +580,7 @@ macro_rules! stack_try_pin_init {
 /// # use pinned_init::*;
 /// # use core::{ptr::addr_of_mut, marker::PhantomPinned};
 /// #[pin_data]
+/// #[derive(Zeroable)]
 /// struct Buf {
 ///     // `ptr` points into `buf`.
 ///     ptr: *mut u8,
