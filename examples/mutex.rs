@@ -99,6 +99,11 @@ impl<T> CMutex<T> {
             })
         }
     }
+
+    pub fn get_data_mut(self: Pin<&mut Self>) -> &mut T {
+        // SAFETY: we have an exclusive reference and thus nobody has access to data.
+        unsafe { &mut *self.data.get() }
+    }
 }
 
 unsafe impl<T: Send> Send for CMutex<T> {}
