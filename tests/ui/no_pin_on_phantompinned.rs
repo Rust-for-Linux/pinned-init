@@ -1,8 +1,7 @@
-#![no_std]
 #![feature(allocator_api)]
 extern crate pinned_init;
-use core::marker::{self, PhantomPinned};
 use pinned_init::*;
+use std::marker::{self, PhantomPinned};
 
 #[pin_data]
 struct Foo {
