@@ -231,6 +231,7 @@
 //! [`impl PinInit<T, E>`]: PinInit
 //! [`impl Init<T, E>`]: Init
 //! [`pin_data`]: ::pinned_init_macro::pin_data
+//! [Rust-for-Linux]: https://rust-for-linux.com/
 //! [`pin_init!`]: crate::pin_init!
 
 #![forbid(missing_docs, unsafe_op_in_unsafe_fn)]
