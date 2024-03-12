@@ -1,11 +1,11 @@
 error[E0277]: `?` couldn't convert the error to `std::alloc::AllocError`
-  --> $DIR/no_error_coercion.rs:17:9
+  --> $DIR/no_error_coercion.rs:18:9
    |
-17 | /         try_init!(Self {
-18 | |             a: Box::new(42),
-19 | |             bar <- init!(Bar { b: 42 }),
-20 | |         }? AllocError)
-   | |______________________^ the trait `From<Infallible>` is not implemented for `std::alloc::AllocError`, which is required by `Result<Foo::new::__InitOk, std::alloc::AllocError>: FromResidual<Result<Infallible, Infallible>>`
+18 | /         try_init!(Self {
+19 | |             a: Box::new(42),
+20 | |             bar <- init!(Bar { b: 42 }),
+21 | |         }? AllocError)
+   | |______________________^ the trait `From<Infallible>` is not implemented for `std::alloc::AllocError`
    |
    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
    = help: the following other types implement trait `FromResidual<R>`:

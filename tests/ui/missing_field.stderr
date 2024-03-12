@@ -1,25 +1,25 @@
 error[E0063]: missing field `b` in initializer of `Foo`
-  --> $DIR/missing_field.rs:12:26
+  --> $DIR/missing_field.rs:13:26
    |
-12 |     let _foo = pin_init!(Foo { a: 0 });
+13 |     let _foo = pin_init!(Foo { a: 0 });
    |                          ^^^ missing `b`
 
 error[E0063]: missing field `b` in initializer of `Foo`
-  --> $DIR/missing_field.rs:13:30
+  --> $DIR/missing_field.rs:14:30
    |
-13 |     let _foo = try_pin_init!(Foo { a: 0 }? ::std::convert::Infallible);
+14 |     let _foo = try_pin_init!(Foo { a: 0 }? ::std::convert::Infallible);
    |                              ^^^ missing `b`
 
 error[E0063]: missing field `b` in initializer of `Foo`
-  --> $DIR/missing_field.rs:14:22
+  --> $DIR/missing_field.rs:15:22
    |
-14 |     let _foo = init!(Foo { a: 0 });
+15 |     let _foo = init!(Foo { a: 0 });
    |                      ^^^ missing `b`
 
 error[E0063]: missing field `b` in initializer of `Foo`
-  --> $DIR/missing_field.rs:15:26
+  --> $DIR/missing_field.rs:16:26
    |
-15 |     let _foo = try_init!(Foo { a: 0 }? ::std::convert::Infallible);
+16 |     let _foo = try_init!(Foo { a: 0 }? ::std::convert::Infallible);
    |                          ^^^ missing `b`
 
 error: aborting due to 4 previous errors

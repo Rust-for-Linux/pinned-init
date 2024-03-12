@@ -1,13 +1,13 @@
 error[E0277]: the trait bound `Foo: HasPinData` is not satisfied
-    --> $DIR/no_pin_data_but_pinned_drop.rs:9:21
+    --> $DIR/no_pin_data_but_pinned_drop.rs:10:21
      |
-9    | impl PinnedDrop for Foo {
+10   | impl PinnedDrop for Foo {
      |                     ^^^ the trait `HasPinData` is not implemented for `Foo`
      |
 note: required by a bound in `PinnedDrop`
-    --> $SRC_DIR/src/lib.rs:1258:30
+    --> $SRC_DIR/src/lib.rs:1255:30
      |
-1258 | pub unsafe trait PinnedDrop: __internal::HasPinData {
+1255 | pub unsafe trait PinnedDrop: __internal::HasPinData {
      |                              ^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `PinnedDrop`
 
 error: aborting due to 1 previous error

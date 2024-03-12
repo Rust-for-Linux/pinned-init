@@ -1,7 +1,7 @@
 error[E0119]: conflicting implementations of trait `MustNotImplDrop` for type `Foo`
- --> $DIR/pin_data_but_drop.rs:5:1
+ --> $DIR/pin_data_but_drop.rs:6:1
   |
-5 | #[pin_data]
+6 | #[pin_data]
   | ^^^^^^^^^^^
   | |
   | first implementation here
