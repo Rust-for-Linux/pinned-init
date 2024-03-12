@@ -1,4 +1,4 @@
-#![feature(no_coverage, allocator_api)]
+#![feature(allocator_api)]
 use core::{
     alloc::AllocError,
     convert::Infallible,
