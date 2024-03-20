@@ -11,9 +11,6 @@
 //! This architecture has been chosen because the kernel does not yet have access to `syn` which
 //! would make matters a lot easier for implementing these as proc-macros.
 //!
-//! Since this library and the kernel implementation should diverge as little as possible, the same
-//! approach has been taken here.
-//!
 //! # Macro expansion example
 //!
 //! This section is intended for readers trying to understand the macros in this module and the
@@ -22,7 +19,6 @@
 //! We will look at the following example:
 //!
 //! ```rust,ignore
-//! # use core::pin::Pin;
 //! #[pin_data]
 //! #[repr(C)]
 //! struct Bar<T> {
@@ -498,6 +494,12 @@
 //!     init
 //! };
 //! ```
+
+#[cfg(kernel)]
+pub use ::macros::paste;
+
+#[cfg(not(kernel))]
+pub use ::paste::paste;
 
 /// Creates a `unsafe impl<...> PinnedDrop for $type` block.
 ///
@@ -1111,7 +1113,7 @@ macro_rules! __init_internal {
             // information that is associated to already parsed fragments, so a path fragment
             // cannot be used in this position. Doing the retokenization results in valid rust
             // code.
-            ::paste::paste!($t::$get_data())
+            $crate::macros::paste!($t::$get_data())
         };
         // Ensure that `data` really is of type `$data` and help with type inference:
         let init = $crate::__internal::$data::make_closure::<_, __InitOk, $err>(
@@ -1191,7 +1193,7 @@ macro_rules! __init_internal {
         //
         // We rely on macro hygiene to make it impossible for users to access this local variable.
         // We use `paste!` to create new hygiene for `$field`.
-        ::paste::paste! {
+        $crate::macros::paste! {
             // SAFETY: We forget the guard later when initialization has succeeded.
             let [<$field>] = unsafe {
                 $crate::__internal::DropGuard::new(::core::ptr::addr_of_mut!((*$slot).$field))
@@ -1222,7 +1224,7 @@ macro_rules! __init_internal {
         //
         // We rely on macro hygiene to make it impossible for users to access this local variable.
         // We use `paste!` to create new hygiene for `$field`.
-        ::paste::paste! {
+        $crate::macros::paste! {
             // SAFETY: We forget the guard later when initialization has succeeded.
             let [<$field>] = unsafe {
                 $crate::__internal::DropGuard::new(::core::ptr::addr_of_mut!((*$slot).$field))
@@ -1254,7 +1256,7 @@ macro_rules! __init_internal {
         //
         // We rely on macro hygiene to make it impossible for users to access this local variable.
         // We use `paste!` to create new hygiene for `$field`.
-        ::paste::paste! {
+        $crate::macros::paste! {
             // SAFETY: We forget the guard later when initialization has succeeded.
             let [<$field>] = unsafe {
                 $crate::__internal::DropGuard::new(::core::ptr::addr_of_mut!((*$slot).$field))
@@ -1291,7 +1293,7 @@ macro_rules! __init_internal {
             // information that is associated to already parsed fragments, so a path fragment
             // cannot be used in this position. Doing the retokenization results in valid rust
             // code.
-            ::paste::paste!(
+            $crate::macros::paste!(
                 ::core::ptr::write($slot, $t {
                     $($acc)*
                     ..zeroed
@@ -1313,7 +1315,7 @@ macro_rules! __init_internal {
             // information that is associated to already parsed fragments, so a path fragment
             // cannot be used in this position. Doing the retokenization results in valid rust
             // code.
-            ::paste::paste!(
+            $crate::macros::paste!(
                 ::core::ptr::write($slot, $t {
                     $($acc)*
                 });
@@ -1345,5 +1347,41 @@ macro_rules! __init_internal {
             @munch_fields($($rest)*),
             @acc($($acc)* $field: ::core::panic!(),),
         );
+    };
+}
+
+#[cfg(kernel)]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __derive_zeroable {
+    (parse_input:
+        @sig(
+            $(#[$($struct_attr:tt)*])*
+            $vis:vis struct $name:ident
+            $(where $($whr:tt)*)?
+        ),
+        @impl_generics($($impl_generics:tt)*),
+        @ty_generics($($ty_generics:tt)*),
+        @body({
+            $(
+                $(#[$($field_attr:tt)*])*
+                $field:ident : $field_ty:ty
+            ),* $(,)?
+        }),
+    ) => {
+        // SAFETY: Every field type implements `Zeroable` and padding bytes may be zero.
+        #[automatically_derived]
+        unsafe impl<$($impl_generics)*> $crate::Zeroable for $name<$($ty_generics)*>
+        where
+            $($($whr)*)?
+        {}
+        const _: () = {
+            fn assert_zeroable<T: ?::core::marker::Sized + $crate::Zeroable>() {}
+            fn ensure_zeroable<$($impl_generics)*>()
+                where $($($whr)*)?
+            {
+                $(assert_zeroable::<$field_ty>();)*
+            }
+        };
     };
 }

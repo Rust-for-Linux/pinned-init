@@ -2,6 +2,8 @@
 
 //! Library to safely and fallibly initialize pinned `struct`s using in-place constructors.
 //!
+//! [Pinning][pinning] is Rust's way of ensuring data does not move.
+//!
 //! It also allows in-place initialization of big `struct`s that would otherwise produce a stack
 //! overflow.
 //!
@@ -46,7 +48,7 @@
 //! # Examples
 //!
 //! Throught some examples we will make use of the `CMutex` type which can be found in
-//! `../examples/mutex.rs`. It is essentially a rebuild of the `mutex` from the Linux kernel in userland. So
+//! `./examples/mutex.rs`. It is essentially a rebuild of the `mutex` from the Linux kernel in userland. So
 //! it also uses a wait list and a basic spinlock. Importantly it needs to be pinned to be locked
 //! and thus is a prime candidate for using this library.
 //!
@@ -63,7 +65,7 @@
 //! # #![feature(allocator_api)]
 //! use pinned_init::*;
 //! # use core::pin::Pin;
-//! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+//! # #[path = "./examples/mutex.rs"] mod mutex; use mutex::*;
 //! #[pin_data]
 //! struct Foo {
 //!     #[pin]
@@ -84,7 +86,7 @@
 //! ```rust
 //! # #![allow(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
-//! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+//! # #[path = "./examples/mutex.rs"] mod mutex; use mutex::*;
 //! # use pinned_init::*;
 //! # use core::pin::Pin;
 //! # #[pin_data]
@@ -109,7 +111,7 @@
 //!
 //! ```rust
 //! # #![feature(allocator_api)]
-//! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+//! # #[path = "./examples/mutex.rs"] mod mutex; use mutex::*;
 //! # use pinned_init::*;
 //! # use std::sync::Arc;
 //! # use core::pin::Pin;
@@ -122,7 +124,7 @@
 //! # #![allow(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
 //! # use pinned_init::*;
-//! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+//! # #[path = "./examples/mutex.rs"] mod mutex; use mutex::*;
 //! #[pin_data]
 //! struct DriverData {
 //!     #[pin]
@@ -225,26 +227,28 @@
 //! [structurally pinned fields]:
 //!     https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
 //! [stack]: crate::stack_pin_init
-//! [`Arc<T>`]: alloc::sync::Arc
+#![cfg_attr(kernel, doc = "[`Arc<T>`]: ../kernel/sync/struct.Arc.html")]
+#![cfg_attr(not(kernel), doc = "[`Arc<T>`]: alloc::sync::Arc")]
 //! [`Box<T>`]: alloc::boxed::Box
 //! [`impl PinInit<Foo>`]: PinInit
 //! [`impl PinInit<T, E>`]: PinInit
 //! [`impl Init<T, E>`]: Init
-//! [`pin_data`]: ::pinned_init_macro::pin_data
 //! [Rust-for-Linux]: https://rust-for-linux.com/
 //! [`pin_init!`]: crate::pin_init!
 
 #![forbid(missing_docs, unsafe_op_in_unsafe_fn)]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(any(not(feature = "std"), kernel), no_std)]
 #![feature(allocator_api)]
-#![cfg_attr(feature = "alloc", feature(new_uninit))]
+#![cfg_attr(any(feature = "alloc", kernel), feature(new_uninit))]
 #![cfg_attr(feature = "alloc", feature(get_mut_unchecked))]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+#[cfg(any(feature = "alloc", kernel))]
+use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
-use alloc::{boxed::Box, sync::Arc};
+use alloc::sync::Arc;
 use core::{
     alloc::AllocError,
     cell::UnsafeCell,
@@ -261,7 +265,11 @@ pub mod __internal;
 #[doc(hidden)]
 pub mod macros;
 
+#[cfg(not(kernel))]
 pub use pinned_init_macro::{pin_data, pinned_drop, Zeroable};
+
+#[cfg(kernel)]
+pub use ::macros::{pin_data, pinned_drop, Zeroable};
 
 #[allow(unused_extern_crates)]
 extern crate self as pinned_init;
@@ -273,7 +281,7 @@ extern crate self as pinned_init;
 /// ```rust
 /// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
-/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// # #[path = "./examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// #[pin_data]
@@ -327,7 +335,7 @@ macro_rules! stack_pin_init {
 /// ```rust
 /// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
-/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// # #[path = "./examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// #[pin_data]
@@ -354,7 +362,7 @@ macro_rules! stack_pin_init {
 /// ```rust
 /// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
-/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// # #[path = "./examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// #[pin_data]
@@ -596,7 +604,7 @@ macro_rules! pin_init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
     }) => {
-        ::pinned_init::try_pin_init!($(&$this in)? $t $(::<$($generics),* $(,)?>)? {
+        $crate::try_pin_init!($(&$this in)? $t $(::<$($generics),* $(,)?>)? {
             $($fields)*
         }? ::core::convert::Infallible)
     };
@@ -640,7 +648,7 @@ macro_rules! pin_init {
 /// # let _ = Box::pin_init(BigBuf::new());
 /// ```
 // For a detailed example of how this macro works, see the module documentation of the hidden
-// module `__internal` inside of `__internal.rs`.
+// module `__internal` inside of `./__internal.rs`.
 #[macro_export]
 macro_rules! try_pin_init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
@@ -677,7 +685,7 @@ macro_rules! try_pin_init {
 ///
 /// ```rust
 /// # #![feature(allocator_api)]
-/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// # #[path = "./examples/mutex.rs"] mod mutex; use mutex::*;
 /// use pinned_init::*;
 /// struct BigBuf {
 ///     big: Box<[u8; 1024 * 1024 * 1024]>,
@@ -703,7 +711,7 @@ macro_rules! init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
     }) => {
-        ::pinned_init::try_init!($(&$this in)? $t $(::<$($generics),* $(,)?>)? {
+        $crate::try_init!($(&$this in)? $t $(::<$($generics),* $(,)?>)? {
             $($fields)*
         }? ::core::convert::Infallible)
     }
@@ -711,7 +719,7 @@ macro_rules! init {
 
 /// Construct an in-place fallible initializer for `struct`s.
 ///
-/// This macro defaults the error to [`AllocError`]. If you need [`Infallible`], then use
+/// If the initialization can complete without error (or [`Infallible`]), then use
 /// [`init!`].
 ///
 /// The syntax is identical to [`try_pin_init!`]. You need to specify a custom error
@@ -744,7 +752,7 @@ macro_rules! init {
 /// # let _ = Box::init(BigBuf::new());
 /// ```
 // For a detailed example of how this macro works, see the module documentation of the hidden
-// module `__internal` inside of `__internal.rs`.
+// module `__internal` inside of `./__internal.rs`.
 #[macro_export]
 macro_rules! try_init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
@@ -760,7 +768,7 @@ macro_rules! try_init {
             @construct_closure(init_from_closure),
             @munch_fields($($fields)*),
         )
-    };
+    }
 }
 
 /// A pin-initializer for the type `T`.
@@ -784,7 +792,8 @@ macro_rules! try_init {
 ///     - `slot` is not partially initialized.
 /// - while constructing the `T` at `slot` it upholds the pinning invariants of `T`.
 ///
-/// [`Arc<T>`]: alloc::sync::Arc
+#[cfg_attr(kernel, doc = "[`Arc<T>`]: ../kernel/sync/struct.Arc.html")]
+#[cfg_attr(not(kernel), doc = "[`Arc<T>`]: alloc::sync::Arc")]
 #[must_use = "An initializer must be used in order to create its value."]
 pub unsafe trait PinInit<T: ?Sized, E = Infallible>: Sized {
     /// Initializes `slot`.
@@ -806,7 +815,7 @@ pub unsafe trait PinInit<T: ?Sized, E = Infallible>: Sized {
     ///
     /// ```rust
     /// # #![feature(allocator_api)]
-    /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+    /// # #[path = "./examples/mutex.rs"] mod mutex; use mutex::*;
     /// # use pinned_init::*;
     /// let mtx_init = CMutex::new(42);
     /// // Make the initializer print the value.
@@ -878,7 +887,8 @@ where
 /// Contrary to its supertype [`PinInit<T, E>`] the caller is allowed to
 /// move the pointee after initialization.
 ///
-/// [`Arc<T>`]: alloc::sync::Arc
+#[cfg_attr(kernel, doc = "[`Arc<T>`]: ../kernel/sync/struct.Arc.html")]
+#[cfg_attr(not(kernel), doc = "[`Arc<T>`]: alloc::sync::Arc")]
 #[must_use = "An initializer must be used in order to create its value."]
 pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
     /// Initializes `slot`.
@@ -1007,8 +1017,6 @@ pub fn uninit<T, E>() -> impl Init<MaybeUninit<T>, E> {
     unsafe { init_from_closure(|_| Ok(())) }
 }
 
-/* TODO: decide what to do with ScopeGuard
-
 /// Initializes an array by initializing each element via the provided initializer.
 ///
 /// # Examples
@@ -1026,25 +1034,22 @@ where
 {
     let init = move |slot: *mut [T; N]| {
         let slot = slot.cast::<T>();
-        // Counts the number of initialized elements and when dropped drops that many elements from
-        // `slot`.
-        let mut init_count = ScopeGuard::new_with_data(0, |i| {
-            // We now free every element that has been initialized before.
-            // SAFETY: The loop initialized exactly the values from 0..i and since we
-            // return `Err` below, the caller will consider the memory at `slot` as
-            // uninitialized.
-            unsafe { ptr::drop_in_place(ptr::slice_from_raw_parts_mut(slot, i)) };
-        });
         for i in 0..N {
             let init = make_init(i);
             // SAFETY: Since 0 <= `i` < N, it is still in bounds of `[T; N]`.
             let ptr = unsafe { slot.add(i) };
             // SAFETY: The pointer is derived from `slot` and thus satisfies the `__init`
             // requirements.
-            unsafe { init.__init(ptr) }?;
-            *init_count += 1;
+            match unsafe { init.__init(ptr) } {
+                Ok(()) => {}
+                Err(e) => {
+                    // SAFETY: The loop has initialized the elements `slot[0..i]` and since we
+                    // return `Err` below, `slot` will be considered uninitialized memory.
+                    unsafe { ptr::drop_in_place(ptr::slice_from_raw_parts_mut(slot, i)) };
+                    return Err(e);
+                }
+            }
         }
-        init_count.dismiss();
         Ok(())
     };
     // SAFETY: The initializer above initializes every element of the array. On failure it drops
@@ -1052,14 +1057,13 @@ where
     unsafe { init_from_closure(init) }
 }
 
-
 /// Initializes an array by initializing each element via the provided initializer.
 ///
 /// # Examples
 ///
 /// ```rust
 /// # #![feature(allocator_api)]
-/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// # #[path = "./examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// # use std::sync::Arc;
 /// let array: Arc<[CMutex<usize>; 1_000]> =
@@ -1074,33 +1078,28 @@ where
 {
     let init = move |slot: *mut [T; N]| {
         let slot = slot.cast::<T>();
-        // Counts the number of initialized elements and when dropped drops that many elements from
-        // `slot`.
-        let mut init_count = ScopeGuard::new_with_data(0, |i| {
-            // We now free every element that has been initialized before.
-            // SAFETY: The loop initialized exactly the values from 0..i and since we
-            // return `Err` below, the caller will consider the memory at `slot` as
-            // uninitialized.
-            unsafe { ptr::drop_in_place(ptr::slice_from_raw_parts_mut(slot, i)) };
-        });
         for i in 0..N {
             let init = make_init(i);
             // SAFETY: Since 0 <= `i` < N, it is still in bounds of `[T; N]`.
             let ptr = unsafe { slot.add(i) };
             // SAFETY: The pointer is derived from `slot` and thus satisfies the `__init`
             // requirements.
-            unsafe { init.__pinned_init(ptr) }?;
-            *init_count += 1;
+            match unsafe { init.__pinned_init(ptr) } {
+                Ok(()) => {}
+                Err(e) => {
+                    // SAFETY: The loop has initialized the elements `slot[0..i]` and since we
+                    // return `Err` below, `slot` will be considered uninitialized memory.
+                    unsafe { ptr::drop_in_place(ptr::slice_from_raw_parts_mut(slot, i)) };
+                    return Err(e);
+                }
+            }
         }
-        init_count.dismiss();
         Ok(())
     };
     // SAFETY: The initializer above initializes every element of the array. On failure it drops
     // any initialized elements and returns `Err`.
     unsafe { pin_init_from_closure(init) }
 }
-
-*/
 
 // SAFETY: Every type can be initialized by-value.
 unsafe impl<T, E> Init<T, E> for T {
@@ -1131,6 +1130,7 @@ pub trait InPlaceInit<T>: Sized {
     /// type.
     ///
     /// If `T: !Unpin` it will not be able to move afterwards.
+    #[cfg(not(kernel))]
     fn pin_init(init: impl PinInit<T>) -> Result<Pin<Self>, AllocError> {
         // SAFETY: We delegate to `init` and only change the error type.
         let init = unsafe {
@@ -1148,6 +1148,7 @@ pub trait InPlaceInit<T>: Sized {
         E: From<AllocError>;
 
     /// Use the given initializer to in-place initialize a `T`.
+    #[cfg(not(kernel))]
     fn init(init: impl Init<T>) -> Result<Self, AllocError> {
         // SAFETY: We delegate to `init` and only change the error type.
         let init = unsafe {
@@ -1160,7 +1161,7 @@ pub trait InPlaceInit<T>: Sized {
     }
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(any(feature = "alloc", kernel))]
 impl<T> InPlaceInit<T> for Box<T> {
     #[inline]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
@@ -1230,7 +1231,7 @@ impl<T> InPlaceInit<T> for Arc<T> {
 ///
 /// ```rust
 /// # #![feature(allocator_api)]
-/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// # #[path = "./examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// use core::pin::Pin;
 /// #[pin_data(PinnedDrop)]
@@ -1250,8 +1251,6 @@ impl<T> InPlaceInit<T> for Arc<T> {
 /// # Safety
 ///
 /// This trait must be implemented via the [`pinned_drop`] proc-macro attribute on the impl.
-///
-/// [`pinned_drop`]: ::pinned_init_macro::pinned_drop
 pub unsafe trait PinnedDrop: __internal::HasPinData {
     /// Executes the pinned destructor of this type.
     ///
@@ -1327,7 +1326,7 @@ impl_zeroable! {
     //
     // In this case we are allowed to use `T: ?Sized`, since all zeros is the `None` variant.
     {<T: ?Sized>} Option<NonNull<T>>,
-    #[cfg(feature = "alloc")]
+    #[cfg(any(feature = "alloc", kernel))]
     {<T: ?Sized>} Option<Box<T>>,
 
     // SAFETY: `null` pointer is valid.
