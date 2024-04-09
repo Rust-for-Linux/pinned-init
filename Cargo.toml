@@ -14,7 +14,7 @@ keywords = ["safe", "pin", "init", "no-std", "rust-patterns"]
 categories = ["no-std", "rust-patterns", "embedded"]
 
 [dependencies]
-paste = "1.0.14"
+paste = "1.0"
 pinned-init-macro = { path = "./pinned-init-macro", version = "=0.0.4" }
 
 [features]
@@ -24,4 +24,4 @@ alloc = []
 
 [dev-dependencies]
 libc = "0.2"
-compiletest_rs = "0.9"
+compiletest_rs = "0.10"
