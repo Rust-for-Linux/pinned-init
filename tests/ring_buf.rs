@@ -44,11 +44,17 @@ impl<T, const SIZE: usize> RingBuffer<T, SIZE> {
             // SAFETY: `this` is a valid pointer.
             head: unsafe { addr_of_mut!((*this.as_ptr()).buffer).cast::<T>() },
             tail: unsafe { addr_of_mut!((*this.as_ptr()).buffer).cast::<T>() },
-            _pin <- PhantomPinned,
+            _pin: PhantomPinned,
         })
     }
 
-    pub fn push<E>(self: Pin<&mut Self>, value: impl Init<T, E>) -> Result<bool, E> {
+    pub fn push(self: Pin<&mut Self>, value: impl Init<T>) -> bool {
+        match self.try_push(value) {
+            Ok(res) => res,
+            Err(i) => match i {},
+        }
+    }
+    pub fn try_push<E>(self: Pin<&mut Self>, value: impl Init<T, E>) -> Result<bool, E> {
         // SAFETY: We do not move `this`.
         let this = unsafe { self.get_unchecked_mut() };
         let next_head = unsafe { this.advance(this.head) };
@@ -111,22 +117,22 @@ fn on_stack() -> Result<(), Infallible> {
     while let Some(elem) = buf.as_mut().pop() {
         panic!("found in empty buffer!: {elem}");
     }
-    assert!(buf.as_mut().push(10)?);
-    assert!(buf.as_mut().push(42)?);
+    assert!(buf.as_mut().push(10));
+    assert!(buf.as_mut().push(42));
     assert_eq!(buf.as_mut().pop(), Some(10));
     assert_eq!(buf.as_mut().pop(), Some(42));
     assert_eq!(buf.as_mut().pop(), None);
-    assert!(buf.as_mut().push(42)?);
-    assert!(buf.as_mut().push(24)?);
+    assert!(buf.as_mut().push(42));
+    assert!(buf.as_mut().push(24));
     assert_eq!(buf.as_mut().pop(), Some(42));
-    assert!(buf.as_mut().push(25)?);
+    assert!(buf.as_mut().push(25));
     assert_eq!(buf.as_mut().pop(), Some(24));
     assert_eq!(buf.as_mut().pop(), Some(25));
     assert_eq!(buf.as_mut().pop(), None);
     for i in 0..63 {
-        assert!(buf.as_mut().push(i)?);
+        assert!(buf.as_mut().push(i));
     }
-    assert!(!buf.as_mut().push(42)?);
+    assert!(!buf.as_mut().push(42));
     for i in 0..63 {
         if let Some(value) = buf.as_mut().pop_no_stack() {
             stack_pin_init!(let value = value);
@@ -199,13 +205,13 @@ fn even_failing() {
 #[test]
 fn with_failing_inner() {
     let mut buf = Box::pin_init(RingBuffer::<EvenU64, 4>::new()).unwrap();
-    assert_eq!(buf.as_mut().push(EvenU64::new(0)), Ok(true));
-    assert_eq!(buf.as_mut().push(EvenU64::new(1)), Err(()));
-    assert_eq!(buf.as_mut().push(EvenU64::new(2)), Ok(true));
-    assert_eq!(buf.as_mut().push(EvenU64::new(3)), Err(()));
-    assert_eq!(buf.as_mut().push(EvenU64::new(4)), Ok(true));
-    assert_eq!(buf.as_mut().push(EvenU64::new(5)), Ok(false));
-    assert_eq!(buf.as_mut().push(EvenU64::new(6)), Ok(false));
+    assert_eq!(buf.as_mut().try_push(EvenU64::new(0)), Ok(true));
+    assert_eq!(buf.as_mut().try_push(EvenU64::new(1)), Err(()));
+    assert_eq!(buf.as_mut().try_push(EvenU64::new(2)), Ok(true));
+    assert_eq!(buf.as_mut().try_push(EvenU64::new(3)), Err(()));
+    assert_eq!(buf.as_mut().try_push(EvenU64::new(4)), Ok(true));
+    assert_eq!(buf.as_mut().try_push(EvenU64::new(5)), Ok(false));
+    assert_eq!(buf.as_mut().try_push(EvenU64::new(6)), Ok(false));
 
     assert_eq!(
         buf.as_mut().pop(),
@@ -259,7 +265,7 @@ fn with_big_struct() {
     let mut buf = buf.lock();
     for _ in 0..63 {
         assert_eq!(
-            buf.as_mut().push(init!(BigStruct{
+            buf.as_mut().try_push(init!(BigStruct{
                 buf <- zeroed::<_, Infallible>(),
                 oth <- uninit::<_, Infallible>(),
             })),
@@ -267,7 +273,7 @@ fn with_big_struct() {
         );
     }
     assert_eq!(
-        buf.as_mut().push(init!(BigStruct{
+        buf.as_mut().try_push(init!(BigStruct{
             buf <- zeroed::<_, Infallible>(),
             oth <- uninit::<_, Infallible>(),
         })),
