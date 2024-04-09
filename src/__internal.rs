@@ -196,10 +196,9 @@ fn stack_init_reuse() {
 
 /// When a value of this type is dropped, it drops a `T`.
 ///
-/// Can be forgotton to prevent the drop.
+/// Can be forgotten to prevent the drop.
 pub struct DropGuard<T: ?Sized> {
     ptr: *mut T,
-    do_drop: Cell<bool>,
 }
 
 impl<T: ?Sized> DropGuard<T> {
@@ -215,32 +214,16 @@ impl<T: ?Sized> DropGuard<T> {
     /// - will not be dropped by any other means.
     #[inline]
     pub unsafe fn new(ptr: *mut T) -> Self {
-        Self {
-            ptr,
-            do_drop: Cell::new(true),
-        }
-    }
-
-    /// Prevents this guard from dropping the supplied pointer.
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe in order to prevent safe code from forgetting this guard. It should
-    /// only be called by the macros in this module.
-    #[inline]
-    pub unsafe fn forget(&self) {
-        self.do_drop.set(false);
+        Self { ptr }
     }
 }
 
 impl<T: ?Sized> Drop for DropGuard<T> {
     #[inline]
     fn drop(&mut self) {
-        if self.do_drop.get() {
-            // SAFETY: A `DropGuard` can only be constructed using the unsafe `new` function
-            // ensuring that this operation is safe.
-            unsafe { ptr::drop_in_place(self.ptr) }
-        }
+        // SAFETY: A `DropGuard` can only be constructed using the unsafe `new` function
+        // ensuring that this operation is safe.
+        unsafe { ptr::drop_in_place(self.ptr) }
     }
 }
 

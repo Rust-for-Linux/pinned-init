@@ -17,7 +17,7 @@ note: function defined here
      |
 1484 | pub const unsafe fn write<T>(dst: *mut T, src: T) {
      |                     ^^^^^
-     = note: this error originates in the macro `$crate::try_pin_init` which comes from the expansion of the macro `pin_init` (in Nightly builds, run with -Z macro-backtrace for more info)
+     = note: this error originates in the macro `$crate::__init_internal` which comes from the expansion of the macro `pin_init` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: aborting due to 1 previous error
 
