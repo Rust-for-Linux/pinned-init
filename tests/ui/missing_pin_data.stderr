@@ -11,7 +11,12 @@ error[E0599]: no associated item named `__pin_data` found for struct `Foo` in th
    = note: the following trait defines an item `__pin_data`, perhaps you need to implement it:
            candidate #1: `HasPinData`
    = note: this error originates in the macro `$crate::try_pin_init` which comes from the expansion of the macro `pin_init` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: there is an associated function `__init_data` with a similar name
+  --> $SRC_DIR/src/lib.rs:697:39
+   |
+697|             $t$(::<$($generics),*>)?::__init_data()
+   |                                       ~~~~~~~~~~~
 
-error: aborting due to previous error
+error: aborting due to 1 previous error
 
 For more information about this error, try `rustc --explain E0599`.
