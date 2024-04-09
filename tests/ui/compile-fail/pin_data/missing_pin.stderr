@@ -1,20 +1,20 @@
 error[E0277]: the trait bound `impl PinInit<usize>: Init<usize, _>` is not satisfied
-  --> tests/ui/compile-fail/pin_data/missing_pin.rs:12:9
+  --> tests/ui/compile-fail/pin_data/missing_pin.rs:11:9
    |
-12 | /         pin_init!(Self {
-13 | |             a <- a,
+11 | /         pin_init!(Self {
+12 | |             a <- a,
    | |             - required by a bound introduced by this call
-14 | |         })
+13 | |         })
    | |__________^ the trait `Init<usize, _>` is not implemented for `impl PinInit<usize>`
    |
    = help: the trait `Init<impl PinInit<usize>, _>` is implemented for `impl PinInit<usize>`
    = help: for that trait implementation, expected `impl PinInit<usize>`, found `usize`
 note: required by a bound in `__ThePinData::a`
-  --> tests/ui/compile-fail/pin_data/missing_pin.rs:5:1
+  --> tests/ui/compile-fail/pin_data/missing_pin.rs:4:1
    |
-5  | #[pin_data]
+4  | #[pin_data]
    | ^^^^^^^^^^^ required by this bound in `__ThePinData::a`
-6  | struct Foo {
-7  |     a: usize,
+5  | struct Foo {
+6  |     a: usize,
    |     - required by a bound in this associated function
    = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,4 +1,3 @@
-#![feature(allocator_api)]
 use pinned_init::*;
 use std::pin::Pin;
 

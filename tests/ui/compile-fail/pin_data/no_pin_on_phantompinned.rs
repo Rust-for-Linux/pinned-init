@@ -1,5 +1,5 @@
 #![no_std]
-#![feature(allocator_api)]
+
 use core::marker::{self, PhantomPinned};
 use pinned_init::*;
 

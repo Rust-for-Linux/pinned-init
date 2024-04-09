@@ -1,7 +1,7 @@
 error[E0119]: conflicting implementations of trait `UselessPinnedDropImpl_you_need_to_specify_PinnedDrop` for type `Foo`
- --> tests/ui/compile-fail/pinned_drop/useless_pinned_drop.rs:5:1
+ --> tests/ui/compile-fail/pinned_drop/useless_pinned_drop.rs:4:1
   |
-5 | #[pin_data]
+4 | #[pin_data]
   | ^^^^^^^^^^^
   | |
   | first implementation here
