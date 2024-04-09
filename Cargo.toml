@@ -14,6 +14,7 @@ keywords = ["safe", "pin", "init", "no-std", "rust-patterns"]
 categories = ["no-std", "rust-patterns", "embedded"]
 
 [dependencies]
+paste = "1.0.14"
 pinned-init-macro = { path = "./pinned-init-macro", version = "=0.0.4" }
 
 [features]
