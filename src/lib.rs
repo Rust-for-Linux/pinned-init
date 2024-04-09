@@ -418,7 +418,6 @@ macro_rules! stack_try_pin_init {
 /// The syntax is almost identical to that of a normal `struct` initializer:
 ///
 /// ```rust
-/// # #![feature(allocator_api)]
 /// # #![allow(clippy::disallowed_names)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -464,7 +463,6 @@ macro_rules! stack_try_pin_init {
 /// To create an initializer function, simply declare it like this:
 ///
 /// ```rust
-/// # #![feature(allocator_api)]
 /// # #![allow(clippy::disallowed_names)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -493,7 +491,6 @@ macro_rules! stack_try_pin_init {
 /// Users of `Foo` can now create it like this:
 ///
 /// ```rust
-/// # #![feature(allocator_api)]
 /// # #![allow(clippy::disallowed_names)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -522,7 +519,6 @@ macro_rules! stack_try_pin_init {
 /// They can also easily embed it into their own `struct`s:
 ///
 /// ```rust
-/// # #![feature(allocator_api)]
 /// # #![allow(clippy::disallowed_names)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -581,7 +577,6 @@ macro_rules! stack_try_pin_init {
 /// For instance:
 ///
 /// ```rust
-/// # #![feature(allocator_api)]
 /// # use pinned_init::*;
 /// # use core::{ptr::addr_of_mut, marker::PhantomPinned};
 /// #[pin_data]
@@ -640,7 +635,7 @@ macro_rules! pin_init {
 /// # Examples
 ///
 /// ```rust
-/// # #![feature(allocator_api, new_uninit)]
+/// # #![feature(allocator_api)]
 /// # use core::alloc::AllocError;
 /// use pinned_init::*;
 /// #[pin_data]

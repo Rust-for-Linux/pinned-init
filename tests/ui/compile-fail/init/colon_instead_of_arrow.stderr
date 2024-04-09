@@ -1,10 +1,10 @@
 error[E0308]: mismatched types
-  --> tests/ui/compile-fail/init/colon_instead_of_arrow.rs:22:9
+  --> tests/ui/compile-fail/init/colon_instead_of_arrow.rs:21:9
    |
-15 |     fn new() -> impl PinInit<Self> {
+14 |     fn new() -> impl PinInit<Self> {
    |                 ------------------ the found opaque type
 ...
-22 |         pin_init!(Self { bar: Bar::new() })
+21 |         pin_init!(Self { bar: Bar::new() })
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |         |
    |         expected `Bar`, found opaque type
