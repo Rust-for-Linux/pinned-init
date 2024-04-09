@@ -13,7 +13,7 @@ use super::*;
 ///
 /// [nomicon]: https://doc.rust-lang.org/nomicon/subtyping.html
 /// [this table]: https://doc.rust-lang.org/nomicon/phantom-data.html#table-of-phantomdata-patterns
-type Invariant<T> = PhantomData<fn(*mut T) -> *mut T>;
+pub(crate) type Invariant<T> = PhantomData<fn(*mut T) -> *mut T>;
 
 /// This is the module-internal type implementing `PinInit` and `Init`. It is unsafe to create this
 /// type, since the closure needs to fulfill the same safety requirement as the
@@ -28,6 +28,18 @@ where
 {
     #[inline]
     unsafe fn __init(self, slot: *mut T) -> Result<(), E> {
+        (self.0)(slot)
+    }
+}
+
+// SAFETY: While constructing the `InitClosure`, the user promised that it upholds the
+// `__pinned_init` invariants.
+unsafe impl<T: ?Sized, F, E> PinInit<T, E> for InitClosure<F, T, E>
+where
+    F: FnOnce(*mut T) -> Result<(), E>,
+{
+    #[inline]
+    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
         (self.0)(slot)
     }
 }
