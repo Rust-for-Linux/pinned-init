@@ -3,16 +3,16 @@
 use proc_macro2::{Group, Punct, Spacing, TokenStream, TokenTree};
 use quote::quote;
 
-struct Generics {
-    decl_generics: Vec<TokenTree>,
-    impl_generics: Vec<TokenTree>,
-    ty_generics: Vec<TokenTree>,
+pub(crate) struct Generics {
+    pub(crate) decl_generics: Vec<TokenTree>,
+    pub(crate) impl_generics: Vec<TokenTree>,
+    pub(crate) ty_generics: Vec<TokenTree>,
 }
 
 /// Parses the given `TokenStream` into `Generics` and the rest.
 ///
 /// The generics are not present in the rest, but a where clause might remain.
-fn parse_generics(input: TokenStream) -> (Generics, Vec<TokenTree>) {
+pub(crate) fn parse_generics(input: TokenStream) -> (Generics, Vec<TokenTree>) {
     // The generics with bounds and default values.
     let mut decl_generics = vec![];
     // `impl_generics`, the declared generics with their bounds.

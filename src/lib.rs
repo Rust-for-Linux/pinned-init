@@ -269,7 +269,7 @@ pub mod __internal;
 #[doc(hidden)]
 pub mod macros;
 
-pub use pinned_init_macro::{pin_data, pinned_drop};
+pub use pinned_init_macro::{pin_data, pinned_drop, Zeroable};
 
 /// Initialize and pin a type directly on the stack.
 ///
