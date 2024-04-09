@@ -59,7 +59,7 @@
 //! that you need to write `<-` instead of `:` for fields that you want to initialize in-place.
 //!
 //! ```rust
-//! # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
+//! # #![allow(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
 //! use pinned_init::*;
 //! # use core::pin::Pin;
@@ -82,7 +82,7 @@
 //! (or just the stack) to actually initialize a `Foo`:
 //!
 //! ```rust
-//! # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
+//! # #![allow(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 //! # use pinned_init::*;
@@ -118,7 +118,7 @@
 //! To declare an init macro/function you just return an [`impl PinInit<T, E>`]:
 //!
 //! ```rust
-//! # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
+//! # #![allow(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
 //! # use pinned_init::*;
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
@@ -278,7 +278,7 @@ pub use pinned_init_macro::{pin_data, pinned_drop, Zeroable};
 /// # Examples
 ///
 /// ```rust
-/// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
+/// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
@@ -330,7 +330,7 @@ macro_rules! stack_pin_init {
 /// # Examples
 ///
 /// ```rust
-/// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
+/// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
@@ -361,7 +361,7 @@ macro_rules! stack_pin_init {
 /// ```
 ///
 /// ```rust
-/// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
+/// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
@@ -419,7 +419,7 @@ macro_rules! stack_try_pin_init {
 ///
 /// ```rust
 /// # #![feature(allocator_api)]
-/// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
+/// # #![allow(clippy::disallowed_names)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// #[pin_data]
@@ -465,7 +465,7 @@ macro_rules! stack_try_pin_init {
 ///
 /// ```rust
 /// # #![feature(allocator_api)]
-/// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
+/// # #![allow(clippy::disallowed_names)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// # #[pin_data]
@@ -494,7 +494,7 @@ macro_rules! stack_try_pin_init {
 ///
 /// ```rust
 /// # #![feature(allocator_api)]
-/// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
+/// # #![allow(clippy::disallowed_names)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// # #[pin_data]
@@ -523,7 +523,7 @@ macro_rules! stack_try_pin_init {
 ///
 /// ```rust
 /// # #![feature(allocator_api)]
-/// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
+/// # #![allow(clippy::disallowed_names)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// # #[pin_data]
