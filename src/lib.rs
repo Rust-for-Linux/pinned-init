@@ -60,7 +60,7 @@
 //!
 //! ```rust
 //! # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
-//! # #![feature(allocator_api, no_coverage)]
+//! # #![feature(allocator_api)]
 //! use pinned_init::*;
 //! # use core::pin::Pin;
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
@@ -83,7 +83,7 @@
 //!
 //! ```rust
 //! # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
-//! # #![feature(allocator_api, no_coverage)]
+//! # #![feature(allocator_api)]
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 //! # use pinned_init::*;
 //! # use core::pin::Pin;
@@ -108,7 +108,7 @@
 //! the above method only works for types where you can access the fields.
 //!
 //! ```rust
-//! # #![feature(allocator_api, no_coverage)]
+//! # #![feature(allocator_api)]
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 //! # use pinned_init::*;
 //! # use std::{alloc::AllocError, pin::Pin};
@@ -119,7 +119,7 @@
 //!
 //! ```rust
 //! # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
-//! # #![feature(allocator_api, no_coverage)]
+//! # #![feature(allocator_api)]
 //! # use pinned_init::*;
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 //! use core::alloc::AllocError;
@@ -166,7 +166,6 @@
 //!
 //! ```rust
 //! # #![feature(extern_types)]
-//! # #![cfg_attr(coverage_nightly, feature(no_coverage))]
 //! use pinned_init::*;
 //! use core::{ptr::addr_of_mut, marker::PhantomPinned, cell::UnsafeCell, pin::Pin};
 //! mod bindings {
@@ -191,7 +190,6 @@
 //! }
 //!
 //! impl RawFoo {
-//! #   #[cfg_attr(coverage_nightly, no_coverage)]
 //!     pub fn new(flags: u32) -> impl PinInit<Self, i32> {
 //!         // SAFETY:
 //!         // - when the closure returns `Ok(())`, then it has successfully initialized and
@@ -222,7 +220,6 @@
 //!
 //! #[pinned_drop]
 //! impl PinnedDrop for RawFoo {
-//! #   #[cfg_attr(coverage_nightly, no_coverage)]
 //!     fn drop(self: Pin<&mut Self>) {
 //!         // SAFETY: Since `foo` is initialized, destroying is safe.
 //!         unsafe { bindings::destroy_foo(self.foo.get()) };
@@ -250,7 +247,6 @@
 #![feature(allocator_api)]
 #![cfg_attr(any(feature = "alloc"), feature(new_uninit))]
 #![cfg_attr(any(feature = "alloc"), feature(get_mut_unchecked))]
-#![cfg_attr(coverage_nightly, feature(no_coverage))]
 
 #[cfg(any(feature = "alloc"))]
 extern crate alloc;
@@ -281,7 +277,7 @@ pub use pinned_init_macro::{pin_data, pinned_drop};
 ///
 /// ```rust
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
-/// # #![feature(allocator_api, no_coverage)]
+/// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -333,7 +329,7 @@ macro_rules! stack_pin_init {
 ///
 /// ```rust
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
-/// # #![feature(allocator_api, no_coverage)]
+/// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// # use core::{alloc::AllocError, pin::Pin, convert::Infallible};
@@ -364,7 +360,7 @@ macro_rules! stack_pin_init {
 ///
 /// ```rust
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
-/// # #![feature(allocator_api, no_coverage)]
+/// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// # use core::{alloc::AllocError, pin::Pin, convert::Infallible};
@@ -422,7 +418,7 @@ macro_rules! stack_try_pin_init {
 /// The syntax is almost identical to that of a normal `struct` initializer:
 ///
 /// ```rust
-/// # #![feature(allocator_api, no_coverage)]
+/// # #![feature(allocator_api)]
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -468,7 +464,7 @@ macro_rules! stack_try_pin_init {
 /// To create an initializer function, simply declare it like this:
 ///
 /// ```rust
-/// # #![feature(allocator_api, no_coverage)]
+/// # #![feature(allocator_api)]
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -497,7 +493,7 @@ macro_rules! stack_try_pin_init {
 /// Users of `Foo` can now create it like this:
 ///
 /// ```rust
-/// # #![feature(allocator_api, no_coverage)]
+/// # #![feature(allocator_api)]
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -526,7 +522,7 @@ macro_rules! stack_try_pin_init {
 /// They can also easily embed it into their own `struct`s:
 ///
 /// ```rust
-/// # #![feature(allocator_api, no_coverage)]
+/// # #![feature(allocator_api)]
 /// # #![allow(clippy::disallowed_names, clippy::new_ret_no_self)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
@@ -585,7 +581,7 @@ macro_rules! stack_try_pin_init {
 /// For instance:
 ///
 /// ```rust
-/// # #![feature(allocator_api, no_coverage)]
+/// # #![feature(allocator_api)]
 /// # use pinned_init::*;
 /// # use core::{ptr::addr_of_mut, marker::PhantomPinned};
 /// #[pin_data]
@@ -640,7 +636,7 @@ macro_rules! pin_init {
 /// # Examples
 ///
 /// ```rust
-/// # #![feature(allocator_api, new_uninit, no_coverage)]
+/// # #![feature(allocator_api, new_uninit)]
 /// # use core::alloc::AllocError;
 /// use pinned_init::*;
 /// #[pin_data]
@@ -885,7 +881,7 @@ macro_rules! try_pin_init {
 /// # Examples
 ///
 /// ```rust
-/// # #![feature(allocator_api, no_coverage)]
+/// # #![feature(allocator_api)]
 /// # use core::alloc::AllocError;
 /// use pinned_init::*;
 /// struct BigBuf {
@@ -935,7 +931,7 @@ macro_rules! init {
 /// # Examples
 ///
 /// ```rust
-/// # #![feature(allocator_api, no_coverage)]
+/// # #![feature(allocator_api)]
 /// # use core::alloc::AllocError;
 /// use pinned_init::*;
 /// struct BigBuf {
@@ -1405,7 +1401,7 @@ impl<T> InPlaceInit<T> for Arc<T> {
 /// Use [`pinned_drop`] to implement this trait safely:
 ///
 /// ```rust
-/// # #![feature(allocator_api, no_coverage)]
+/// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// use pinned_init::*;
 /// use core::pin::Pin;

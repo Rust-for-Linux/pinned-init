@@ -813,7 +813,6 @@ macro_rules! __pin_data {
             impl<$($impl_generics)*> ::core::clone::Clone for __ThePinData<$($ty_generics)*>
             where $($whr)*
             {
-                #[cfg_attr(coverage_nightly, no_coverage)]
                 fn clone(&self) -> Self { *self }
             }
 
