@@ -171,8 +171,10 @@
 //!         t: T,
 //!     }
 //!     #[doc(hidden)]
-//!     impl<'__pin, T>
-//!         ::core::marker::Unpin for Bar<T> where __Unpin<'__pin, T>: ::core::marker::Unpin {}
+//!     impl<'__pin, T> ::core::marker::Unpin for Bar<T>
+//!     where
+//!         __Unpin<'__pin, T>: ::core::marker::Unpin,
+//!     {}
 //!     // Now we need to ensure that `Bar` does not implement `Drop`, since that would give users
 //!     // access to `&mut self` inside of `drop` even if the struct was pinned. This could lead to
 //!     // UB with only safe code, so we disallow this by giving a trait implementation error using
@@ -189,8 +191,9 @@
 //!     // for safety, but a good sanity check, since no normal code calls `PinnedDrop::drop`.
 //!     #[allow(non_camel_case_types)]
 //!     trait UselessPinnedDropImpl_you_need_to_specify_PinnedDrop {}
-//!     impl<T: ::pinned_init::PinnedDrop>
-//!         UselessPinnedDropImpl_you_need_to_specify_PinnedDrop for T {}
+//!     impl<
+//!         T: ::pinned_init::PinnedDrop,
+//!     > UselessPinnedDropImpl_you_need_to_specify_PinnedDrop for T {}
 //!     impl<T> UselessPinnedDropImpl_you_need_to_specify_PinnedDrop for Bar<T> {}
 //! };
 //! ```
@@ -375,7 +378,10 @@
 //!         b: Bar<u32>,
 //!     }
 //!     #[doc(hidden)]
-//!     impl<'__pin> ::core::marker::Unpin for Foo where __Unpin<'__pin>: ::core::marker::Unpin {}
+//!     impl<'__pin> ::core::marker::Unpin for Foo
+//!     where
+//!         __Unpin<'__pin>: ::core::marker::Unpin,
+//!     {}
 //!     // Since we specified `PinnedDrop` as the argument to `#[pin_data]`, we expect `Foo` to
 //!     // implement `PinnedDrop`. Thus we do not need to prevent `Drop` implementations like
 //!     // before, instead we implement `Drop` here and delegate to `PinnedDrop`.
@@ -526,6 +532,7 @@ macro_rules! __pin_data {
         ),
         @impl_generics($($impl_generics:tt)*),
         @ty_generics($($ty_generics:tt)*),
+        @decl_generics($($decl_generics:tt)*),
         @body({ $($fields:tt)* }),
     ) => {
         // We now use token munching to iterate through all of the fields. While doing this we
@@ -548,6 +555,9 @@ macro_rules! __pin_data {
             @impl_generics($($impl_generics)*),
             // The 'ty generics', the generics that will need to be specified on the impl blocks.
             @ty_generics($($ty_generics)*),
+            // The 'decl generics', the generics that need to be specified on the struct
+            // definition.
+            @decl_generics($($decl_generics)*),
             // The where clause of any impl block and the declaration.
             @where($($($whr)*)?),
             // The remaining fields tokens that need to be processed.
@@ -573,6 +583,7 @@ macro_rules! __pin_data {
         @name($name:ident),
         @impl_generics($($impl_generics:tt)*),
         @ty_generics($($ty_generics:tt)*),
+        @decl_generics($($decl_generics:tt)*),
         @where($($whr:tt)*),
         // We found a PhantomPinned field, this should generally be pinned!
         @fields_munch($field:ident : $($($(::)?core::)?marker::)?PhantomPinned, $($rest:tt)*),
@@ -595,6 +606,7 @@ macro_rules! __pin_data {
             @name($name),
             @impl_generics($($impl_generics)*),
             @ty_generics($($ty_generics)*),
+            @decl_generics($($decl_generics)*),
             @where($($whr)*),
             @fields_munch($($rest)*),
             @pinned($($pinned)* $($accum)* $field: ::core::marker::PhantomPinned,),
@@ -611,6 +623,7 @@ macro_rules! __pin_data {
         @name($name:ident),
         @impl_generics($($impl_generics:tt)*),
         @ty_generics($($ty_generics:tt)*),
+        @decl_generics($($decl_generics:tt)*),
         @where($($whr:tt)*),
         // We reached the field declaration.
         @fields_munch($field:ident : $type:ty, $($rest:tt)*),
@@ -628,6 +641,7 @@ macro_rules! __pin_data {
             @name($name),
             @impl_generics($($impl_generics)*),
             @ty_generics($($ty_generics)*),
+            @decl_generics($($decl_generics)*),
             @where($($whr)*),
             @fields_munch($($rest)*),
             @pinned($($pinned)* $($accum)* $field: $type,),
@@ -644,6 +658,7 @@ macro_rules! __pin_data {
         @name($name:ident),
         @impl_generics($($impl_generics:tt)*),
         @ty_generics($($ty_generics:tt)*),
+        @decl_generics($($decl_generics:tt)*),
         @where($($whr:tt)*),
         // We reached the field declaration.
         @fields_munch($field:ident : $type:ty, $($rest:tt)*),
@@ -661,6 +676,7 @@ macro_rules! __pin_data {
             @name($name),
             @impl_generics($($impl_generics)*),
             @ty_generics($($ty_generics)*),
+            @decl_generics($($decl_generics)*),
             @where($($whr)*),
             @fields_munch($($rest)*),
             @pinned($($pinned)*),
@@ -677,6 +693,7 @@ macro_rules! __pin_data {
         @name($name:ident),
         @impl_generics($($impl_generics:tt)*),
         @ty_generics($($ty_generics:tt)*),
+        @decl_generics($($decl_generics:tt)*),
         @where($($whr:tt)*),
         // We found the `#[pin]` attr.
         @fields_munch(#[pin] $($rest:tt)*),
@@ -693,6 +710,7 @@ macro_rules! __pin_data {
             @name($name),
             @impl_generics($($impl_generics)*),
             @ty_generics($($ty_generics)*),
+            @decl_generics($($decl_generics)*),
             @where($($whr)*),
             @fields_munch($($rest)*),
             // We do not include `#[pin]` in the list of attributes, since it is not actually an
@@ -712,6 +730,7 @@ macro_rules! __pin_data {
         @name($name:ident),
         @impl_generics($($impl_generics:tt)*),
         @ty_generics($($ty_generics:tt)*),
+        @decl_generics($($decl_generics:tt)*),
         @where($($whr:tt)*),
         // We reached the field declaration with visibility, for simplicity we only munch the
         // visibility and put it into `$accum`.
@@ -729,6 +748,7 @@ macro_rules! __pin_data {
             @name($name),
             @impl_generics($($impl_generics)*),
             @ty_generics($($ty_generics)*),
+            @decl_generics($($decl_generics)*),
             @where($($whr)*),
             @fields_munch($field $($rest)*),
             @pinned($($pinned)*),
@@ -745,6 +765,7 @@ macro_rules! __pin_data {
         @name($name:ident),
         @impl_generics($($impl_generics:tt)*),
         @ty_generics($($ty_generics:tt)*),
+        @decl_generics($($decl_generics:tt)*),
         @where($($whr:tt)*),
         // Some other attribute, just put it into `$accum`.
         @fields_munch(#[$($attr:tt)*] $($rest:tt)*),
@@ -761,6 +782,7 @@ macro_rules! __pin_data {
             @name($name),
             @impl_generics($($impl_generics)*),
             @ty_generics($($ty_generics)*),
+            @decl_generics($($decl_generics)*),
             @where($($whr)*),
             @fields_munch($($rest)*),
             @pinned($($pinned)*),
@@ -777,6 +799,7 @@ macro_rules! __pin_data {
         @name($name:ident),
         @impl_generics($($impl_generics:tt)*),
         @ty_generics($($ty_generics:tt)*),
+        @decl_generics($($decl_generics:tt)*),
         @where($($whr:tt)*),
         // We reached the end of the fields, plus an optional additional comma, since we added one
         // before and the user is also allowed to put a trailing comma.
@@ -790,7 +813,7 @@ macro_rules! __pin_data {
     ) => {
         // Declare the struct with all fields in the correct order.
         $($struct_attrs)*
-        $vis struct $name <$($impl_generics)*>
+        $vis struct $name <$($decl_generics)*>
         where $($whr)*
         {
             $($fields)*
@@ -832,7 +855,8 @@ macro_rules! __pin_data {
 
             // SAFETY: We have added the correct projection functions above to `__ThePinData` and
             // we also use the least restrictive generics possible.
-            unsafe impl<$($impl_generics)*> $crate::__internal::HasPinData for $name<$($ty_generics)*>
+            unsafe impl<$($impl_generics)*>
+                $crate::__internal::HasPinData for $name<$($ty_generics)*>
             where $($whr)*
             {
                 type PinData = __ThePinData<$($ty_generics)*>;
@@ -842,7 +866,8 @@ macro_rules! __pin_data {
                 }
             }
 
-            unsafe impl<$($impl_generics)*> $crate::__internal::PinData for __ThePinData<$($ty_generics)*>
+            unsafe impl<$($impl_generics)*>
+                $crate::__internal::PinData for __ThePinData<$($ty_generics)*>
             where $($whr)*
             {
                 type Datee = $name<$($ty_generics)*>;
