@@ -248,11 +248,14 @@
 #![cfg_attr(any(feature = "alloc"), feature(new_uninit))]
 #![cfg_attr(any(feature = "alloc"), feature(get_mut_unchecked))]
 
-#[cfg(any(feature = "alloc"))]
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
-#[cfg(any(feature = "alloc"))]
-use alloc::{boxed::Box, sync::Arc};
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::boxed::Box;
+#[cfg(feature = "alloc")]
+use alloc::sync::Arc;
+
 use core::{
     alloc::AllocError,
     cell::UnsafeCell,
@@ -1202,8 +1205,9 @@ pub trait InPlaceInit<T>: Sized {
     fn pin_init(init: impl PinInit<T>) -> Result<Pin<Self>, AllocError> {
         // SAFETY: We delegate to `init` and only change the error type.
         let init = unsafe {
-            pin_init_from_closure(|slot| {
-                Ok(init.__pinned_init(slot).unwrap()) // cannot fail
+            pin_init_from_closure(|slot| match init.__pinned_init(slot) {
+                Ok(()) => Ok(()),
+                Err(i) => match i {},
             })
         };
         Self::try_pin_init(init)
@@ -1217,13 +1221,16 @@ pub trait InPlaceInit<T>: Sized {
     /// Use the given initializer to in-place initialize a `T`.
     fn init(init: impl Init<T>) -> Result<Self, AllocError> {
         let init = unsafe {
-            init_from_closure(|slot| Ok(init.__init(slot).unwrap())) //cannot fail
+            init_from_closure(|slot| match init.__init(slot) {
+                Ok(()) => Ok(()),
+                Err(i) => match i {},
+            })
         };
         Self::try_init(init)
     }
 }
 
-#[cfg(any(feature = "alloc"))]
+#[cfg(feature = "alloc")]
 impl<T> InPlaceInit<T> for Box<T> {
     #[inline]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
@@ -1254,7 +1261,7 @@ impl<T> InPlaceInit<T> for Box<T> {
     }
 }
 
-#[cfg(any(feature = "alloc"))]
+#[cfg(feature = "alloc")]
 impl<T> InPlaceInit<T> for Arc<T> {
     #[inline]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
