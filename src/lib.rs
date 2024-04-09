@@ -1085,6 +1085,93 @@ pub fn uninit<T, E>() -> impl Init<MaybeUninit<T>, E> {
     unsafe { init_from_closure(|_| Ok(())) }
 }
 
+/// Initializes an array by initializing each element via the provided initializer.
+///
+/// # Examples
+///
+/// ```rust
+/// # use pinned_init::*;
+/// use pinned_init::init_array_from_fn;
+/// let array: Box<[usize; 1_000]> = Box::init(init_array_from_fn(|i| i)).unwrap();
+/// assert_eq!(array.len(), 1_000);
+/// ```
+pub fn init_array_from_fn<I, const N: usize, T, E>(
+    mut make_init: impl FnMut(usize) -> I,
+) -> impl Init<[T; N], E>
+where
+    I: Init<T, E>,
+{
+    let init = move |slot: *mut [T; N]| {
+        let slot = slot.cast::<T>();
+        for i in 0..N {
+            let init = make_init(i);
+            // SAFETY: Since 0 <= `i` < N, it is still in bounds of `[T; N]`.
+            let ptr = unsafe { slot.add(i) };
+            // SAFETY: The pointer is derived from `slot` and thus satisfies the `__init`
+            // requirements.
+            match unsafe { init.__init(ptr) } {
+                Ok(()) => {}
+                Err(e) => {
+                    // SAFETY: The loop has initialized the elements `slot[0..i]` and since we
+                    // return `Err` below, `slot` will be considered uninitialized memory.
+                    unsafe { ptr::drop_in_place(ptr::slice_from_raw_parts_mut(slot, i)) };
+                    return Err(e);
+                }
+            }
+        }
+        Ok(())
+    };
+    // SAFETY: The initializer above initializes every element of the array. On failure it drops
+    // any initialized elements and returns `Err`.
+    unsafe { init_from_closure(init) }
+}
+
+/// Initializes an array by initializing each element via the provided initializer.
+///
+/// # Examples
+///
+/// ```rust
+/// # #![feature(allocator_api)]
+/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// # use pinned_init::*;
+/// # use core::pin::Pin;
+/// use pinned_init::pin_init_array_from_fn;
+/// use std::sync::Arc;
+/// let array: Pin<Arc<[CMutex<usize>; 1_000]>> =
+///     Arc::pin_init(pin_init_array_from_fn(|i| CMutex::new(i))).unwrap();
+/// assert_eq!(array.len(), 1_000);
+/// ```
+pub fn pin_init_array_from_fn<I, const N: usize, T, E>(
+    mut make_init: impl FnMut(usize) -> I,
+) -> impl PinInit<[T; N], E>
+where
+    I: PinInit<T, E>,
+{
+    let init = move |slot: *mut [T; N]| {
+        let slot = slot.cast::<T>();
+        for i in 0..N {
+            let init = make_init(i);
+            // SAFETY: Since 0 <= `i` < N, it is still in bounds of `[T; N]`.
+            let ptr = unsafe { slot.add(i) };
+            // SAFETY: The pointer is derived from `slot` and thus satisfies the `__init`
+            // requirements.
+            match unsafe { init.__pinned_init(ptr) } {
+                Ok(()) => {}
+                Err(e) => {
+                    // SAFETY: The loop has initialized the elements `slot[0..i]` and since we
+                    // return `Err` below, `slot` will be considered uninitialized memory.
+                    unsafe { ptr::drop_in_place(ptr::slice_from_raw_parts_mut(slot, i)) };
+                    return Err(e);
+                }
+            }
+        }
+        Ok(())
+    };
+    // SAFETY: The initializer above initializes every element of the array. On failure it drops
+    // any initialized elements and returns `Err`.
+    unsafe { pin_init_from_closure(init) }
+}
+
 // SAFETY: Every type can be initialized by-value.
 unsafe impl<T, E> Init<T, E> for T {
     unsafe fn __init(self, slot: *mut T) -> Result<(), E> {
