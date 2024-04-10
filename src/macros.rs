@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-//! This module provides the macros that actually implement the proc-macros `pin_data` and
-//! `pinned_drop`. It also contains `__init_internal` the implementation of the `{try_}{pin_}init!`
-//! macros.
+//! This module provides the macros that actually implement the proc-macros `pin_data`,
+//! `pinned_drop` and the derive macro for zeroable. It also contains `__init_internal` the
+//! implementation of the `{try_}{pin_}init!` macros.
 //!
 //! These macros should never be called directly, since they expect their input to be
 //! in a certain format which is internal. If used incorrectly, these macros can lead to UB even in
@@ -17,7 +17,7 @@
 //! # Macro expansion example
 //!
 //! This section is intended for readers trying to understand the macros in this module and the
-//! `pin_init!` macros from `init.rs`.
+//! `[try_][pin_]init!` macros from `lib.rs`.
 //!
 //! We will look at the following example:
 //!
