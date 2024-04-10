@@ -1,6 +1,5 @@
 #![feature(allocator_api)]
 use core::{
-    alloc::AllocError,
     cell::Cell,
     convert::Infallible,
     marker::PhantomPinned,
@@ -9,6 +8,8 @@ use core::{
 };
 
 use pinned_init::*;
+mod error;
+pub use error::Error;
 
 #[pin_data(PinnedDrop)]
 #[repr(C)]
@@ -125,7 +126,7 @@ impl Link {
 
 #[allow(dead_code)]
 #[cfg_attr(test, test)]
-fn main() -> Result<(), AllocError> {
+fn main() -> Result<(), Error> {
     let a = Box::pin_init(ListHead::new())?;
     stack_pin_init!(let b = ListHead::insert_next(&a));
     stack_pin_init!(let c = ListHead::insert_next(&a));

@@ -335,10 +335,6 @@ macro_rules! stack_pin_init {
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// # use core::{alloc::AllocError, pin::Pin, convert::Infallible};
-/// # #[derive(Debug)]
-/// # struct FooError;
-/// # impl From<AllocError> for FooError { fn from(_: AllocError) -> Self { Self } }
-/// # impl From<Infallible> for FooError { fn from(_: Infallible) -> Self { Self } }
 /// #[pin_data]
 /// struct Foo {
 ///     #[pin]
@@ -355,7 +351,7 @@ macro_rules! stack_pin_init {
 ///     b: Box::try_new(Bar {
 ///         x: 64,
 ///     })?,
-/// }? FooError));
+/// }? Error));
 /// let foo = foo.unwrap();
 /// println!("a: {}", &*foo.a.lock());
 /// ```
@@ -366,10 +362,6 @@ macro_rules! stack_pin_init {
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// # use core::{alloc::AllocError, pin::Pin, convert::Infallible};
-/// # #[derive(Debug)]
-/// # struct FooError;
-/// # impl From<AllocError> for FooError { fn from(_: AllocError) -> Self { Self } }
-/// # impl From<Infallible> for FooError { fn from(_: Infallible) -> Self { Self } }
 /// #[pin_data]
 /// struct Foo {
 ///     #[pin]
@@ -386,9 +378,9 @@ macro_rules! stack_pin_init {
 ///     b: Box::try_new(Bar {
 ///         x: 64,
 ///     })?,
-/// }? FooError));
+/// }? Error));
 /// println!("a: {}", &*foo.a.lock());
-/// # Ok::<_, FooError>(())
+/// # Ok::<_, Error>(())
 /// ```
 ///
 /// # Syntax
@@ -707,7 +699,8 @@ macro_rules! try_pin_init {
 ///
 /// ```rust
 /// # #![feature(allocator_api)]
-/// # use core::alloc::AllocError;
+/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// # use core::convert::Infallible;
 /// use pinned_init::*;
 /// struct BigBuf {
 ///     big: Box<[u8; 1024 * 1024 * 1024]>,
@@ -715,11 +708,11 @@ macro_rules! try_pin_init {
 /// }
 ///
 /// impl BigBuf {
-///     fn new() -> impl Init<Self, AllocError> {
+///     fn new() -> impl Init<Self, Error> {
 ///         try_init!(Self {
-///             small <- zeroed(),
-///             big: Box::init(zeroed())?,
-///         }? AllocError)
+///             small <- zeroed::<_, Error>(),
+///             big: Box::init(zeroed::<_, Infallible>())?,
+///         }? Error)
 ///     }
 /// }
 /// # let _ = Box::init(BigBuf::new());
