@@ -44,7 +44,7 @@ error[E0423]: expected value, found struct `Foo`
 9 | |     });
   | |______^ help: use struct literal syntax instead: `Foo { value: val }`
   |
-  = note: this error originates in the macro `init` (in Nightly builds, run with -Z macro-backtrace for more info)
+  = note: this error originates in the macro `$crate::try_init` which comes from the expansion of the macro `init` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0107]: struct takes 1 generic argument but 2 generic arguments were supplied
  --> tests/ui/compile-fail/init/wrong_generics2.rs:7:19

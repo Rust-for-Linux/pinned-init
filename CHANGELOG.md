@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - return type of `zeroed()` from `impl Init<T, E>` to `impl Init<T>` (also removing the generic
   parameter `E`)
+- removed the default error of `try_[pin_]init!`, now you always have to specify an error using
+  `? Error` at the end
 
 ## [0.0.7] - 2024-04-09
 
