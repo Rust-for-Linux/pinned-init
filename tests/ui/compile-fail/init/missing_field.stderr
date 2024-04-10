@@ -7,7 +7,7 @@ error[E0063]: missing field `b` in initializer of `Foo`
 error[E0063]: missing field `b` in initializer of `Foo`
   --> tests/ui/compile-fail/init/missing_field.rs:12:30
    |
-12 |     let _foo = try_pin_init!(Foo { a: 0 });
+12 |     let _foo = try_pin_init!(Foo { a: 0 }? ::std::convert::Infallible);
    |                              ^^^ missing `b`
 
 error[E0063]: missing field `b` in initializer of `Foo`
@@ -19,5 +19,5 @@ error[E0063]: missing field `b` in initializer of `Foo`
 error[E0063]: missing field `b` in initializer of `Foo`
   --> tests/ui/compile-fail/init/missing_field.rs:14:26
    |
-14 |     let _foo = try_init!(Foo { a: 0 });
+14 |     let _foo = try_init!(Foo { a: 0 }? ::std::convert::Infallible);
    |                          ^^^ missing `b`
