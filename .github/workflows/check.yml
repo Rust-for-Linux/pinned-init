@@ -69,6 +69,21 @@ jobs:
       # intentionally no target specifier; see https://github.com/jonhoo/rust-ci-conf/pull/4
       - name: cargo hack
         run: cargo hack --feature-powerset check
+  readme:
+    runs-on: ubuntu-latest
+    name: readme
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      - name: cargo install cargo-rdme
+        run: cargo install cargo-rdme
+      - name: cargo rdme --check
+        run: cargo rdme --check
 # disable msrv, since we are nightly only
 # msrv:
 #   runs-on: ubuntu-latest
