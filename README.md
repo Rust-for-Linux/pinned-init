@@ -10,6 +10,8 @@
 
 Library to safely and fallibly initialize pinned `struct`s using in-place constructors.
 
+[Pinning][pinning] is Rust's way of ensuring data does not move.
+
 It also allows in-place initialization of big `struct`s that would otherwise produce a stack
 overflow.
 
@@ -27,7 +29,7 @@ This library allows you to do in-place initialization safely.
 ## Nightly only
 
 This library requires unstable features and thus can only be used with a nightly compiler.
-The used features are:
+The internally used features are:
 - `allocator_api`
 - `new_uninit` (only if the `alloc` or `std` features are enabled)
 - `get_mut_unchecked` (only if the `alloc` or `std` features are enabled)
@@ -53,10 +55,10 @@ prefix.
 
 ## Examples
 
-Throught some examples we will make use of the `CMutex` type which can be found in the examples
-directory of the repository. It is essentially a rebuild of the `mutex` from the Linux kernel
-in userland. So it also uses a wait list and a basic spinlock. Importantly it needs to be
-pinned to be locked and thus is a prime candidate for this library.
+Throught some examples we will make use of the `CMutex` type which can be found in
+`../examples/mutex.rs`. It is essentially a rebuild of the `mutex` from the Linux kernel in userland. So
+it also uses a wait list and a basic spinlock. Importantly it needs to be pinned to be locked
+and thus is a prime candidate for using this library.
 
 ### Using the [`pin_init!`] macro
 
@@ -195,10 +197,11 @@ impl PinnedDrop for RawFoo {
 }
 ```
 
-For more information on how to use [`pin_init_from_closure()`], you can take a look at the
-uses inside the `kernel` crate from the [Rust-for-Linux] project. The `sync` module is a good
-starting point.
+For more information on how to use [`pin_init_from_closure()`], take a look at the uses inside
+the `kernel` crate. The [`sync`] module is a good starting point.
 
+[`sync`]: https://github.com/Rust-for-Linux/linux/tree/rust-next/rust/kernel/sync
+[pinning]: https://doc.rust-lang.org/std/pin/index.html
 [structurally pinned fields]: https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
 [stack]: https://docs.rs/pinned-init/latest/pinned_init/macro.stack_pin_init.html
 [`Arc<T>`]: https://doc.rust-lang.org/stable/alloc/sync/struct.Arc.html

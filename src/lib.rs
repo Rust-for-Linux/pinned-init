@@ -2,6 +2,8 @@
 
 //! Library to safely and fallibly initialize pinned `struct`s using in-place constructors.
 //!
+//! [Pinning][pinning] is Rust's way of ensuring data does not move.
+//!
 //! It also allows in-place initialization of big `struct`s that would otherwise produce a stack
 //! overflow.
 //!
@@ -19,7 +21,7 @@
 //! # Nightly only
 //!
 //! This library requires unstable features and thus can only be used with a nightly compiler.
-//! The used features are:
+//! The internally used features are:
 //! - `allocator_api`
 //! - `new_uninit` (only if the `alloc` or `std` features are enabled)
 //! - `get_mut_unchecked` (only if the `alloc` or `std` features are enabled)
@@ -45,10 +47,10 @@
 //!
 //! # Examples
 //!
-//! Throught some examples we will make use of the `CMutex` type which can be found in the examples
-//! directory of the repository. It is essentially a rebuild of the `mutex` from the Linux kernel
-//! in userland. So it also uses a wait list and a basic spinlock. Importantly it needs to be
-//! pinned to be locked and thus is a prime candidate for this library.
+//! Throught some examples we will make use of the `CMutex` type which can be found in
+//! `../examples/mutex.rs`. It is essentially a rebuild of the `mutex` from the Linux kernel in userland. So
+//! it also uses a wait list and a basic spinlock. Importantly it needs to be pinned to be locked
+//! and thus is a prime candidate for using this library.
 //!
 //! ## Using the [`pin_init!`] macro
 //!
@@ -217,10 +219,11 @@
 //! }
 //! ```
 //!
-//! For more information on how to use [`pin_init_from_closure()`], you can take a look at the
-//! uses inside the `kernel` crate from the [Rust-for-Linux] project. The `sync` module is a good
-//! starting point.
+//! For more information on how to use [`pin_init_from_closure()`], take a look at the uses inside
+//! the `kernel` crate. The [`sync`] module is a good starting point.
 //!
+//! [`sync`]: https://github.com/Rust-for-Linux/linux/tree/rust-next/rust/kernel/sync
+//! [pinning]: https://doc.rust-lang.org/std/pin/index.html
 //! [structurally pinned fields]:
 //!     https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
 //! [stack]: crate::stack_pin_init
@@ -551,6 +554,9 @@ macro_rules! stack_try_pin_init {
 /// - Fields that you want to initialize in-place have to use `<-` instead of `:`.
 /// - In front of the initializer you can write `&this in` to have access to a [`NonNull<Self>`]
 ///   pointer named `this` inside of the initializer.
+/// - Using struct update syntax one can place `..Zeroable::zeroed()` at the very end of the
+///   struct, this initializes every field with 0 and then runs all initializers specified in the
+///   body. This can only be done if [`Zeroable`] is implemented for the struct.
 ///
 /// For instance:
 ///
@@ -575,8 +581,6 @@ macro_rules! stack_try_pin_init {
 /// ```
 ///
 /// [`NonNull<Self>`]: core::ptr::NonNull
-// For a detailed example of how this macro works, see the module documentation of the hidden
-// module `__internal` inside of `__internal.rs`.
 #[macro_export]
 macro_rules! pin_init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
@@ -625,8 +629,6 @@ macro_rules! pin_init {
 /// }
 /// # let _ = Box::pin_init(BigBuf::new());
 /// ```
-// For a detailed example of how this macro works, see the module documentation of the hidden
-// module `__internal` inside of `__internal.rs`.
 #[macro_export]
 macro_rules! try_pin_init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
@@ -658,6 +660,7 @@ macro_rules! try_pin_init {
 ///
 /// This initializer is for initializing data in-place that might later be moved. If you want to
 /// pin-initialize, use [`pin_init!`].
+///
 /// # Examples
 ///
 /// ```rust
@@ -679,8 +682,6 @@ macro_rules! try_pin_init {
 /// }
 /// # let _ = Box::init(BigBuf::new());
 /// ```
-// For a detailed example of how this macro works, see the module documentation of the hidden
-// module `__internal` inside of `__internal.rs`.
 #[macro_export]
 macro_rules! init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
@@ -726,8 +727,6 @@ macro_rules! init {
 /// }
 /// # let _ = Box::init(BigBuf::new());
 /// ```
-// For a detailed example of how this macro works, see the module documentation of the hidden
-// module `__internal` inside of `__internal.rs`.
 #[macro_export]
 macro_rules! try_init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
@@ -750,16 +749,16 @@ macro_rules! try_init {
 ///
 /// To use this initializer, you will need a suitable memory location that can hold a `T`. This can
 /// be [`Box<T>`], [`Arc<T>`] or even the stack (see [`stack_pin_init!`]). Use the
-/// [`InPlaceInit::pin_init`] function of a smart pointer like [`Arc<T>`] on this.
+/// [`InPlaceInit::try_pin_init`] function of a smart pointer like [`Arc<T>`] on this.
 ///
 /// Also see the [module description](self).
 ///
 /// # Safety
 ///
-/// When implementing this type you will need to take great care. Also there are probably very few
+/// When implementing this trait you will need to take great care. Also there are probably very few
 /// cases where a manual implementation is necessary. Use [`pin_init_from_closure`] where possible.
 ///
-/// The [`PinInit::__pinned_init`] function
+/// The [`PinInit::__pinned_init`] function:
 /// - returns `Ok(())` if it initialized every field of `slot`,
 /// - returns `Err(err)` if it encountered an error and then cleaned `slot`, this means:
 ///     - `slot` can be deallocated without UB occurring,
@@ -837,17 +836,17 @@ where
 ///
 /// To use this initializer, you will need a suitable memory location that can hold a `T`. This can
 /// be [`Box<T>`], [`Arc<T>`] or even the stack (see [`stack_pin_init!`]). Use the
-/// [`InPlaceInit::init`] function of a smart pointer like [`Arc<T>`] on this. Because
+/// [`InPlaceInit::try_init`] function of a smart pointer like [`Arc<T>`] on this. Because
 /// [`PinInit<T, E>`] is a super trait, you can use every function that takes it as well.
 ///
 /// Also see the [module description](self).
 ///
 /// # Safety
 ///
-/// When implementing this type you will need to take great care. Also there are probably very few
+/// When implementing this trait you will need to take great care. Also there are probably very few
 /// cases where a manual implementation is necessary. Use [`init_from_closure`] where possible.
 ///
-/// The [`Init::__init`] function
+/// The [`Init::__init`] function:
 /// - returns `Ok(())` if it initialized every field of `slot`,
 /// - returns `Err(err)` if it encountered an error and then cleaned `slot`, this means:
 ///     - `slot` can be deallocated without UB occurring,
@@ -1124,6 +1123,7 @@ pub trait InPlaceInit<T>: Sized {
 
     /// Use the given initializer to in-place initialize a `T`.
     fn init(init: impl Init<T>) -> Result<Self, AllocError> {
+        // SAFETY: We delegate to `init` and only change the error type.
         let init = unsafe {
             init_from_closure(|slot| match init.__init(slot) {
                 Ok(()) => Ok(()),
@@ -1219,14 +1219,11 @@ impl<T> InPlaceInit<T> for Arc<T> {
 ///         println!("Foo is being dropped!");
 ///     }
 /// }
-/// # let _ = Box::pin_init(pin_init!(Foo { mtx <- CMutex::new(0) }));
 /// ```
 ///
 /// # Safety
 ///
 /// This trait must be implemented via the [`pinned_drop`] proc-macro attribute on the impl.
-///
-/// [`pinned_drop`]: pinned_init_macro::pinned_drop
 pub unsafe trait PinnedDrop: __internal::HasPinData {
     /// Executes the pinned destructor of this type.
     ///
