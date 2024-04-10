@@ -227,7 +227,8 @@
 //! [structurally pinned fields]:
 //!     https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
 //! [stack]: crate::stack_pin_init
-//! [`Arc<T>`]: ::alloc::sync::Arc
+#![cfg_attr(kernel, doc = "[`Arc<T>`]: ../kernel/sync/struct.Arc.html")]
+#![cfg_attr(not(kernel), doc = "[`Arc<T>`]: ::alloc::sync::Arc")]
 //! [`Box<T>`]: ::alloc::boxed::Box
 //! [`impl PinInit<Foo>`]: crate::PinInit
 //! [`impl PinInit<T, E>`]: crate::PinInit
@@ -235,15 +236,15 @@
 //! [Rust-for-Linux]: https://rust-for-linux.com/
 
 #![forbid(missing_docs, unsafe_op_in_unsafe_fn)]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(any(not(feature = "std"), kernel), no_std)]
 #![feature(allocator_api)]
-#![cfg_attr(any(feature = "alloc"), feature(new_uninit))]
-#![cfg_attr(any(feature = "alloc"), feature(get_mut_unchecked))]
+#![cfg_attr(any(feature = "alloc", kernel), feature(new_uninit))]
+#![cfg_attr(feature = "alloc", feature(get_mut_unchecked))]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-#[cfg(all(feature = "alloc", not(feature = "std")))]
+#[cfg(any(all(feature = "alloc", not(feature = "std")), kernel))]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use alloc::sync::Arc;
@@ -264,7 +265,11 @@ pub mod __internal;
 #[doc(hidden)]
 pub mod macros;
 
+#[cfg(not(kernel))]
 pub use pinned_init_macro::{pin_data, pinned_drop, Zeroable};
+
+#[cfg(kernel)]
+pub use ::macros::{pin_data, pinned_drop, Zeroable};
 
 /// Initialize and pin a type directly on the stack.
 ///
@@ -766,7 +771,8 @@ macro_rules! try_init {
 ///     - `slot` is not partially initialized.
 /// - while constructing the `T` at `slot` it upholds the pinning invariants of `T`.
 ///
-/// [`Arc<T>`]: alloc::sync::Arc
+#[cfg_attr(kernel, doc = "[`Arc<T>`]: ../kernel/sync/struct.Arc.html")]
+#[cfg_attr(not(kernel), doc = "[`Arc<T>`]: alloc::sync::Arc")]
 #[must_use = "An initializer must be used in order to create its value."]
 pub unsafe trait PinInit<T: ?Sized, E = Infallible>: Sized {
     /// Initializes `slot`.
@@ -860,7 +866,8 @@ where
 /// Contrary to its supertype [`PinInit<T, E>`] the caller is allowed to
 /// move the pointee after initialization.
 ///
-/// [`Arc<T>`]: alloc::sync::Arc
+#[cfg_attr(kernel, doc = "[`Arc<T>`]: ../kernel/sync/struct.Arc.html")]
+#[cfg_attr(not(kernel), doc = "[`Arc<T>`]: alloc::sync::Arc")]
 #[must_use = "An initializer must be used in order to create its value."]
 pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
     /// Initializes `slot`.
@@ -1105,6 +1112,7 @@ pub trait InPlaceInit<T>: Sized {
     /// type.
     ///
     /// If `T: !Unpin` it will not be able to move afterwards.
+    #[cfg(not(kernel))]
     fn pin_init(init: impl PinInit<T>) -> Result<Pin<Self>, AllocError> {
         // SAFETY: We delegate to `init` and only change the error type.
         let init = unsafe {
@@ -1122,6 +1130,7 @@ pub trait InPlaceInit<T>: Sized {
         E: From<AllocError>;
 
     /// Use the given initializer to in-place initialize a `T`.
+    #[cfg(not(kernel))]
     fn init(init: impl Init<T>) -> Result<Self, AllocError> {
         // SAFETY: We delegate to `init` and only change the error type.
         let init = unsafe {
@@ -1134,7 +1143,7 @@ pub trait InPlaceInit<T>: Sized {
     }
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(any(feature = "alloc", kernel))]
 impl<T> InPlaceInit<T> for Box<T> {
     #[inline]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
@@ -1306,7 +1315,7 @@ impl_zeroable! {
     //
     // In this case we are allowed to use `T: ?Sized`, since all zeros is the `None` variant.
     {<T: ?Sized>} Option<NonNull<T>>,
-    #[cfg(feature = "alloc")]
+    #[cfg(any(feature = "alloc", kernel))]
     {<T: ?Sized>} Option<Box<T>>,
 
     // SAFETY: `null` pointer is valid.

@@ -498,6 +498,12 @@
 //! };
 //! ```
 
+#[cfg(kernel)]
+pub use ::macros::paste;
+
+#[cfg(not(kernel))]
+pub use ::paste::paste;
+
 /// Creates a `unsafe impl<...> PinnedDrop for $type` block.
 ///
 /// See [`PinnedDrop`] for more information.
@@ -1011,8 +1017,6 @@ macro_rules! __pin_data {
         }
     };
 }
-
-pub use paste::paste;
 
 /// The internal init macro. Do not call manually!
 ///
