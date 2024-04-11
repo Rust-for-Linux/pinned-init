@@ -1,5 +1,5 @@
 error[E0308]: mismatched types
-  --> tests/ui/colon_instead_of_arrow.rs:22:9
+  --> tests/ui/compile-fail/init/colon_instead_of_arrow.rs:22:9
    |
 15 |     fn new() -> impl PinInit<Self> {
    |                 ------------------ the found opaque type

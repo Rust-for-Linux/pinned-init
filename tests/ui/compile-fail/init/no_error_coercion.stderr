@@ -1,5 +1,5 @@
 error[E0277]: `?` couldn't convert the error to `std::alloc::AllocError`
-  --> tests/ui/no_error_coercion.rs:16:9
+  --> tests/ui/compile-fail/init/no_error_coercion.rs:16:9
    |
 16 | /         try_init!(Self {
 17 | |             a: Box::new(42),
