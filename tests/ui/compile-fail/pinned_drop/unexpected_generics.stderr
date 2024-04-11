@@ -1,0 +1,13 @@
+error[E0107]: trait takes 0 generic arguments but 1 generic argument was supplied
+  --> tests/ui/compile-fail/pinned_drop/unexpected_generics.rs:10:9
+   |
+10 | impl<T> PinnedDrop<T> for Foo<T> {
+   |         ^^^^^^^^^^--- help: remove these generics
+   |         |
+   |         expected 0 generic arguments
+   |
+note: trait defined here, with 0 generic parameters
+  --> src/lib.rs
+   |
+   | pub unsafe trait PinnedDrop: __internal::HasPinData {
+   |                  ^^^^^^^^^^
