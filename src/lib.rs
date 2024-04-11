@@ -234,12 +234,11 @@
 //! [structurally pinned fields]:
 //!     https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
 //! [stack]: crate::stack_pin_init
-//! [`Arc<T>`]: alloc::sync::Arc
-//! [`Box<T>`]: alloc::boxed::Box
-//! [`impl PinInit<Foo>`]: PinInit
-//! [`impl PinInit<T, E>`]: PinInit
-//! [`impl Init<T, E>`]: Init
-//! [`pin_data`]: ::pinned_init_macro::pin_data
+//! [`Arc<T>`]: ::alloc::sync::Arc
+//! [`Box<T>`]: ::alloc::boxed::Box
+//! [`impl PinInit<Foo>`]: crate::PinInit
+//! [`impl PinInit<T, E>`]: crate::PinInit
+//! [`impl Init<T, E>`]: crate::Init
 //! [Rust-for-Linux]: https://rust-for-linux.com/
 
 #![forbid(missing_docs, unsafe_op_in_unsafe_fn)]
