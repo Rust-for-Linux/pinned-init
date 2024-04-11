@@ -1,5 +1,4 @@
 #![feature(allocator_api)]
-extern crate pinned_init;
 use pinned_init::*;
 
 #[pin_data]
