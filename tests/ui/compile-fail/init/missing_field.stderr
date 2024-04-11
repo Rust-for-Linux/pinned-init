@@ -1,23 +1,23 @@
 error[E0063]: missing field `b` in initializer of `Foo`
-  --> tests/ui/missing_field.rs:11:26
+  --> tests/ui/compile-fail/init/missing_field.rs:11:26
    |
 11 |     let _foo = pin_init!(Foo { a: 0 });
    |                          ^^^ missing `b`
 
 error[E0063]: missing field `b` in initializer of `Foo`
-  --> tests/ui/missing_field.rs:12:30
+  --> tests/ui/compile-fail/init/missing_field.rs:12:30
    |
 12 |     let _foo = try_pin_init!(Foo { a: 0 });
    |                              ^^^ missing `b`
 
 error[E0063]: missing field `b` in initializer of `Foo`
-  --> tests/ui/missing_field.rs:13:22
+  --> tests/ui/compile-fail/init/missing_field.rs:13:22
    |
 13 |     let _foo = init!(Foo { a: 0 });
    |                      ^^^ missing `b`
 
 error[E0063]: missing field `b` in initializer of `Foo`
-  --> tests/ui/missing_field.rs:14:26
+  --> tests/ui/compile-fail/init/missing_field.rs:14:26
    |
 14 |     let _foo = try_init!(Foo { a: 0 });
    |                          ^^^ missing `b`
