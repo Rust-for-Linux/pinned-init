@@ -1,0 +1,11 @@
+error: no rules expected the token `<`
+ --> tests/ui/compile-fail/init/wrong_generics.rs:7:22
+  |
+7 |     let _ = init!(Foo<()> {
+  |                      ^ no rules expected this token in macro call
+  |
+note: while trying to match `{`
+ --> src/lib.rs
+  |
+  |     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+  |                                                                   ^
