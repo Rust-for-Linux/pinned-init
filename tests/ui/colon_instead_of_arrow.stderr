@@ -1,24 +1,20 @@
 error[E0308]: mismatched types
-    --> $DIR/colon_instead_of_arrow.rs:23:9
-     |
-16   |     fn new() -> impl PinInit<Self> {
-     |                 ------------------ the found opaque type
+  --> tests/ui/colon_instead_of_arrow.rs:23:9
+   |
+16 |     fn new() -> impl PinInit<Self> {
+   |                 ------------------ the found opaque type
 ...
-23   |         pin_init!(Self { bar: Bar::new() })
-     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-     |         |
-     |         expected `Bar`, found opaque type
-     |         arguments to this function are incorrect
-     |
-     = note:   expected struct `Bar`
-             found opaque type `impl pinned_init::PinInit<Bar>`
+23 |         pin_init!(Self { bar: Bar::new() })
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |         |
+   |         expected `Bar`, found opaque type
+   |         arguments to this function are incorrect
+   |
+   = note:   expected struct `Bar`
+           found opaque type `impl pinned_init::PinInit<Bar>`
 note: function defined here
-    --> $RUSTC_SRC/library/core/src/ptr/mod.rs:1484:21
-     |
-1484 | pub const unsafe fn write<T>(dst: *mut T, src: T) {
-     |                     ^^^^^
-     = note: this error originates in the macro `$crate::__init_internal` which comes from the expansion of the macro `pin_init` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error: aborting due to 1 previous error
-
-For more information about this error, try `rustc --explain E0308`.
+  --> $RUST/core/src/ptr/mod.rs
+   |
+   | pub const unsafe fn write<T>(dst: *mut T, src: T) {
+   |                     ^^^^^
+   = note: this error originates in the macro `$crate::__init_internal` which comes from the expansion of the macro `pin_init` (in Nightly builds, run with -Z macro-backtrace for more info)

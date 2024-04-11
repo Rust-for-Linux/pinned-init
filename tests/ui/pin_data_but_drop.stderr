@@ -1,5 +1,5 @@
 error[E0119]: conflicting implementations of trait `MustNotImplDrop` for type `Foo`
- --> $DIR/pin_data_but_drop.rs:5:1
+ --> tests/ui/pin_data_but_drop.rs:5:1
   |
 5 | #[pin_data]
   | ^^^^^^^^^^^
@@ -8,7 +8,3 @@ error[E0119]: conflicting implementations of trait `MustNotImplDrop` for type `F
   | conflicting implementation for `Foo`
   |
   = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error: aborting due to 1 previous error
-
-For more information about this error, try `rustc --explain E0119`.

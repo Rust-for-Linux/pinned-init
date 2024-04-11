@@ -1,5 +1,5 @@
 error[E0119]: conflicting implementations of trait `UselessPinnedDropImpl_you_need_to_specify_PinnedDrop` for type `Foo`
- --> $DIR/useless_pinned_drop.rs:6:1
+ --> tests/ui/useless_pinned_drop.rs:6:1
   |
 6 | #[pin_data]
   | ^^^^^^^^^^^
@@ -8,7 +8,3 @@ error[E0119]: conflicting implementations of trait `UselessPinnedDropImpl_you_ne
   | conflicting implementation for `Foo`
   |
   = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error: aborting due to 1 previous error
-
-For more information about this error, try `rustc --explain E0119`.
