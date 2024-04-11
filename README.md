@@ -4,8 +4,9 @@
 ![License](https://img.shields.io/crates/l/pinned-init)
 [![Toolchain](https://img.shields.io/badge/toolchain-nightly-red)](#nightly-only)
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Rust-for-Linux/pinned-init/test.yml)
-
 # Pinned-init
+
+<!-- cargo-rdme start -->
 
 Library to safely and fallibly initialize pinned `struct`s using in-place constructors.
 
@@ -23,7 +24,7 @@ it into it's final memory location.
 
 This library allows you to do in-place initialization safely.
 
-# Nightly only
+## Nightly only
 
 This library requires unstable features and thus can only be used with a nightly compiler.
 The used features are:
@@ -34,7 +35,7 @@ The used features are:
 The user will be required to activate these features:
 - `allocator_api`
 
-# Overview
+## Overview
 
 To initialize a `struct` with an in-place constructor you will need two things:
 - an in-place constructor,
@@ -50,14 +51,14 @@ Aside from pinned initialization, this library also supports in-place constructi
 the macros/types/functions are generally named like the pinned variants without the `pin`
 prefix.
 
-# Examples
+## Examples
 
 Throught some examples we will make use of the `CMutex` type which can be found in the examples
 directory of the repository. It is essentially a rebuild of the `mutex` from the Linux kernel
 in userland. So it also uses a wait list and a basic spinlock. Importantly it needs to be
 pinned to be locked and thus is a prime candidate for this library.
 
-## Using the [`pin_init!`] macro
+### Using the [`pin_init!`] macro
 
 If you want to use [`PinInit`], then you will have to annotate your `struct` with
 `#[`[`pin_data`]`]`. It is a macro that uses `#[pin]` as a marker for
@@ -89,7 +90,7 @@ let foo: Result<Pin<Box<Foo>>, core::alloc::AllocError> = Box::pin_init(foo);
 
 For more information see the [`pin_init!`] macro.
 
-## Using a custom function/macro that returns an initializer
+### Using a custom function/macro that returns an initializer
 
 Many types that use this library supply a function/macro that returns an initializer, because
 the above method only works for types where you can access the fields.
@@ -121,7 +122,7 @@ impl DriverData {
 }
 ```
 
-## Manual creation of an initializer
+### Manual creation of an initializer
 
 Often when working with primitives the previous approaches are not sufficient. That is where
 [`pin_init_from_closure()`] comes in. This `unsafe` function allows you to create a
@@ -203,14 +204,11 @@ starting point.
 
 [structurally pinned fields]: https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
 [stack]: https://docs.rs/pinned-init/latest/pinned_init/macro.stack_pin_init.html
-[`Arc<T>`]: https://doc.rust-lang.org/alloc/sync/struct.Arc.html
-[`Box<T>`]: https://doc.rust-lang.org/alloc/boxed/struct.Box.html
+[`Arc<T>`]: https://doc.rust-lang.org/stable/alloc/sync/struct.Arc.html
+[`Box<T>`]: https://doc.rust-lang.org/stable/alloc/boxed/struct.Box.html
 [`impl PinInit<Foo>`]: https://docs.rs/pinned-init/latest/pinned_init/trait.PinInit.html
 [`impl PinInit<T, E>`]: https://docs.rs/pinned-init/latest/pinned_init/trait.PinInit.html
 [`impl Init<T, E>`]: https://docs.rs/pinned-init/latest/pinned_init/trait.Init.html
 [Rust-for-Linux]: https://rust-for-linux.com/
-[`InPlaceInit`]: https://docs.rs/pinned-init/latest/pinned_init/trait.InPlaceInit.html
-[`pin_init!`]: https://docs.rs/pinned-init/latest/pinned_init/macro.pin_init.html
-[`pin_init_from_closure()`]: https://docs.rs/pinned-init/latest/pinned_init/fn.pin_init_from_closure.html
-[`PinInit`]: https://docs.rs/pinned-init/latest/pinned_init/trait.PinInit.html
-[`pin_data`]: https://docs.rs/pinned-init/latest/pinned_init/attr.pin_data.html
+
+<!-- cargo-rdme end -->
