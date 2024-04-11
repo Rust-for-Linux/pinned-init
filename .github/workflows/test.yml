@@ -21,6 +21,8 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
           components: rust-src
+      - name: cargo install cargo-expand
+        run: cargo install cargo-expand
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
@@ -45,6 +47,8 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
+      - name: cargo install cargo-expand
+        run: cargo install cargo-expand
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
