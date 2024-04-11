@@ -161,7 +161,7 @@ fn main() {
     let mtx: Pin<Arc<CMutex<usize>>> = Arc::pin_init(CMutex::new(0)).unwrap();
     let mut handles = vec![];
     let thread_count = 20;
-    let workload = if cfg!(miri) { 100 } else { 1_000_000 };
+    let workload = if cfg!(miri) { 100 } else { 1_000 };
     for i in 0..thread_count {
         let mtx = mtx.clone();
         handles.push(
