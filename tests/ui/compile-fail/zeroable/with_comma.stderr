@@ -1,0 +1,33 @@
+error: no rules expected the token `,`
+  --> tests/ui/compile-fail/zeroable/with_comma.rs:12:13
+   |
+12 |       let _ = init!(Foo {
+   |  _____________^
+13 | |         a: 0,
+14 | |         ..Zeroable::zeroed(),
+15 | |     });
+   | |______^ no rules expected this token in macro call
+   |
+note: while trying to match `)`
+  --> src/macros.rs
+   |
+   |         @munch_fields($(..Zeroable::zeroed())? $(,)?),
+   |                                                     ^
+   = note: this error originates in the macro `$crate::__init_internal` which comes from the expansion of the macro `init` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: no rules expected the token `,`
+  --> tests/ui/compile-fail/zeroable/with_comma.rs:12:13
+   |
+12 |       let _ = init!(Foo {
+   |  _____________^
+13 | |         a: 0,
+14 | |         ..Zeroable::zeroed(),
+15 | |     });
+   | |______^ no rules expected this token in macro call
+   |
+note: while trying to match `)`
+  --> src/macros.rs
+   |
+   |         @munch_fields(..Zeroable::zeroed() $(,)?),
+   |                                                 ^
+   = note: this error originates in the macro `$crate::__init_internal` which comes from the expansion of the macro `init` (in Nightly builds, run with -Z macro-backtrace for more info)
