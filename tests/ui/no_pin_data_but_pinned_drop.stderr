@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `Foo: HasPinData` is not satisfied
- --> tests/ui/no_pin_data_but_pinned_drop.rs:9:21
+ --> tests/ui/no_pin_data_but_pinned_drop.rs:8:21
   |
-9 | impl PinnedDrop for Foo {
+8 | impl PinnedDrop for Foo {
   |                     ^^^ the trait `HasPinData` is not implemented for `Foo`
   |
 note: required by a bound in `PinnedDrop`

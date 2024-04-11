@@ -1,39 +1,39 @@
 error: The field `pin1` of type `PhantomPinned` only has an effect, if it has the `#[pin]` attribute.
- --> tests/ui/no_pin_on_phantompinned.rs:7:1
+ --> tests/ui/no_pin_on_phantompinned.rs:6:1
   |
-7 | #[pin_data]
+6 | #[pin_data]
   | ^^^^^^^^^^^
   |
   = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: The field `pin2` of type `PhantomPinned` only has an effect, if it has the `#[pin]` attribute.
- --> tests/ui/no_pin_on_phantompinned.rs:7:1
+ --> tests/ui/no_pin_on_phantompinned.rs:6:1
   |
-7 | #[pin_data]
+6 | #[pin_data]
   | ^^^^^^^^^^^
   |
   = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: The field `pin3` of type `PhantomPinned` only has an effect, if it has the `#[pin]` attribute.
- --> tests/ui/no_pin_on_phantompinned.rs:7:1
+ --> tests/ui/no_pin_on_phantompinned.rs:6:1
   |
-7 | #[pin_data]
+6 | #[pin_data]
   | ^^^^^^^^^^^
   |
   = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: The field `pin4` of type `PhantomPinned` only has an effect, if it has the `#[pin]` attribute.
- --> tests/ui/no_pin_on_phantompinned.rs:7:1
+ --> tests/ui/no_pin_on_phantompinned.rs:6:1
   |
-7 | #[pin_data]
+6 | #[pin_data]
   | ^^^^^^^^^^^
   |
   = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 warning: unused imports: `PhantomPinned`, `self`
- --> tests/ui/no_pin_on_phantompinned.rs:4:20
+ --> tests/ui/no_pin_on_phantompinned.rs:3:20
   |
-4 | use core::marker::{self, PhantomPinned};
+3 | use core::marker::{self, PhantomPinned};
   |                    ^^^^  ^^^^^^^^^^^^^
   |
   = note: `#[warn(unused_imports)]` on by default

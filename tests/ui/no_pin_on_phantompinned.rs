@@ -1,6 +1,5 @@
 #![no_std]
 #![feature(allocator_api)]
-extern crate pinned_init;
 use core::marker::{self, PhantomPinned};
 use pinned_init::*;
 

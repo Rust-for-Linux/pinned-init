@@ -1,7 +1,7 @@
 error[E0119]: conflicting implementations of trait `MustNotImplDrop` for type `Foo`
- --> tests/ui/pin_data_but_drop.rs:5:1
+ --> tests/ui/pin_data_but_drop.rs:4:1
   |
-5 | #[pin_data]
+4 | #[pin_data]
   | ^^^^^^^^^^^
   | |
   | first implementation here
