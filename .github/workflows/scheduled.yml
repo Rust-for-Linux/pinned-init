@@ -20,6 +20,8 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
+      - name: cargo install cargo-expand
+        run: cargo install cargo-expand
       - name: cargo generate-lockfile
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
@@ -29,24 +31,19 @@ jobs:
   update:
     runs-on: ubuntu-latest
     name: ubuntu / nightly / updated
-    # There's no point running this if no Cargo.lock was checked in in the
-    # first place, since we'd just redo what happened in the regular test job.
-    # Unfortunately, hashFiles only works in if on steps, so we reepeat it.
-    # if: hashFiles('Cargo.lock') != ''
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
       - name: Install nightly
-        if: hashFiles('Cargo.lock') != ''
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
+      - name: cargo install cargo-expand
+        run: cargo install cargo-expand
       - name: cargo update
-        if: hashFiles('Cargo.lock') != ''
         run: cargo update
       - name: cargo test
-        if: hashFiles('Cargo.lock') != ''
         run: cargo test --locked --all-features --all-targets
         env:
           RUSTFLAGS: -D deprecated

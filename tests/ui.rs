@@ -6,3 +6,8 @@ fn compile_fail() {
     test_cases.compile_fail("tests/ui/compile-fail/init/*.rs");
     test_cases.compile_fail("tests/ui/compile-fail/zeroable/*.rs");
 }
+
+#[cfg_attr(not(any(miri, NO_UI_TESTS)), test)]
+fn expand() {
+    macrotest::expand("tests/ui/expand/*.rs");
+}
