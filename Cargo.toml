@@ -24,4 +24,4 @@ alloc = []
 
 [dev-dependencies]
 libc = "0.2"
-compiletest_rs = "0.10"
+trybuild = { version = "1.0", features = ["diff"] }
