@@ -1,0 +1,53 @@
+error[E0119]: conflicting implementations of trait `HasPinData` for type `Foo`
+ --> tests/ui/compile-fail/pin_data/twice.rs:3:1
+  |
+3 | #[pin_data]
+  | ^^^^^^^^^^^
+  | |
+  | first implementation here
+  | conflicting implementation for `Foo`
+  |
+  = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0282]: type annotations needed
+ --> tests/ui/compile-fail/pin_data/twice.rs:3:1
+  |
+3 | #[pin_data]
+  | ^^^^^^^^^^^ cannot infer type
+  |
+note: the requirement `_ <: _` appears on the `impl`'s method `__pin_data` but not on the corresponding trait's method
+ --> src/__internal.rs
+  |
+  | pub unsafe trait HasPinData {
+  |                  ---------- in this trait
+...
+  |     unsafe fn __pin_data() -> Self::PinData;
+  |               ^^^^^^^^^^ this trait's method doesn't have the requirement `_ <: _`
+  = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0119]: conflicting implementations of trait `Unpin` for type `Foo`
+ --> tests/ui/compile-fail/pin_data/twice.rs:3:1
+  |
+3 | #[pin_data]
+  | ^^^^^^^^^^^
+  | |
+  | first implementation here
+  | conflicting implementation for `Foo`
+  |
+  = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0282]: type annotations needed
+ --> tests/ui/compile-fail/pin_data/twice.rs:3:1
+  |
+3 | #[pin_data]
+  | ^^^^^^^^^^^ cannot infer type
+  |
+note: the requirement `_ <: _` appears on the `impl`'s method `__pin_data` but not on the corresponding trait's method
+ --> src/__internal.rs
+  |
+  | pub unsafe trait HasPinData {
+  |                  ---------- in this trait
+...
+  |     unsafe fn __pin_data() -> Self::PinData;
+  |               ^^^^^^^^^^ this trait's method doesn't have the requirement `_ <: _`
+  = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
