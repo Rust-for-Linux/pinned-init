@@ -1,0 +1,14 @@
+error[E0277]: the trait bound `impl pinned_init::PinInit<Bar>: Init<Bar>` is not satisfied
+  --> tests/ui/compile-fail/init/invalid_init.rs:18:13
+   |
+18 |       let _ = init!(Foo {
+   |  _____________^
+19 | |         bar <- Bar::new(),
+20 | |     });
+   | |      ^
+   | |      |
+   | |______the trait `Init<Bar>` is not implemented for `impl pinned_init::PinInit<Bar>`
+   |        required by a bound introduced by this call
+   |
+   = help: the trait `Init<T, E>` is implemented for `ChainInit<I, F, T, E>`
+   = note: this error originates in the macro `$crate::__init_internal` which comes from the expansion of the macro `init` (in Nightly builds, run with -Z macro-backtrace for more info)
