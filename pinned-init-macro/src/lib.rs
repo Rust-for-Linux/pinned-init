@@ -3,6 +3,7 @@ mod pinned_drop;
 mod zeroable;
 
 use proc_macro::TokenStream;
+use syn::{parse_macro_input, DeriveInput};
 
 /// Used to specify the pinning information of the fields of a struct.
 ///
@@ -96,5 +97,9 @@ pub fn pinned_drop(args: TokenStream, input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_derive(Zeroable)]
 pub fn derive_zeroable(input: TokenStream) -> TokenStream {
-    zeroable::derive(input.into()).into()
+    let raw_input = input.clone();
+    let input = parse_macro_input!(input as DeriveInput);
+    zeroable::derive(input, raw_input.into())
+        .unwrap_or_else(|e| e.into_compile_error())
+        .into()
 }
