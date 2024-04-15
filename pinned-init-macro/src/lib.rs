@@ -1,3 +1,4 @@
+mod init;
 mod pin_data;
 mod pinned_drop;
 mod zeroable;
@@ -107,6 +108,42 @@ pub fn derive_zeroable(input: TokenStream) -> TokenStream {
     let raw_input = input.clone();
     let input = parse_macro_input!(input as DeriveInput);
     zeroable::derive(input, raw_input.into())
+        .unwrap_or_else(|e| e.into_compile_error())
+        .into()
+}
+
+// Documented in `pinned-init`.
+#[proc_macro]
+pub fn init(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input);
+    init::init(input, true, false)
+        .unwrap_or_else(|e| e.into_compile_error())
+        .into()
+}
+
+// Documented in `pinned-init`.
+#[proc_macro]
+pub fn try_init(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input);
+    init::init(input, false, false)
+        .unwrap_or_else(|e| e.into_compile_error())
+        .into()
+}
+
+// Documented in `pinned-init`.
+#[proc_macro]
+pub fn pin_init(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input);
+    init::init(input, true, true)
+        .unwrap_or_else(|e| e.into_compile_error())
+        .into()
+}
+
+// Documented in `pinned-init`.
+#[proc_macro]
+pub fn try_pin_init(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input);
+    init::init(input, false, true)
         .unwrap_or_else(|e| e.into_compile_error())
         .into()
 }
