@@ -263,8 +263,6 @@ use core::{
 
 #[doc(hidden)]
 pub mod __internal;
-#[doc(hidden)]
-pub mod macros;
 
 pub use pinned_init_macro::{pin_data, pinned_drop, Zeroable};
 
