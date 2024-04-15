@@ -81,7 +81,11 @@ pub fn pin_data(args: TokenStream, input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_attribute]
 pub fn pinned_drop(args: TokenStream, input: TokenStream) -> TokenStream {
-    pinned_drop::pinned_drop(args, input)
+    let input = parse_macro_input!(input);
+    parse_macro_input!(args as syn::parse::Nothing);
+    pinned_drop::pinned_drop(input)
+        .unwrap_or_else(|e| e.into_compile_error())
+        .into()
 }
 
 /// Derives the [`Zeroable`] trait for the given struct.

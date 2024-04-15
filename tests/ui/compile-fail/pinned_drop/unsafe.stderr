@@ -1,23 +1,5 @@
-error: custom attribute panicked
- --> tests/ui/compile-fail/pinned_drop/unsafe.rs:7:1
+error: implementing the trait `PinnedDrop` via `#[pinned_drop]` is not unsafe
+ --> tests/ui/compile-fail/pinned_drop/unsafe.rs:8:1
   |
-7 | #[pinned_drop]
-  | ^^^^^^^^^^^^^^
-  |
-  = help: message: assertion failed: matches!(&toks[0], TokenTree::Ident(i) if *i == "impl")
-
-warning: unused import: `std::pin::Pin`
- --> tests/ui/compile-fail/pinned_drop/unsafe.rs:2:5
-  |
-2 | use std::pin::Pin;
-  |     ^^^^^^^^^^^^^
-  |
-  = note: `#[warn(unused_imports)]` on by default
-
-error[E0277]: the trait bound `Foo: PinnedDrop` is not satisfied
- --> tests/ui/compile-fail/pinned_drop/unsafe.rs:4:1
-  |
-4 | #[pin_data(PinnedDrop)]
-  | ^^^^^^^^^^^^^^^^^^^^^^^ the trait `PinnedDrop` is not implemented for `Foo`
-  |
-  = note: this error originates in the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
+8 | unsafe impl PinnedDrop for Foo {
+  | ^^^^^^
