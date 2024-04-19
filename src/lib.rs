@@ -393,307 +393,289 @@ macro_rules! stack_try_pin_init {
     };
 }
 
-/// Construct an in-place, pinned initializer for `struct`s.
+/// Constructs an in-place initializer for `struct`s.
 ///
-/// This macro defaults the error to [`Infallible`]. If you need a different error, then use
-/// [`try_pin_init!`].
+/// There are four variants of this macro:
+/// - [`init!`],
+/// - [`try_init!`],
+/// - [`pin_init!`],
+/// - [`try_pin_init!`].
 ///
-/// The syntax is almost identical to that of a normal `struct` initializer:
+/// The non-`try_` versions always result in an initializer that has [`Infallible`] as the error
+/// type. When using the `try_` version, you have to specify the error manually. The `pin_` version
+/// results in an initializer that ensures that the object will stay pinned. This makes it suitable
+/// for initializing self referential objects.
 ///
-/// ```rust
-/// # #![allow(clippy::disallowed_names)]
-/// # use pinned_init::*;
-/// # use core::pin::Pin;
-/// #[pin_data]
-/// struct Foo {
-///     a: usize,
-///     b: Bar,
-/// }
-///
-/// #[pin_data]
-/// struct Bar {
-///     x: u32,
-/// }
-///
-/// # fn demo() -> impl PinInit<Foo> {
-/// let a = 42;
-///
-/// let initializer = pin_init!(Foo {
-///     a,
-///     b: Bar {
-///         x: 64,
-///     },
-/// });
-/// # initializer }
-/// # Box::pin_init(demo()).unwrap();
-/// ```
-///
-/// Arbitrary Rust expressions can be used to set the value of a variable.
-///
-/// The fields are initialized in the order that they appear in the initializer. So it is possible
-/// to read already initialized fields using raw pointers.
-///
-/// IMPORTANT: You are not allowed to create references to fields of the struct inside of the
-/// initializer.
-///
-/// # Init-functions
-///
-/// When working with this library it is often desired to let others construct your types without
-/// giving access to all fields. This is where you would normally write a plain function `new`
-/// that would return a new instance of your type. With this library that is also possible.
-/// However, there are a few extra things to keep in mind.
-///
-/// To create an initializer function, simply declare it like this:
-///
-/// ```rust
-/// # #![allow(clippy::disallowed_names)]
-/// # use pinned_init::*;
-/// # use core::pin::Pin;
-/// # #[pin_data]
-/// # struct Foo {
-/// #     a: usize,
-/// #     b: Bar,
-/// # }
-/// # #[pin_data]
-/// # struct Bar {
-/// #     x: u32,
-/// # }
-/// impl Foo {
-///     fn new() -> impl PinInit<Self> {
-///         pin_init!(Self {
-///             a: 42,
-///             b: Bar {
-///                 x: 64,
-///             },
-///         })
-///     }
-/// }
-/// ```
-///
-/// Users of `Foo` can now create it like this:
-///
-/// ```rust
-/// # #![allow(clippy::disallowed_names)]
-/// # use pinned_init::*;
-/// # use core::pin::Pin;
-/// # #[pin_data]
-/// # struct Foo {
-/// #     a: usize,
-/// #     b: Bar,
-/// # }
-/// # #[pin_data]
-/// # struct Bar {
-/// #     x: u32,
-/// # }
-/// # impl Foo {
-/// #     fn new() -> impl PinInit<Self> {
-/// #         pin_init!(Self {
-/// #             a: 42,
-/// #             b: Bar {
-/// #                 x: 64,
-/// #             },
-/// #         })
-/// #     }
-/// # }
-/// let foo = Box::pin_init(Foo::new());
-/// ```
-///
-/// They can also easily embed it into their own `struct`s:
-///
-/// ```rust
-/// # #![allow(clippy::disallowed_names)]
-/// # use pinned_init::*;
-/// # use core::pin::Pin;
-/// # #[pin_data]
-/// # struct Foo {
-/// #     a: usize,
-/// #     b: Bar,
-/// # }
-/// # #[pin_data]
-/// # struct Bar {
-/// #     x: u32,
-/// # }
-/// # impl Foo {
-/// #     fn new() -> impl PinInit<Self> {
-/// #         pin_init!(Self {
-/// #             a: 42,
-/// #             b: Bar {
-/// #                 x: 64,
-/// #             },
-/// #         })
-/// #     }
-/// # }
-/// #[pin_data]
-/// struct FooContainer {
-///     #[pin]
-///     foo1: Foo,
-///     #[pin]
-///     foo2: Foo,
-///     other: u32,
-/// }
-///
-/// impl FooContainer {
-///     fn new(other: u32) -> impl PinInit<Self> {
-///         pin_init!(Self {
-///             foo1 <- Foo::new(),
-///             foo2 <- Foo::new(),
-///             other,
-///         })
-///     }
-/// }
-/// ```
-///
-/// Here we see that when using `pin_init!` with `PinInit`, one needs to write `<-` instead of `:`.
-/// This signifies that the given field is initialized in-place. As with `struct` initializers, just
-/// writing the field (in this case `other`) without `:` or `<-` means `other: other,`.
-///
-/// # Syntax
-///
-/// As already mentioned in the examples above, inside of `pin_init!` a `struct` initializer with
-/// the following modifications is expected:
-/// - Fields that you want to initialize in-place have to use `<-` instead of `:`.
-/// - In front of the initializer you can write `&this in` to have access to a [`NonNull<Self>`]
-///   pointer named `this` inside of the initializer.
-/// - Using struct update syntax one can place `..Zeroable::zeroed()` at the very end of the
-///   struct, this initializes every field with 0 and then runs all initializers specified in the
-///   body. This can only be done if [`Zeroable`] is implemented for the struct.
-///
-/// For instance:
-///
-/// ```rust
-/// # use pinned_init::*;
-/// # use core::{ptr::addr_of_mut, marker::PhantomPinned};
-/// #[pin_data]
-/// struct Buf {
-///     // `ptr` points into `buf`.
-///     ptr: *mut u8,
-///     buf: [u8; 64],
-///     #[pin]
-///     pin: PhantomPinned,
-/// }
-///
-/// let init = pin_init!(&this in Buf {
-///     buf: [0; 64],
-///     ptr: unsafe { addr_of_mut!((*this.as_ptr()).buf).cast() },
-///     pin: PhantomPinned,
-/// });
-/// # let _ = Box::pin_init(init);
-/// ```
-///
-/// [`NonNull<Self>`]: core::ptr::NonNull
-pub use pinned_init_macro::pin_init;
-
-/// Construct an in-place, fallible pinned initializer for `struct`s.
-///
-/// If the initialization can complete without error (or [`Infallible`]), then use [`pin_init!`].
-///
-/// You can use the `?` operator or use `return Err(err)` inside the initializer to stop
-/// initialization and return the error.
-///
-/// IMPORTANT: if you have `unsafe` code inside of the initializer you have to ensure that when
-/// initialization fails, the memory can be safely deallocated without any further modifications.
-///
-/// The syntax is identical to [`pin_init!`] with the following exception: you must append `? $type`
-/// after the `struct` initializer to specify the error type you want to use.
+/// **Note:** When using the `pin_` version, your struct *needs* to be annotated with the
+/// [`pin_data`] macro.
 ///
 /// # Examples
 ///
-/// ```rust
-/// # #![feature(allocator_api)]
-/// # #[path = "../examples/error.rs"] mod error; use error::Error;
-/// use pinned_init::*;
-/// #[pin_data]
-/// struct BigBuf {
-///     big: Box<[u8; 1024 * 1024 * 1024]>,
-///     small: [u8; 1024 * 1024],
-///     ptr: *mut u8,
-/// }
+/// ## Embedding a Type that is Initialized by [`PinInit`]
 ///
-/// impl BigBuf {
-///     fn new() -> impl PinInit<Self, Error> {
-///         try_pin_init!(Self {
-///             big: Box::init(zeroed())?,
-///             small: [0; 1024 * 1024],
-///             ptr: core::ptr::null_mut(),
-///         }? Error)
-///     }
-/// }
-/// # let _ = Box::pin_init(BigBuf::new());
 /// ```
-pub use pinned_init_macro::try_pin_init;
-
-/// Construct an in-place initializer for `struct`s.
-///
-/// This macro defaults the error to [`Infallible`]. If you need a different error, then use
-/// [`try_init!`].
-///
-/// The syntax is identical to [`pin_init!`] and its safety caveats also apply:
-/// - `unsafe` code must guarantee either full initialization or return an error and allow
-///   deallocation of the memory.
-/// - the fields are initialized in the order given in the initializer.
-/// - no references to fields are allowed to be created inside of the initializer.
-///
-/// This initializer is for initializing data in-place that might later be moved. If you want to
-/// pin-initialize, use [`pin_init!`].
-///
-/// # Examples
-///
-/// ```rust
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// use pinned_init::*;
-/// struct BigBuf {
-///     big: Box<[u8; 1024 * 1024 * 1024]>,
-///     small: [u8; 1024 * 1024],
+///
+/// // Add `#[pin_data]` on your struct:
+/// #[pin_data]
+/// struct CountedBuffer {
+///     buf: [u8; 1024],
+///     write_count: usize,
+///     // Put `#[pin]` onto the fields that are initialized by `PinInit`
+///     #[pin]
+///     read_count: CMutex<usize>,
 /// }
 ///
-/// impl BigBuf {
-///     fn new() -> impl Init<Self, Error> {
-///         try_init!(Self {
-///             small <- zeroed(),
-///             big: Box::init(zeroed())?,
+/// impl CountedBuffer {
+///     pub fn new(buf: [u8; 1024]) -> impl PinInit<Self> {
+///         // Use the `pin_init!` macro when no error can occur during initialization.
+///         pin_init!(Self {
+///             // When initializing normal fields, just use the struct initializer syntax.
+///             write_count: 0,
+///
+///             // You can also use the usual short-hand notation when there already is a variable
+///             // with the name of the field:
+///             buf, // This is equivalent to `buf: buf,`
+///
+///             // For fields that are initialized via `PinInit`, write `<-` instead of `:`.
+///             read_count <- CMutex::new(0),
+///         })
+///     }
+/// }
+/// # let _ = Box::pin_init(CountedBuffer::new([0; 1024]));
+/// ```
+///
+/// ## Handling Failure in Initializers
+///
+/// When the initializer that you get is `impl PinInit<T, E>`, i.e. initialization can fail, you
+/// cannot use [`pin_init!`] or [`init!`], instead use the respective `try_` variant:
+/// [`try_pin_init!`] or [`try_init!`]. They also allow you to use the `?` operator and `return`
+/// errors directly:
+///
+/// ```
+/// # #![feature(allocator_api)]
+/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// use pinned_init::*;
+/// #[pin_data]
+/// struct BigCountedBuf {
+///     buf: Box<[u8; 1024 * 1024 * 1024]>,
+///     write_count: usize,
+///     #[pin]
+///     read_count: CMutex<usize>,
+/// }
+///
+/// impl BigCountedBuf {
+///     pub fn new() -> impl PinInit<Self, Error> {
+///         try_pin_init!(Self {
+///             // When using `?`, it will return an error when the initializer runs, not when this
+///             // function runs.
+///             buf: Box::init(zeroed())?,
+///             write_count: 0,
+///             read_count <- CMutex::new(0),
 ///         }? Error)
 ///     }
 /// }
-/// # let _ = Box::init(BigBuf::new());
 /// ```
-pub use pinned_init_macro::init;
-
-/// Construct an in-place fallible initializer for `struct`s.
 ///
-/// If the initialization can complete without error (or [`Infallible`]), then use
-/// [`init!`].
+/// You need to specify the error type via `? $ty` after the normal initializer. Errors that are
+/// returned inside of the initializer have to be compatible with the error at the end. The error
+/// at the end needs to implement [`From`] the other errors.
 ///
-/// The syntax is identical to [`try_pin_init!`]. You need to specify a custom error
-/// via `? $type` after the `struct` initializer.
-/// The safety caveats from [`try_pin_init!`] also apply:
-/// - `unsafe` code must guarantee either full initialization or return an error and allow
-///   deallocation of the memory.
-/// - the fields are initialized in the order given in the initializer.
-/// - no references to fields are allowed to be created inside of the initializer.
-///
-/// # Examples
-///
-/// ```rust
+/// When using an `impl PinInit<T, E>` via the `<-` syntax, you do not need to use the `?` operator:
+/// ```
 /// # #![feature(allocator_api)]
-/// # use core::alloc::AllocError;
-/// use pinned_init::*;
-/// struct BigBuf {
-///     big: Box<[u8; 1024 * 1024 * 1024]>,
-///     small: [u8; 1024 * 1024],
+/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// # use pinned_init::*;
+/// # #[pin_data]
+/// # struct BigCountedBuf {
+/// #     buf: Box<[u8; 1024 * 1024 * 1024]>,
+/// #     write_count: usize,
+/// #     #[pin]
+/// #     read_count: CMutex<usize>,
+/// # }
+/// # impl BigCountedBuf {
+/// #     pub fn new() -> impl PinInit<Self, Error> {
+/// #         try_pin_init!(Self {
+/// #             // When using `?`, it will return an error when the initializer runs, not when this
+/// #             // function runs.
+/// #             buf: Box::init(zeroed())?,
+/// #             write_count: 0,
+/// #             read_count <- CMutex::new(0),
+/// #         }? Error)
+/// #     }
+/// # }
+/// #[pin_data]
+/// struct MultiBuf {
+///     #[pin]
+///     first: BigCountedBuf,
+///     #[pin]
+///     second: BigCountedBuf,
 /// }
 ///
-/// impl BigBuf {
-///     fn new() -> impl Init<Self, AllocError> {
-///         try_init!(Self {
-///             big: Box::init(zeroed())?,
-///             small: [0; 1024 * 1024],
-///         }? AllocError)
+/// impl MultiBuf {
+///     fn new() -> impl PinInit<Self, Error> {
+///         try_pin_init!(Self {
+///             // Notice that there is no `?` here.
+///             first <- BigCountedBuf::new(),
+///             second <- BigCountedBuf::new(),
+///         }? Error)
 ///     }
 /// }
-/// # let _ = Box::init(BigBuf::new());
 /// ```
-pub use pinned_init_macro::try_init;
+///
+/// ## Defaulting the Value to Zero
+///
+/// Sometimes, structs have a lot of fields that should be initialized to zero. For this situation,
+/// the initialization macros have special support for [`Zeroable`]. When your struct implement this
+/// trait, you can write `..Zeroable::zeroed()` at the end of the initializer and all missing
+/// fields will be initialized with zero:
+///
+/// ```
+/// # #![feature(allocator_api)]
+/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// use pinned_init::*;
+/// #[derive(Zeroable)]
+/// struct Config {
+///     max_size: usize,
+///     port_a: u16,
+///     port_b: u16,
+///     port_c: u16,
+///     port_d: u16,
+///     // Imagine lot's more fields.
+/// }
+///
+/// impl Config {
+///     pub fn new() -> impl Init<Self> {
+///         init!(Self {
+///             max_size: 1024 * 1024,
+///             port_b: 3000,
+///             // This sets everything else to zero.
+///             ..Zeroable::zeroed()
+///         })
+///     }
+/// }
+/// ```
+///
+/// ## Ensuring the Object stays Pinned
+///
+/// One important use case of this library is to ensure that an object is initialized in a pinned
+/// state. To do this, you need to use [`PinInit`] and ensure that your struct is [`!Unpin`]. You
+/// do this by adding a [`PhantomPinned`] field to your struct:
+///
+/// ```
+/// use pinned_init::*;
+/// use core::marker::PhantomPinned;
+///
+/// #[pin_data]
+/// struct MyStruct {
+///     /* other fields */
+///     // You also need to add `#[pin]`.
+///     #[pin]
+///     pin: PhantomPinned,
+/// }
+/// ```
+///
+/// ## Accessing the Memory Location of the Initialized Object
+///
+/// Since these initializers are in-place, there is a way to get a pointer to the location where it
+/// is currently being initialized. To get such a pointer simply add `&this in` to the beginning of
+/// the initializer:
+///
+/// ```
+/// # use pinned_init::*;
+/// # use core::{ptr::NonNull, marker::PhantomPinned};
+/// # #[pin_data]
+/// # pub struct ListLink {
+/// #     next: NonNull<ListLink>,
+/// #     prev: NonNull<ListLink>,
+/// #     #[pin]
+/// #     pin: PhantomPinned,
+/// # }
+/// # impl ListLink {
+/// #     pub fn new() -> impl PinInit<Self> {
+/// pin_init!(&this in Self {
+///     // ...
+/// #    next: this,
+/// #    prev: this,
+/// #    pin: PhantomPinned,
+/// })
+/// #     }
+/// # }
+/// ```
+///
+/// The type of `this` is [`NonNull<Self>`]. Here is an example of how to use it:
+///
+/// ```
+/// use pinned_init::*;
+/// use core::{ptr::NonNull, marker::PhantomPinned};
+///
+/// #[pin_data]
+/// pub struct ListLink {
+///     next: NonNull<ListLink>,
+///     prev: NonNull<ListLink>,
+///     #[pin]
+///     pin: PhantomPinned,
+/// }
+///
+/// impl ListLink {
+///     pub fn new() -> impl PinInit<Self> {
+///         pin_init!(&this in Self {
+///             next: this,
+///             prev: this,
+///             pin: PhantomPinned,
+///         })
+///     }
+/// }
+/// ```
+///
+/// **Note:** your struct must be [`!Unpin`] and you need to use [`PinInit`] when you want to use
+/// the pointer after the initializer has finished. Otherwise it is not guaranteed that the object
+/// stays at the initial location.
+///
+/// # Advanced Information
+///
+/// ## Initialization Order
+///
+/// The fields are initialized in the order that they appear in the initializer. When
+/// initialization fails for one of the fields, all previously initialized fields will be dropped
+/// in reverse order.
+///
+/// ## Syntax
+///
+/// Here you can see the syntax in a pseudo rust macro format:
+/// - `$()?` means the contents of the `()` are optional,
+/// - `$(),*` means the contents can be repeated arbitrarily with `,` separating them without a
+///   required trailing `,`,
+/// - `$|` means that either the left side or the right side can be matched (this is not official
+///   syntax in rust macros),
+/// - `$ident` matches any identifier,
+/// - `$expr` any expression,
+/// - `$path` any path,
+/// - `$ty` any type.
+///
+/// ```
+/// # /*
+/// $(&$ident in)? $path {
+///     $(
+///         $ident <- $expr
+///       $|
+///         $ident $(: $expr)?
+///     ),*
+///     $(
+///         ,
+///         $(..Zeroable::zeroed())?
+///     )?
+/// }? $ty
+/// # */
+/// ```
+///
+/// When using a non-`try_` version, then the last part with `? $ty` is not expected.
+///
+/// [`NonNull<Self>`]: core::ptr::NonNull
+/// [`!Unpin`]: core::marker::Unpin
+pub use pinned_init_macro::{init, pin_init, try_init, try_pin_init};
 
 /// A pin-initializer for the type `T`.
 ///
