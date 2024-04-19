@@ -55,12 +55,12 @@
 //! ## Using the [`pin_init!`] macro
 //!
 //! If you want to use [`PinInit`], then you will have to annotate your `struct` with
-//! `#[`[`pin_data`]`]`. It is a macro that uses `#[pin]` as a marker for
+//! [`#[pin_data]`](pin_data). It is a macro that uses `#[pin]` as a marker for
 //! [structurally pinned fields]. After doing this, you can then create an in-place constructor via
 //! [`pin_init!`]. The syntax is almost the same as normal `struct` initializers. The difference is
 //! that you need to write `<-` instead of `:` for fields that you want to initialize in-place.
 //!
-//! ```rust
+//! ```
 //! # #![allow(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
 //! use pinned_init::*;
@@ -83,7 +83,7 @@
 //! `foo` now is of the type [`impl PinInit<Foo>`]. We can now use any smart pointer that we like
 //! (or just the stack) to actually initialize a `Foo`:
 //!
-//! ```rust
+//! ```
 //! # #![allow(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
@@ -109,7 +109,7 @@
 //! Many types that use this library supply a function/macro that returns an initializer, because
 //! the above method only works for types where you can access the fields.
 //!
-//! ```rust
+//! ```
 //! # #![feature(allocator_api)]
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 //! # use pinned_init::*;
@@ -120,7 +120,7 @@
 //!
 //! To declare an init macro/function you just return an [`impl PinInit<T, E>`]:
 //!
-//! ```rust
+//! ```
 //! # #![allow(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
 //! # use pinned_init::*;
@@ -156,7 +156,7 @@
 //! - you may assume that `slot` will stay pinned even after the closure returns until `drop` of
 //!   `slot` gets called.
 //!
-//! ```rust
+//! ```
 //! # #![feature(extern_types)]
 //! use pinned_init::*;
 //! use core::{ptr::addr_of_mut, marker::PhantomPinned, cell::UnsafeCell, pin::Pin};
@@ -264,13 +264,143 @@ use core::{
 #[doc(hidden)]
 pub mod __internal;
 
-pub use pinned_init_macro::{pin_data, pinned_drop, Zeroable};
+/// Used to specify the pinning information of the fields of a struct.
+///
+/// This is somewhat similar in purpose as [pin-project](https://crates.io/crates/pin-project).
+/// Place this macro on a struct definition and then `#[pin]` in on all fields you want to have
+/// structurally pinned.
+///
+/// This macro enables the use of the [`pin_init!`] macro. When pinned-initializing a `struct`,
+/// then `#[pin]` directs the type of initializer that is required.
+///
+/// # Implementing [`Drop`]
+///
+/// If you need to implement [`Drop`] for your `struct`, then you need to add `PinnedDrop` to the
+/// arguments of this macro (so `#[pin_data(PinnedDrop)]`). Then you also need to implement
+/// [`PinnedDrop`] annotated with [`#[pinned_drop]`](pinned_drop), since dropping pinned values
+/// requires extra care.
+///
+/// # Examples
+///
+/// ## Normal Usage
+///
+/// ```
+/// # #![feature(allocator_api)]
+/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// use pinned_init::*;
+///
+/// #[pin_data]
+/// struct CountedBuffer {
+///     buf: [u8; 1024],
+///     write_count: usize,
+///     // Put `#[pin]` onto the fields that need structural pinning.
+///     #[pin]
+///     read_count: CMutex<usize>,
+/// }
+/// ```
+///
+/// ## With [`PinnedDrop`] Support
+///
+/// ```
+/// # #![feature(allocator_api)]
+/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// use pinned_init::*;
+/// use std::pin::Pin;
+///
+/// #[pin_data(PinnedDrop)]
+/// struct CountedBuffer {
+///     buf: [u8; 1024],
+///     write_count: usize,
+///     // Put `#[pin]` onto the fields that need structural pinning.
+///     #[pin]
+///     read_count: CMutex<usize>,
+/// }
+///
+/// #[pinned_drop]
+/// impl PinnedDrop for CountedBuffer {
+///     fn drop(self: Pin<&mut Self>) {
+///         println!(
+///             "CountedBuffer: written = {}, read = {}",
+///             self.write_count,
+///             *self.read_count.lock()
+///         );
+///     }
+/// }
+/// ```
+///
+pub use pinned_init_macro::pin_data;
+
+/// Used to implement [`PinnedDrop`] safely.
+///
+/// Only works on implementations for [`PinnedDrop`] and only with structs that are annotated with
+/// [`#[pin_data(PinnedDrop)]`](pin_data).
+///
+/// # Examples
+///
+/// ```
+/// # #![feature(allocator_api)]
+/// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+/// use pinned_init::*;
+/// use std::pin::Pin;
+///
+/// #[pin_data(PinnedDrop)]
+/// struct CountedBuffer {
+///     buf: [u8; 1024],
+///     write_count: usize,
+///     // Put `#[pin]` onto the fields that need structural pinning.
+///     #[pin]
+///     read_count: CMutex<usize>,
+/// }
+///
+/// #[pinned_drop]
+/// impl PinnedDrop for CountedBuffer {
+///     fn drop(self: Pin<&mut Self>) {
+///         println!(
+///             "CountedBuffer: written = {}, read = {}",
+///             self.write_count,
+///             *self.read_count.lock()
+///         );
+///     }
+/// }
+/// ```
+pub use pinned_init_macro::pinned_drop;
+
+/// Derives the [`Zeroable`] trait for the given struct.
+///
+/// This can only be used for structs where every field implements the [`Zeroable`] trait.
+///
+/// # Examples
+///
+/// ```
+/// use pinned_init::*;
+///
+/// #[derive(Zeroable)]
+/// pub struct DriverData {
+///     id: i64,
+///     buf_ptr: *mut u8,
+///     len: usize,
+/// }
+/// ```
+///
+/// You can also have generics, as the derive macro bounds them to implement the [`Zeroable`]
+/// trait.
+///
+/// ```
+/// use pinned_init::*;
+///
+/// #[derive(Zeroable)]
+/// pub struct Data<T> {
+///     value: T,
+///     id: i64,
+/// }
+/// ```
+pub use pinned_init_macro::Zeroable;
 
 /// Initialize and pin a type directly on the stack.
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```
 /// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
@@ -322,7 +452,7 @@ macro_rules! stack_pin_init {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```
 /// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
@@ -348,7 +478,7 @@ macro_rules! stack_pin_init {
 /// println!("a: {}", &*foo.a.lock());
 /// ```
 ///
-/// ```rust
+/// ```
 /// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
@@ -407,7 +537,7 @@ macro_rules! stack_try_pin_init {
 /// for initializing self referential objects.
 ///
 /// **Note:** When using the `pin_` version, your struct *needs* to be annotated with the
-/// [`pin_data`] macro.
+/// [`#[pin_data]`](pin_data) macro.
 ///
 /// # Examples
 ///
@@ -675,6 +805,7 @@ macro_rules! stack_try_pin_init {
 ///
 /// [`NonNull<Self>`]: core::ptr::NonNull
 /// [`!Unpin`]: core::marker::Unpin
+/// [`PhantomPinned`]: core::marker::PhantomPinned
 pub use pinned_init_macro::{init, pin_init, try_init, try_pin_init};
 
 /// A pin-initializer for the type `T`.
@@ -718,7 +849,7 @@ pub unsafe trait PinInit<T: ?Sized, E = Infallible>: Sized {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # #![feature(allocator_api)]
     /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
     /// # use pinned_init::*;
@@ -784,7 +915,7 @@ pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # #![allow(clippy::disallowed_names)]
     /// # use pinned_init::*;
     /// struct Foo {
@@ -863,7 +994,7 @@ pub fn uninit<T, E>() -> impl Init<MaybeUninit<T>, E> {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```
 /// # use pinned_init::*;
 /// use pinned_init::init_array_from_fn;
 /// let array: Box<[usize; 1_000]> = Box::init(init_array_from_fn(|i| i)).unwrap();
@@ -904,7 +1035,7 @@ where
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
@@ -1070,9 +1201,9 @@ impl<T> InPlaceInit<T> for Arc<T> {
 
 /// Trait facilitating pinned destruction.
 ///
-/// Use [`pinned_drop`] to implement this trait safely:
+/// Use [`#[pinned_drop]`](pinned_drop) to implement this trait safely:
 ///
-/// ```rust
+/// ```
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
@@ -1093,7 +1224,8 @@ impl<T> InPlaceInit<T> for Arc<T> {
 ///
 /// # Safety
 ///
-/// This trait must be implemented via the [`pinned_drop`] proc-macro attribute on the impl.
+/// This trait must be implemented via the [`#[pinned_drop]`](pinned_drop) proc-macro attribute on
+/// the impl.
 pub unsafe trait PinnedDrop: __internal::HasPinData {
     /// Executes the pinned destructor of this type.
     ///
@@ -1101,20 +1233,27 @@ pub unsafe trait PinnedDrop: __internal::HasPinData {
     /// reason it takes an additional parameter. This type can only be constructed by `unsafe` code
     /// and thus prevents this function from being called where it should not.
     ///
-    /// This extra parameter will be generated by the `#[pinned_drop]` proc-macro attribute
-    /// automatically.
+    /// This extra parameter will be generated by the [`#[pinned_drop]`](pinned_drop) proc-macro
+    /// attribute automatically.
     fn drop(self: Pin<&mut Self>, only_call_from_drop: __internal::OnlyCallFromDrop);
 }
 
 /// Marker trait for types that can be initialized by writing just zeroes.
+///
+/// The common use-case of this trait is the [`zeroed()`] function. Or using the
+/// `..Zeroable::zeroed()` syntax of the [`[try_][pin_]init!`](pin_init) macros.
+///
+/// Easily and safely implement this trait using the [`macro@Zeroable`] derive macro.
 ///
 /// # Safety
 ///
 /// The bit pattern consisting of only zeroes is a valid bit pattern for this type. In other words,
 /// this is not UB:
 ///
-/// ```rust,ignore
+/// ```
+/// # struct S; impl S { fn create() -> Self {
 /// let val: Self = unsafe { core::mem::zeroed() };
+/// # val } }
 /// ```
 pub unsafe trait Zeroable {}
 

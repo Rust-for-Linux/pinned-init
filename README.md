@@ -63,7 +63,7 @@ and thus is a prime candidate for using this library.
 ### Using the [`pin_init!`] macro
 
 If you want to use [`PinInit`], then you will have to annotate your `struct` with
-`#[`[`pin_data`]`]`. It is a macro that uses `#[pin]` as a marker for
+[`#[pin_data]`](pin_data). It is a macro that uses `#[pin]` as a marker for
 [structurally pinned fields]. After doing this, you can then create an in-place constructor via
 [`pin_init!`]. The syntax is almost the same as normal `struct` initializers. The difference is
 that you need to write `<-` instead of `:` for fields that you want to initialize in-place.
