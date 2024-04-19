@@ -1,0 +1,7 @@
+error[E0277]: the `?` operator can only be applied to values that implement `Try`
+  --> tests/ui/compile-fail/init/unexpected_question.rs:31:20
+   |
+31 |             foo <- Foo::new(None)?,
+   |                    ^^^^^^^^^^^^^^^ the `?` operator cannot be applied to type `impl pinned_init::PinInit<Foo, mutex::linked_list::error::Error>`
+   |
+   = help: the trait `Try` is not implemented for `impl pinned_init::PinInit<Foo, mutex::linked_list::error::Error>`
