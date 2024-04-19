@@ -7,5 +7,4 @@ error[E0277]: the trait bound `impl pinned_init::PinInit<Bar>: Init<Bar>` is not
 20 | |     });
    | |______^ the trait `Init<Bar>` is not implemented for `impl pinned_init::PinInit<Bar>`
    |
-   = help: the trait `Init<T, E>` is implemented for `ChainInit<I, F, T, E>`
    = note: this error originates in the macro `init` (in Nightly builds, run with -Z macro-backtrace for more info)

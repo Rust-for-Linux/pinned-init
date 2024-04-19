@@ -729,38 +729,11 @@ pub unsafe trait PinInit<T: ?Sized, E = Infallible>: Sized {
     ///     Ok(())
     /// });
     /// ```
-    fn pin_chain<F>(self, f: F) -> ChainPinInit<Self, F, T, E>
+    fn pin_chain<F>(self, f: F) -> impl PinInit<T, E>
     where
         F: FnOnce(Pin<&mut T>) -> Result<(), E>,
     {
-        ChainPinInit(self, f, PhantomData)
-    }
-}
-
-/// An initializer returned by [`PinInit::pin_chain`].
-pub struct ChainPinInit<I, F, T: ?Sized, E>(I, F, __internal::Invariant<(E, *const T)>);
-
-// SAFETY: The `__pinned_init` function is implemented such that it
-// - returns `Ok(())` on successful initialization,
-// - returns `Err(err)` on error and in this case `slot` will be dropped.
-// - considers `slot` pinned.
-unsafe impl<T: ?Sized, E, I, F> PinInit<T, E> for ChainPinInit<I, F, T, E>
-where
-    I: PinInit<T, E>,
-    F: FnOnce(Pin<&mut T>) -> Result<(), E>,
-{
-    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
-        // SAFETY: All requirements fulfilled since this function is `__pinned_init`.
-        unsafe { self.0.__pinned_init(slot)? };
-        // SAFETY: The above call initialized `slot` and we still have unique access.
-        let val = unsafe { &mut *slot };
-        // SAFETY: `slot` is considered pinned.
-        let val = unsafe { Pin::new_unchecked(val) };
-        (self.1)(val).map_err(|e| {
-            // SAFETY: `slot` was initialized above.
-            unsafe { core::ptr::drop_in_place(slot) };
-            e
-        })
+        __internal::ChainPinInit(self, f, PhantomData)
     }
 }
 
@@ -831,46 +804,11 @@ pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
     ///     Ok(())
     /// });
     /// ```
-    fn chain<F>(self, f: F) -> ChainInit<Self, F, T, E>
+    fn chain<F>(self, f: F) -> impl Init<T, E>
     where
         F: FnOnce(&mut T) -> Result<(), E>,
     {
-        ChainInit(self, f, PhantomData)
-    }
-}
-
-/// An initializer returned by [`Init::chain`].
-pub struct ChainInit<I, F, T: ?Sized, E>(I, F, __internal::Invariant<(E, *const T)>);
-
-// SAFETY: The `__init` function is implemented such that it
-// - returns `Ok(())` on successful initialization,
-// - returns `Err(err)` on error and in this case `slot` will be dropped.
-unsafe impl<T: ?Sized, E, I, F> Init<T, E> for ChainInit<I, F, T, E>
-where
-    I: Init<T, E>,
-    F: FnOnce(&mut T) -> Result<(), E>,
-{
-    unsafe fn __init(self, slot: *mut T) -> Result<(), E> {
-        // SAFETY: All requirements fulfilled since this function is `__init`.
-        unsafe { self.0.__pinned_init(slot)? };
-        // SAFETY: The above call initialized `slot` and we still have unique access.
-        (self.1)(unsafe { &mut *slot }).map_err(|e| {
-            // SAFETY: `slot` was initialized above.
-            unsafe { core::ptr::drop_in_place(slot) };
-            e
-        })
-    }
-}
-
-// SAFETY: `__pinned_init` behaves exactly the same as `__init`.
-unsafe impl<T: ?Sized, E, I, F> PinInit<T, E> for ChainInit<I, F, T, E>
-where
-    I: Init<T, E>,
-    F: FnOnce(&mut T) -> Result<(), E>,
-{
-    unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
-        // SAFETY: `__init` has less strict requirements compared to `__pinned_init`.
-        unsafe { self.__init(slot) }
+        __internal::ChainInit(self, f, PhantomData)
     }
 }
 
