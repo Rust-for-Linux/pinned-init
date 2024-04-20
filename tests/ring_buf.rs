@@ -1,4 +1,6 @@
+#![allow(unused_attributes)]
 #![feature(allocator_api)]
+
 use core::{
     alloc::AllocError,
     convert::Infallible,

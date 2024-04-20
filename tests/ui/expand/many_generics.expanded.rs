@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use core::{marker::PhantomPinned, pin::Pin};
 use pinned_init::*;
 trait Bar<'a, const ID: usize = 0> {

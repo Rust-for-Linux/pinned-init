@@ -1,6 +1,6 @@
 #![feature(allocator_api)]
 
-use core::{alloc::AllocError, convert::Infallible};
+use core::alloc::AllocError;
 use pinned_init::*;
 use std::sync::Arc;
 
