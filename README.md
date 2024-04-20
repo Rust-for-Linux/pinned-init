@@ -69,7 +69,7 @@ If you want to use [`PinInit`], then you will have to annotate your `struct` wit
 that you need to write `<-` instead of `:` for fields that you want to initialize in-place.
 
 ```rust
-use pinned_init::*;
+use pinned_init::{pin_data, pin_init};
 #[pin_data]
 struct Foo {
     #[pin]
@@ -87,6 +87,8 @@ let foo = pin_init!(Foo {
 (or just the stack) to actually initialize a `Foo`:
 
 ```rust
+use pinned_init::InPlaceInit;
+
 let foo: Result<Pin<Box<Foo>>, _> = Box::pin_init(foo);
 ```
 
@@ -98,12 +100,16 @@ Many types that use this library supply a function/macro that returns an initial
 the above method only works for types where you can access the fields.
 
 ```rust
+use pinned_init::InPlaceInit;
+
 let mtx: Result<Pin<Arc<CMutex<usize>>>, _> = Arc::pin_init(CMutex::new(42));
 ```
 
 To declare an init macro/function you just return an [`impl PinInit<T, E>`]:
 
 ```rust
+use pinned_init::{pin_data, try_pin_init, PinInit, InPlaceInit};
+
 #[pin_data]
 struct DriverData {
     #[pin]
@@ -136,7 +142,7 @@ actually does the initialization in the correct way. Here are the things to look
   `slot` gets called.
 
 ```rust
-use pinned_init::*;
+use pinned_init::{pin_data, pinned_drop, pin_init_from_closure, PinInit};
 use core::{ptr::addr_of_mut, marker::PhantomPinned, cell::UnsafeCell, pin::Pin};
 mod bindings {
     extern "C" {

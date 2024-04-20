@@ -63,7 +63,7 @@
 //! ```
 //! # #![allow(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
-//! use pinned_init::*;
+//! use pinned_init::{pin_data, pin_init};
 //! # use core::pin::Pin;
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 //! #[pin_data]
@@ -77,6 +77,7 @@
 //!     a <- CMutex::new(42),
 //!     b: 24,
 //! });
+//! # use pinned_init::InPlaceInit;
 //! # let _ = Box::pin_init(foo);
 //! ```
 //!
@@ -87,7 +88,7 @@
 //! # #![allow(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-//! # use pinned_init::*;
+//! # use pinned_init::{pin_data, pin_init};
 //! # use core::pin::Pin;
 //! # #[pin_data]
 //! # struct Foo {
@@ -99,6 +100,8 @@
 //! #     a <- CMutex::new(42),
 //! #     b: 24,
 //! # });
+//! use pinned_init::InPlaceInit;
+//!
 //! let foo: Result<Pin<Box<Foo>>, _> = Box::pin_init(foo);
 //! ```
 //!
@@ -112,9 +115,10 @@
 //! ```
 //! # #![feature(allocator_api)]
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-//! # use pinned_init::*;
 //! # use std::sync::Arc;
 //! # use core::pin::Pin;
+//! use pinned_init::InPlaceInit;
+//!
 //! let mtx: Result<Pin<Arc<CMutex<usize>>>, _> = Arc::pin_init(CMutex::new(42));
 //! ```
 //!
@@ -123,8 +127,9 @@
 //! ```
 //! # #![allow(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
-//! # use pinned_init::*;
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
+//! use pinned_init::{pin_data, try_pin_init, PinInit, InPlaceInit};
+//!
 //! #[pin_data]
 //! struct DriverData {
 //!     #[pin]
@@ -158,7 +163,7 @@
 //!
 //! ```
 //! # #![feature(extern_types)]
-//! use pinned_init::*;
+//! use pinned_init::{pin_data, pinned_drop, pin_init_from_closure, PinInit};
 //! use core::{ptr::addr_of_mut, marker::PhantomPinned, cell::UnsafeCell, pin::Pin};
 //! mod bindings {
 //!     extern "C" {
@@ -287,7 +292,7 @@ pub mod __internal;
 /// ```
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// use pinned_init::*;
+/// use pinned_init::pin_data;
 ///
 /// #[pin_data]
 /// struct CountedBuffer {
@@ -304,7 +309,7 @@ pub mod __internal;
 /// ```
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// use pinned_init::*;
+/// use pinned_init::{pin_data, pinned_drop};
 /// use std::pin::Pin;
 ///
 /// #[pin_data(PinnedDrop)]
@@ -340,7 +345,7 @@ pub use pinned_init_macro::pin_data;
 /// ```
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// use pinned_init::*;
+/// use pinned_init::{pin_data, pinned_drop};
 /// use std::pin::Pin;
 ///
 /// #[pin_data(PinnedDrop)]
@@ -372,7 +377,7 @@ pub use pinned_init_macro::pinned_drop;
 /// # Examples
 ///
 /// ```
-/// use pinned_init::*;
+/// use pinned_init::Zeroable;
 ///
 /// #[derive(Zeroable)]
 /// pub struct DriverData {
@@ -386,7 +391,7 @@ pub use pinned_init_macro::pinned_drop;
 /// trait.
 ///
 /// ```
-/// use pinned_init::*;
+/// use pinned_init::Zeroable;
 ///
 /// #[derive(Zeroable)]
 /// pub struct Data<T> {
@@ -404,8 +409,9 @@ pub use pinned_init_macro::Zeroable;
 /// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// # use pinned_init::*;
 /// # use core::pin::Pin;
+/// use pinned_init::{pin_data, stack_pin_init, pin_init};
+///
 /// #[pin_data]
 /// struct Foo {
 ///     #[pin]
@@ -456,7 +462,8 @@ macro_rules! stack_pin_init {
 /// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// # use pinned_init::*;
+/// use pinned_init::{pin_data, stack_try_pin_init, try_pin_init};
+///
 /// #[pin_data]
 /// struct Foo {
 ///     #[pin]
@@ -482,7 +489,8 @@ macro_rules! stack_pin_init {
 /// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// # use pinned_init::*;
+/// use pinned_init::{pin_data, stack_try_pin_init, try_pin_init};
+///
 /// #[pin_data]
 /// struct Foo {
 ///     #[pin]
@@ -546,7 +554,7 @@ macro_rules! stack_try_pin_init {
 /// ```
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// use pinned_init::*;
+/// use pinned_init::{pin_data, pin_init, PinInit};
 ///
 /// // Add `#[pin_data]` on your struct:
 /// #[pin_data]
@@ -574,6 +582,7 @@ macro_rules! stack_try_pin_init {
 ///         })
 ///     }
 /// }
+/// # use pinned_init::InPlaceInit;
 /// # let _ = Box::pin_init(CountedBuffer::new([0; 1024]));
 /// ```
 ///
@@ -587,7 +596,8 @@ macro_rules! stack_try_pin_init {
 /// ```
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// use pinned_init::*;
+/// use pinned_init::{pin_data, try_pin_init, PinInit, zeroed, InPlaceInit};
+///
 /// #[pin_data]
 /// struct BigCountedBuf {
 ///     buf: Box<[u8; 1024 * 1024 * 1024]>,
@@ -617,7 +627,7 @@ macro_rules! stack_try_pin_init {
 /// ```
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// # use pinned_init::*;
+/// # use pinned_init::{InPlaceInit, zeroed};
 /// # #[pin_data]
 /// # struct BigCountedBuf {
 /// #     buf: Box<[u8; 1024 * 1024 * 1024]>,
@@ -636,6 +646,8 @@ macro_rules! stack_try_pin_init {
 /// #         }? Error)
 /// #     }
 /// # }
+/// use pinned_init::{pin_data, try_pin_init, PinInit};
+///
 /// #[pin_data]
 /// struct MultiBuf {
 ///     #[pin]
@@ -665,7 +677,8 @@ macro_rules! stack_try_pin_init {
 /// ```
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// use pinned_init::*;
+/// use pinned_init::{init, Zeroable, Init};
+///
 /// #[derive(Zeroable)]
 /// struct Config {
 ///     max_size: usize,
@@ -695,7 +708,7 @@ macro_rules! stack_try_pin_init {
 /// do this by adding a [`PhantomPinned`] field to your struct:
 ///
 /// ```
-/// use pinned_init::*;
+/// use pinned_init::pin_data;
 /// use core::marker::PhantomPinned;
 ///
 /// #[pin_data]
@@ -714,7 +727,7 @@ macro_rules! stack_try_pin_init {
 /// the initializer:
 ///
 /// ```
-/// # use pinned_init::*;
+/// # use pinned_init::{pin_data, pin_init, PinInit};
 /// # use core::{ptr::NonNull, marker::PhantomPinned};
 /// # #[pin_data]
 /// # pub struct ListLink {
@@ -738,7 +751,7 @@ macro_rules! stack_try_pin_init {
 /// The type of `this` is [`NonNull<Self>`]. Here is an example of how to use it:
 ///
 /// ```
-/// use pinned_init::*;
+/// use pinned_init::{pin_data, pin_init, PinInit};
 /// use core::{ptr::NonNull, marker::PhantomPinned};
 ///
 /// #[pin_data]
@@ -852,7 +865,8 @@ pub unsafe trait PinInit<T: ?Sized, E = Infallible>: Sized {
     /// ```
     /// # #![feature(allocator_api)]
     /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-    /// # use pinned_init::*;
+    /// use pinned_init::PinInit;
+    ///
     /// let mtx_init = CMutex::new(42);
     /// // Make the initializer print the value.
     /// let mtx_init = mtx_init.pin_chain(|mtx| {
@@ -917,7 +931,8 @@ pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
     ///
     /// ```
     /// # #![allow(clippy::disallowed_names)]
-    /// # use pinned_init::*;
+    /// use pinned_init::{init, zeroed, Init};
+    ///
     /// struct Foo {
     ///     buf: [u8; 1_000_000],
     /// }
@@ -995,8 +1010,8 @@ pub fn uninit<T, E>() -> impl Init<MaybeUninit<T>, E> {
 /// # Examples
 ///
 /// ```
-/// # use pinned_init::*;
-/// use pinned_init::init_array_from_fn;
+/// use pinned_init::{init_array_from_fn, InPlaceInit};
+///
 /// let array: Box<[usize; 1_000]> = Box::init(init_array_from_fn(|i| i)).unwrap();
 /// assert_eq!(array.len(), 1_000);
 /// ```
@@ -1038,10 +1053,10 @@ where
 /// ```
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// # use pinned_init::*;
 /// # use core::pin::Pin;
-/// use pinned_init::pin_init_array_from_fn;
+/// use pinned_init::{pin_init_array_from_fn, InPlaceInit};
 /// use std::sync::Arc;
+///
 /// let array: Pin<Arc<[CMutex<usize>; 1_000]>> =
 ///     Arc::pin_init(pin_init_array_from_fn(|i| CMutex::new(i))).unwrap();
 /// assert_eq!(array.len(), 1_000);
@@ -1206,8 +1221,9 @@ impl<T> InPlaceInit<T> for Arc<T> {
 /// ```
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
-/// # use pinned_init::*;
+/// use pinned_init::{pin_data, pinned_drop};
 /// use core::pin::Pin;
+///
 /// #[pin_data(PinnedDrop)]
 /// struct Foo {
 ///     #[pin]
