@@ -22,3 +22,5 @@ jobs:
         run: rustup target add ${{ matrix.target }}
       - name: cargo check
         run: cargo check --target ${{ matrix.target }} --no-default-features
+        env:
+          RUSTFLAGS: "-Dwarnings"

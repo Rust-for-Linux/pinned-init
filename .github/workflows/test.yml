@@ -29,9 +29,13 @@ jobs:
       # https://twitter.com/jonhoo/status/1571290371124260865
       - name: cargo test --locked
         run: cargo test --locked --all-features --all-targets
+        env:
+          RUSTFLAGS: "-Dwarnings"
       # https://github.com/rust-lang/cargo/issues/6669
       - name: cargo test --doc
         run: cargo test --locked --all-features --doc
+        env:
+          RUSTFLAGS: "-Dwarnings"
   os-check:
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.os }} / nightly
@@ -53,4 +57,6 @@ jobs:
         if: hashFiles('Cargo.lock') == ''
         run: cargo generate-lockfile
       - name: cargo test
-        run: cargo test --locked --all-features --all-targets
+        run: cargo test --locked --all-features --all-targets 
+        env:
+          RUSTFLAGS: "-Dwarnings"

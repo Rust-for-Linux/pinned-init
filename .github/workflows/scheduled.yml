@@ -27,6 +27,8 @@ jobs:
         run: cargo generate-lockfile
       - name: cargo test --locked
         run: cargo test --locked --all-features --all-targets
+        env:
+          RUSTFLAGS: "-Dwarnings"
   # https://twitter.com/alcuadrado/status/1571291687837732873
   update:
     runs-on: ubuntu-latest
@@ -46,4 +48,4 @@ jobs:
       - name: cargo test
         run: cargo test --locked --all-features --all-targets
         env:
-          RUSTFLAGS: -D deprecated
+          RUSTFLAGS: -Ddeprecated -Dwarnings
