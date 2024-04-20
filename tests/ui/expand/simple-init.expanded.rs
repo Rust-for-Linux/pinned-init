@@ -17,11 +17,7 @@ fn main() {
                 {
                     struct __InitOk;
                     #[allow(unreachable_code, clippy::diverging_sub_expression)]
-                    let _ = || {
-                        unsafe {
-                            ::core::ptr::write(slot, Foo {});
-                        };
-                    };
+                    let _ = || unsafe { ::core::ptr::write(slot, Foo {}) };
                 }
                 Ok(__InitOk)
             },

@@ -1,15 +1,13 @@
 error[E0308]: mismatched types
- --> tests/ui/compile-fail/init/field_value_wrong_type.rs:8:13
+ --> tests/ui/compile-fail/init/field_value_wrong_type.rs:8:28
   |
 8 |     let _ = init!(Foo { a: () });
-  |             ^^^^^^^^^^^^^^^^^^^^
-  |             |
-  |             expected `usize`, found `()`
-  |             arguments to this function are incorrect
+  |                         -  ^^ expected `usize`, found `()`
+  |                         |
+  |                         arguments to this function are incorrect
   |
 note: function defined here
  --> $RUST/core/src/ptr/mod.rs
   |
   | pub const unsafe fn write<T>(dst: *mut T, src: T) {
   |                     ^^^^^
-  = note: this error originates in the macro `$crate::__init_internal` which comes from the expansion of the macro `init` (in Nightly builds, run with -Z macro-backtrace for more info)

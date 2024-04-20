@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use core::{marker::PhantomPinned, pin::Pin};
 use pinned_init::*;
 trait Bar<'a, const ID: usize = 0> {
@@ -12,7 +13,7 @@ where
     _pin: PhantomPinned,
 }
 const _: () = {
-    struct __ThePinData<'a, 'b: 'a, T: Bar<'b> + ?Sized + 'a, const SIZE: usize>
+    struct __ThePinData<'a, 'b: 'a, T: Bar<'b> + ?Sized + 'a, const SIZE: usize = 0>
     where
         T: Bar<'a, 1>,
     {
@@ -94,7 +95,7 @@ const _: () = {
         type Datee = Foo<'a, 'b, T, SIZE>;
     }
     #[allow(dead_code)]
-    struct __Unpin<'__pin, 'a, 'b: 'a, T: Bar<'b> + ?Sized + 'a, const SIZE: usize>
+    struct __Unpin<'__pin, 'a, 'b: 'a, T: Bar<'b> + ?Sized + 'a, const SIZE: usize = 0>
     where
         T: Bar<'a, 1>,
     {

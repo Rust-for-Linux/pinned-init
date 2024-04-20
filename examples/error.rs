@@ -1,3 +1,4 @@
+#![allow(unused_attributes)]
 #![feature(allocator_api)]
 
 use core::convert::Infallible;
@@ -18,4 +19,5 @@ impl From<AllocError> for Error {
     }
 }
 
+#[allow(dead_code)]
 fn main() {}

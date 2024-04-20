@@ -1,4 +1,6 @@
+#![allow(unused_attributes)]
 #![feature(allocator_api)]
+
 use core::{
     cell::{Cell, UnsafeCell},
     marker::PhantomPinned,
@@ -16,6 +18,7 @@ use pinned_init::*;
 #[allow(unused_attributes)]
 #[path = "./linked_list.rs"]
 pub mod linked_list;
+#[allow(unused_imports)]
 pub use linked_list::Error;
 use linked_list::*;
 
@@ -100,6 +103,7 @@ impl<T> CMutex<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_data_mut(self: Pin<&mut Self>) -> &mut T {
         // SAFETY: we have an exclusive reference and thus nobody has access to data.
         unsafe { &mut *self.data.get() }

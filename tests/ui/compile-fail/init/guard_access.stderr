@@ -1,0 +1,5 @@
+error[E0425]: cannot find value `__x_guard` in this scope
+  --> tests/ui/compile-fail/init/guard_access.rs:12:21
+   |
+12 |             let _ = __x_guard;
+   |                     ^^^^^^^^^ not found in this scope

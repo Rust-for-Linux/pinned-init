@@ -1,0 +1,11 @@
+error: expected `,`, or `}`, found `b`
+ --> tests/ui/compile-fail/pin_data/missing_comma.rs:5:16
+  |
+5 |     a: Box<Foo>
+  |                ^ help: try adding a comma: `,`
+
+error: expected `,`
+ --> tests/ui/compile-fail/pin_data/missing_comma.rs:6:5
+  |
+6 |     b: Box<Foo>
+  |     ^

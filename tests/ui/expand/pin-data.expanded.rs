@@ -55,12 +55,12 @@ const _: () = {
     {}
     trait MustNotImplDrop {}
     #[allow(drop_bounds)]
-    impl<T: ::core::ops::Drop> MustNotImplDrop for T {}
+    impl<T: ::core::ops::Drop + ?::core::marker::Sized> MustNotImplDrop for T {}
     impl MustNotImplDrop for Foo {}
     #[allow(non_camel_case_types)]
     trait UselessPinnedDropImpl_you_need_to_specify_PinnedDrop {}
     impl<
-        T: ::pinned_init::PinnedDrop,
+        T: ::pinned_init::PinnedDrop + ?::core::marker::Sized,
     > UselessPinnedDropImpl_you_need_to_specify_PinnedDrop for T {}
     impl UselessPinnedDropImpl_you_need_to_specify_PinnedDrop for Foo {}
 };
