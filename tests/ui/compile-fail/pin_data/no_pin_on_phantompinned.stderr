@@ -30,7 +30,7 @@ error: The field `pin4` of type `PhantomPinned` only has an effect, if it has th
   |
   = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-warning: unused imports: `PhantomPinned`, `self`
+warning: unused imports: `PhantomPinned` and `self`
  --> tests/ui/compile-fail/pin_data/no_pin_on_phantompinned.rs:2:19
   |
 2 | use std::marker::{self, PhantomPinned};
