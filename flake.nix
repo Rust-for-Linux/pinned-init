@@ -34,7 +34,7 @@
         cargo-semver-checks
         rust-analyzer-nightly
       ];
-      shellHook = ''LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib" exec fish'';
+      shellHook = ''exec fish'';
     };
   };
 }
