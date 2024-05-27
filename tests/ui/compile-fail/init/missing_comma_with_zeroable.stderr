@@ -31,6 +31,9 @@ error[E0308]: mismatched types
             found struct `std::ops::Range<{integer}>`
 note: function defined here
   --> $RUST/core/src/ptr/mod.rs
+   |
+   | pub const unsafe fn write<T>(dst: *mut T, src: T) {
+   |                     ^^^^^
    = note: this error originates in the macro `$crate::__init_internal` which comes from the expansion of the macro `init` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0063]: missing field `b` in initializer of `Foo`

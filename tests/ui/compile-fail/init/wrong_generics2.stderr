@@ -71,4 +71,7 @@ error[E0061]: this function takes 2 arguments but 3 arguments were supplied
   |
 note: function defined here
  --> $RUST/core/src/ptr/mod.rs
+  |
+  | pub const unsafe fn write<T>(dst: *mut T, src: T) {
+  |                     ^^^^^
   = note: this error originates in the macro `$crate::__init_internal` which comes from the expansion of the macro `init` (in Nightly builds, run with -Z macro-backtrace for more info)
