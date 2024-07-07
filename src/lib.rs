@@ -236,9 +236,9 @@
 
 #![forbid(missing_docs, unsafe_op_in_unsafe_fn)]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(allocator_api)]
-#![cfg_attr(any(feature = "alloc"), feature(new_uninit))]
-#![cfg_attr(any(feature = "alloc"), feature(get_mut_unchecked))]
+#![cfg_attr(feature = "alloc", feature(allocator_api))]
+#![cfg_attr(feature = "alloc", feature(new_uninit))]
+#![cfg_attr(feature = "alloc", feature(get_mut_unchecked))]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -249,7 +249,6 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 use core::{
-    alloc::AllocError,
     cell::UnsafeCell,
     convert::Infallible,
     marker::PhantomData,
@@ -258,6 +257,9 @@ use core::{
     pin::Pin,
     ptr::{self, NonNull},
 };
+
+#[cfg(feature = "alloc")]
+use core::alloc::AllocError;
 
 #[doc(hidden)]
 pub mod __internal;
@@ -1092,6 +1094,7 @@ unsafe impl<T, E> PinInit<T, E> for T {
 }
 
 /// Smart pointer that can initialize memory in-place.
+#[cfg(feature = "alloc")]
 pub trait InPlaceInit<T>: Sized {
     /// Use the given pin-initializer to pin-initialize a `T` inside of a new smart pointer of this
     /// type.
