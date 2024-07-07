@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parameter `E`)
 - removed the default error of `try_[pin_]init!`, now you always have to specify an error using
   `? Error` at the end
+- put `InPlaceInit` behind the `alloc` feature flag, this allows stable usage of the `#![no_std]`
+  part of the crate
 
 ## [0.0.7] - 2024-04-09
 
