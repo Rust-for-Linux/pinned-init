@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.8] - 2024-07-07
+
 ### Changed
 
 - return type of `zeroed()` from `impl Init<T, E>` to `impl Init<T>` (also removing the generic
@@ -50,5 +52,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.6] - 2023-04-08
 
 [unreleased]: https://github.com/Rust-for-Linux/pinned-init/compare/v0.0.7...HEAD
+[0.0.8]: https://github.com/Rust-for-Linux/pinned-init/compare/v0.0.7...v0.0.8
 [0.0.7]: https://github.com/Rust-for-Linux/pinned-init/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/Rust-for-Linux/pinned-init/releases/tag/v0.0.6
