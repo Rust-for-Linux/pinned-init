@@ -67,7 +67,7 @@ error[E0061]: this function takes 2 arguments but 3 arguments were supplied
   |  _____________^
 8 | |         value <- (),
 9 | |     });
-  | |______^ unexpected argument
+  | |______^ unexpected argument #3
   |
 note: function defined here
  --> $RUST/core/src/ptr/mod.rs
