@@ -50,7 +50,7 @@ error[E0107]: struct takes 1 generic argument but 2 generic arguments were suppl
  --> tests/ui/compile-fail/init/wrong_generics2.rs:7:19
   |
 7 |     let _ = init!(Foo::<(), ()> {
-  |                   ^^^       -- help: remove this generic argument
+  |                   ^^^     ---- help: remove the unnecessary generic argument
   |                   |
   |                   expected 1 generic argument
   |

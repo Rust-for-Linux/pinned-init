@@ -2,7 +2,7 @@ error[E0107]: trait takes 0 generic arguments but 1 generic argument was supplie
   --> tests/ui/compile-fail/pinned_drop/unexpected_generics.rs:10:9
    |
 10 | impl<T> PinnedDrop<T> for Foo<T> {
-   |         ^^^^^^^^^^--- help: remove these generics
+   |         ^^^^^^^^^^--- help: remove the unnecessary generics
    |         |
    |         expected 0 generic arguments
    |
