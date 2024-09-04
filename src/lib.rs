@@ -122,7 +122,6 @@
 //! To declare an init macro/function you just return an [`impl PinInit<T, E>`]:
 //!
 //! ```rust
-//! # #![allow(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
 //! # use pinned_init::*;
 //! # #[path = "../examples/error.rs"] mod error; use error::Error;
@@ -410,7 +409,6 @@ macro_rules! stack_try_pin_init {
 /// The syntax is almost identical to that of a normal `struct` initializer:
 ///
 /// ```rust
-/// # #![allow(clippy::disallowed_names)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// #[pin_data]
@@ -455,7 +453,6 @@ macro_rules! stack_try_pin_init {
 /// To create an initializer function, simply declare it like this:
 ///
 /// ```rust
-/// # #![allow(clippy::disallowed_names)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// # #[pin_data]
@@ -510,7 +507,6 @@ macro_rules! stack_try_pin_init {
 /// They can also easily embed it into their own `struct`s:
 ///
 /// ```rust
-/// # #![allow(clippy::disallowed_names)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// # #[pin_data]
