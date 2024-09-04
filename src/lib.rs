@@ -62,7 +62,7 @@
 //! that you need to write `<-` instead of `:` for fields that you want to initialize in-place.
 //!
 //! ```rust
-//! # #![allow(clippy::disallowed_names)]
+//! # #![expect(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
 //! use pinned_init::*;
 //! # use core::pin::Pin;
@@ -85,7 +85,7 @@
 //! (or just the stack) to actually initialize a `Foo`:
 //!
 //! ```rust
-//! # #![allow(clippy::disallowed_names)]
+//! # #![expect(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 //! # use pinned_init::*;
@@ -277,7 +277,7 @@ pub use pinned_init_macro::{pin_data, pinned_drop, Zeroable};
 /// # Examples
 ///
 /// ```rust
-/// # #![allow(clippy::disallowed_names)]
+/// # #![expect(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
@@ -329,7 +329,7 @@ macro_rules! stack_pin_init {
 /// # Examples
 ///
 /// ```rust
-/// # #![allow(clippy::disallowed_names)]
+/// # #![expect(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/error.rs"] mod error; use error::Error;
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
@@ -356,7 +356,7 @@ macro_rules! stack_pin_init {
 /// ```
 ///
 /// ```rust
-/// # #![allow(clippy::disallowed_names)]
+/// # #![expect(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
 /// # #[path = "../examples/error.rs"] mod error; use error::Error;
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
@@ -479,7 +479,7 @@ macro_rules! stack_try_pin_init {
 /// Users of `Foo` can now create it like this:
 ///
 /// ```rust
-/// # #![allow(clippy::disallowed_names)]
+/// # #![expect(clippy::disallowed_names)]
 /// # use pinned_init::*;
 /// # use core::pin::Pin;
 /// # #[pin_data]
@@ -953,7 +953,7 @@ pub unsafe trait Init<T: ?Sized, E = Infallible>: PinInit<T, E> {
     /// # Examples
     ///
     /// ```rust
-    /// # #![allow(clippy::disallowed_names)]
+    /// # #![expect(clippy::disallowed_names)]
     /// # use pinned_init::*;
     /// struct Foo {
     ///     buf: [u8; 1_000_000],

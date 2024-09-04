@@ -15,6 +15,7 @@ const _: () = {
     }
     impl ::core::marker::Copy for __ThePinData {}
     #[allow(dead_code)]
+    #[expect(clippy::missing_safety_doc)]
     impl __ThePinData {
         unsafe fn _pin<E>(
             self,
@@ -54,10 +55,10 @@ const _: () = {
         __Unpin<'__pin>: ::core::marker::Unpin,
     {}
     trait MustNotImplDrop {}
-    #[allow(drop_bounds)]
+    #[expect(drop_bounds)]
     impl<T: ::core::ops::Drop> MustNotImplDrop for T {}
     impl MustNotImplDrop for Foo {}
-    #[allow(non_camel_case_types)]
+    #[expect(non_camel_case_types)]
     trait UselessPinnedDropImpl_you_need_to_specify_PinnedDrop {}
     impl<
         T: ::pinned_init::PinnedDrop,
