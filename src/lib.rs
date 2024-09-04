@@ -583,6 +583,7 @@ macro_rules! stack_try_pin_init {
 ///
 /// let init = pin_init!(&this in Buf {
 ///     buf: [0; 64],
+///     // SAFETY: TODO.
 ///     ptr: unsafe { addr_of_mut!((*this.as_ptr()).buf).cast() },
 ///     pin: PhantomPinned,
 /// });
@@ -1153,6 +1154,7 @@ where
 // SAFETY: Every type can be initialized by-value.
 unsafe impl<T, E> Init<T, E> for T {
     unsafe fn __init(self, slot: *mut T) -> Result<(), E> {
+        // SAFETY: TODO.
         unsafe { slot.write(self) };
         Ok(())
     }
@@ -1161,6 +1163,7 @@ unsafe impl<T, E> Init<T, E> for T {
 // SAFETY: Every type can be initialized by-value. `__pinned_init` calls `__init`.
 unsafe impl<T, E> PinInit<T, E> for T {
     unsafe fn __pinned_init(self, slot: *mut T) -> Result<(), E> {
+        // SAFETY: TODO.
         unsafe { self.__init(slot) }
     }
 }
@@ -1387,6 +1390,7 @@ macro_rules! impl_zeroable {
     ($($(#[$attr:meta])*$({$($generics:tt)*})? $t:ty, )*) => {
         $(
             $(#[$attr])*
+            // SAFETY: Safety comments written in the macro invocation.
             unsafe impl$($($generics)*)? Zeroable for $t {}
         )*
     };
