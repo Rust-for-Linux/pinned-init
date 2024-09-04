@@ -35,6 +35,7 @@ const _: () = {
         T: Bar<'a, 1>,
     {}
     #[allow(dead_code)]
+    #[expect(clippy::missing_safety_doc)]
     impl<
         'a,
         'b: 'a,
