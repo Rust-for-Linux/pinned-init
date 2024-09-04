@@ -1,5 +1,6 @@
 #![allow(clippy::undocumented_unsafe_blocks)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
+#![allow(clippy::missing_safety_doc)]
 
 use core::{
     cell::{Cell, UnsafeCell},
