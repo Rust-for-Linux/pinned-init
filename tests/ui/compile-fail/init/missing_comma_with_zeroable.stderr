@@ -1,19 +1,13 @@
-error[E0782]: trait objects must include the `dyn` keyword
+error[E0782]: expected a type, found a trait
   --> tests/ui/compile-fail/init/missing_comma_with_zeroable.rs:12:15
    |
 12 |         a: 0..Zeroable::zeroed()
    |               ^^^^^^^^
    |
-help: add `dyn` keyword before this trait
+help: you can add the `dyn` keyword if you want a trait object
    |
 12 |         a: 0..<dyn Zeroable>::zeroed()
    |               ++++         +
-
-error[E0599]: no function or associated item named `zeroed` found for trait `pinned_init::Zeroable`
-  --> tests/ui/compile-fail/init/missing_comma_with_zeroable.rs:12:25
-   |
-12 |         a: 0..Zeroable::zeroed()
-   |                         ^^^^^^ function or associated item not found in `Zeroable`
 
 error[E0308]: mismatched types
   --> tests/ui/compile-fail/init/missing_comma_with_zeroable.rs:11:13

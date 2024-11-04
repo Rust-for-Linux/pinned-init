@@ -1,10 +1,10 @@
-error: no rules expected the token `)`
+error: no rules expected `)`
  --> tests/ui/compile-fail/pinned_drop/no_fn.rs:6:1
   |
 6 | #[pinned_drop]
   | ^^^^^^^^^^^^^^ no rules expected this token in macro call
   |
-note: while trying to match `fn`
+note: while trying to match keyword `fn`
  --> src/macros.rs
   |
   |             fn drop($($sig:tt)*) {
