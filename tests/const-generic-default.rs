@@ -1,5 +1,3 @@
-use std::convert::Infallible;
-
 use pinned_init::*;
 
 #[pin_data]
