@@ -1,6 +1,8 @@
-#![feature(allocator_api)]
+#![cfg_attr(feature = "alloc", feature(allocator_api))]
 
 use core::convert::Infallible;
+
+#[cfg(feature = "alloc")]
 use std::alloc::AllocError;
 
 #[derive(Debug)]
@@ -12,6 +14,7 @@ impl From<Infallible> for Error {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl From<AllocError> for Error {
     fn from(_: AllocError) -> Self {
         Self

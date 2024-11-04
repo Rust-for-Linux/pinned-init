@@ -1,6 +1,6 @@
-#![feature(allocator_api)]
+#![cfg_attr(feature = "alloc", feature(allocator_api))]
+
 use core::{
-    alloc::AllocError,
     convert::Infallible,
     marker::PhantomPinned,
     mem::MaybeUninit,
@@ -13,6 +13,10 @@ use std::sync::Arc;
 #[path = "../examples/mutex.rs"]
 mod mutex;
 use mutex::*;
+
+#[path = "../examples/error.rs"]
+mod error;
+use error::Error;
 
 #[pin_data(PinnedDrop)]
 pub struct RingBuffer<T, const SIZE: usize> {
@@ -152,15 +156,15 @@ pub struct EvenU64 {
 }
 
 impl EvenU64 {
-    pub fn new2(value: u64) -> impl Init<Self, AllocError> {
+    pub fn new2(value: u64) -> impl Init<Self, Error> {
         try_init!(Self {
             info: "Hello world!".to_owned(),
             data: if value % 2 == 0 {
                 value
             } else {
-                return Err(AllocError);
+                return Err(Error);
             },
-        }? AllocError)
+        }? Error)
     }
     pub fn new(value: u64) -> impl Init<Self, ()> {
         try_init!(Self {
@@ -190,16 +194,10 @@ fn even_stack() {
 
 #[test]
 fn even_failing() {
-    assert!(matches!(
-        Box::try_pin_init(EvenU64::new2(3)),
-        Err(AllocError)
-    ));
-    assert!(matches!(
-        Arc::try_pin_init(EvenU64::new2(5)),
-        Err(AllocError)
-    ));
-    assert!(matches!(Box::try_init(EvenU64::new2(3)), Err(AllocError)));
-    assert!(matches!(Arc::try_init(EvenU64::new2(5)), Err(AllocError)));
+    assert!(matches!(Box::try_pin_init(EvenU64::new2(3)), Err(Error)));
+    assert!(matches!(Arc::try_pin_init(EvenU64::new2(5)), Err(Error)));
+    assert!(matches!(Box::try_init(EvenU64::new2(3)), Err(Error)));
+    assert!(matches!(Arc::try_init(EvenU64::new2(5)), Err(Error)));
 }
 
 #[test]
