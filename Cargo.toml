@@ -28,3 +28,6 @@ trybuild = { version = "1.0", features = ["diff"] }
 macrotest = "1.0"
 # needed for macrotest, have to enable verbatim feature to be able to format `&raw` expressions.
 prettyplease = { version = "0.2", features = ["verbatim"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(NO_UI_TESTS)', 'cfg(NO_ALLOC_FAIL_TESTS)'] }
