@@ -1,5 +1,3 @@
-#![feature(allocator_api)]
-
 use pinned_init::*;
 
 // Struct with size over 1GiB
