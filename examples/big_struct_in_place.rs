@@ -1,7 +1,5 @@
 #![feature(allocator_api)]
 
-use std::convert::Infallible;
-
 use pinned_init::*;
 
 // Struct with size over 1GiB
