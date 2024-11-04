@@ -23,7 +23,6 @@
 //! This library requires unstable features when the `alloc` or `std` features are enabled and thus
 //! can only be used with a nightly compiler. The internally used features are:
 //! - `allocator_api`
-//! - `new_uninit`
 //! - `get_mut_unchecked`
 //!
 //! When enabling the `alloc` or `std` feature, the user will be required to activate these features:
@@ -237,7 +236,6 @@
 #![forbid(missing_docs, unsafe_op_in_unsafe_fn)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
-#![cfg_attr(feature = "alloc", feature(new_uninit))]
 #![cfg_attr(feature = "alloc", feature(get_mut_unchecked))]
 
 #[cfg(feature = "alloc")]

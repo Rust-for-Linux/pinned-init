@@ -31,7 +31,6 @@ This library allows you to do in-place initialization safely.
 This library requires unstable features when the `alloc` or `std` features are enabled and thus
 can only be used with a nightly compiler. The internally used features are:
 - `allocator_api`
-- `new_uninit`
 - `get_mut_unchecked`
 
 When enabling the `alloc` or `std` feature, the user will be required to activate these features:
