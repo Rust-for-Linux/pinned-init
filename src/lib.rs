@@ -256,6 +256,11 @@ use core::{
 #[cfg(feature = "alloc")]
 use core::alloc::AllocError;
 
+// Allocations are infallible without the allocator API.  In that case, just
+// require From<Infallible> for the trait that is passed to the try_* macros,
+#[cfg(not(feature = "alloc"))]
+type AllocError = Infallible;
+
 #[doc(hidden)]
 pub mod __internal;
 #[doc(hidden)]
@@ -1153,7 +1158,6 @@ unsafe impl<T, E> PinInit<T, E> for T {
 }
 
 /// Smart pointer that can initialize memory in-place.
-#[cfg(feature = "alloc")]
 pub trait InPlaceInit<T>: Sized {
     /// Use the given pin-initializer to pin-initialize a `T` inside of a new smart pointer of this
     /// type.
