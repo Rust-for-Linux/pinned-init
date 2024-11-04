@@ -5,7 +5,7 @@ error[E0277]: `?` couldn't convert the error to `std::alloc::AllocError`
 17 | |             a: Box::new(42),
 18 | |             bar <- init!(Bar { b: 42 }),
 19 | |         }? AllocError)
-   | |______________________^ the trait `From<Infallible>` is not implemented for `std::alloc::AllocError`, which is required by `Result<Foo::new::__InitOk, std::alloc::AllocError>: FromResidual<Result<Infallible, Infallible>>`
+   | |______________________^ the trait `From<Infallible>` is not implemented for `std::alloc::AllocError`
    |
    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
    = help: the trait `FromResidual<Result<Infallible, E>>` is implemented for `Result<T, F>`

@@ -1,10 +1,10 @@
-error: no rules expected the token `fn`
+error: no rules expected keyword `fn`
  --> tests/ui/compile-fail/pin_data/unexpected_item.rs:4:1
   |
 4 | fn foo() {}
   | ^^ no rules expected this token in macro call
   |
-note: while trying to match `struct`
+note: while trying to match keyword `struct`
  --> src/macros.rs
   |
   |             $vis:vis struct $name:ident

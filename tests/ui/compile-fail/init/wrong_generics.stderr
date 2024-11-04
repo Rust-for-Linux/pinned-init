@@ -1,4 +1,4 @@
-error: no rules expected the token `<`
+error: no rules expected `<`
  --> tests/ui/compile-fail/init/wrong_generics.rs:7:22
   |
 7 |     let _ = init!(Foo<()> {

@@ -1,4 +1,4 @@
-error: no rules expected the token `const`
+error: no rules expected keyword `const`
   --> tests/ui/compile-fail/pinned_drop/unexpected_additional_item.rs:10:5
    |
 10 |     const BAZ: usize = 0;
