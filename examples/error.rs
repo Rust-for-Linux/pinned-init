@@ -7,8 +7,8 @@ use std::alloc::AllocError;
 pub struct Error;
 
 impl From<Infallible> for Error {
-    fn from(_: Infallible) -> Self {
-        Self
+    fn from(e: Infallible) -> Self {
+        match e {}
     }
 }
 
