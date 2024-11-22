@@ -239,9 +239,9 @@
 extern crate alloc;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::boxed::Box;
-#[cfg(feature = "alloc")]
-use alloc::sync::Arc;
+use alloc::{boxed::Box, sync::Arc};
+#[cfg(feature = "std")]
+use std::sync::Arc;
 
 use core::{
     cell::UnsafeCell,
@@ -1200,7 +1200,7 @@ pub trait InPlaceInit<T>: Sized {
     }
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(HAVE_ALLOCATION)]
 impl<T> InPlaceInit<T> for Box<T> {
     #[inline]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
@@ -1219,7 +1219,7 @@ impl<T> InPlaceInit<T> for Box<T> {
     }
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(HAVE_ALLOCATION)]
 impl<T> InPlaceInit<T> for Arc<T> {
     #[inline]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
@@ -1254,7 +1254,7 @@ pub trait InPlaceWrite<T> {
     fn write_pin_init<E>(self, init: impl PinInit<T, E>) -> Result<Pin<Self::Initialized>, E>;
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(HAVE_ALLOCATION)]
 impl<T> InPlaceWrite<T> for Box<MaybeUninit<T>> {
     type Initialized = Box<T>;
 
@@ -1277,7 +1277,7 @@ impl<T> InPlaceWrite<T> for Box<MaybeUninit<T>> {
     }
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(HAVE_ALLOCATION)]
 /// # Panic
 ///
 /// The `write_init` and `write_pin_init` functions panic if the `Arc` has more than one
@@ -1415,7 +1415,7 @@ impl_zeroable! {
     //
     // In this case we are allowed to use `T: ?Sized`, since all zeros is the `None` variant.
     {<T: ?Sized>} Option<NonNull<T>>,
-    #[cfg(feature = "alloc")]
+    #[cfg(HAVE_ALLOCATION)]
     {<T: ?Sized>} Option<Box<T>>,
 
     // SAFETY: `null` pointer is valid.
