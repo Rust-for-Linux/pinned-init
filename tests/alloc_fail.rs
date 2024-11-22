@@ -1,6 +1,9 @@
-#![feature(allocator_api)]
+#![cfg_attr(feature = "alloc", feature(allocator_api))]
 
-use core::{alloc::AllocError, convert::Infallible};
+#[cfg(feature = "alloc")]
+use core::alloc::AllocError;
+
+use core::convert::Infallible;
 use pinned_init::*;
 use std::sync::Arc;
 
@@ -8,7 +11,12 @@ use std::sync::Arc;
 mod ring_buf;
 use ring_buf::*;
 
-#[cfg(all(not(miri), not(NO_ALLOC_FAIL_TESTS), not(target_os = "macos")))]
+#[cfg(all(
+    feature = "alloc",
+    not(miri),
+    not(NO_ALLOC_FAIL_TESTS),
+    not(target_os = "macos")
+))]
 #[test]
 fn too_big_pinned() {
     // should be too big with current hardware.
@@ -23,7 +31,12 @@ fn too_big_pinned() {
     ));
 }
 
-#[cfg(all(not(miri), not(NO_ALLOC_FAIL_TESTS), not(target_os = "macos")))]
+#[cfg(all(
+    feature = "alloc",
+    not(miri),
+    not(NO_ALLOC_FAIL_TESTS),
+    not(target_os = "macos")
+))]
 #[test]
 fn too_big_in_place() {
     // should be too big with current hardware.

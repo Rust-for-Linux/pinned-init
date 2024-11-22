@@ -1,4 +1,5 @@
-#![feature(allocator_api)]
+#![cfg_attr(feature = "alloc", feature(allocator_api))]
+
 use core::{
     cell::{Cell, UnsafeCell},
     marker::PhantomPinned,
@@ -161,8 +162,12 @@ impl WaitEntry {
     }
 }
 
+#[cfg(not(feature = "alloc"))]
+fn main() {}
+
 #[allow(dead_code)]
 #[cfg_attr(test, test)]
+#[cfg(feature = "alloc")]
 fn main() {
     let mtx: Pin<Arc<CMutex<usize>>> = Arc::pin_init(CMutex::new(0)).unwrap();
     let mut handles = vec![];
