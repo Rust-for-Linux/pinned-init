@@ -1,9 +1,10 @@
 // inspired by https://github.com/nbdd0121/pin-init/blob/trunk/examples/pthread_mutex.rs
-#![feature(allocator_api)]
+#![cfg_attr(feature = "alloc", feature(allocator_api))]
 #[cfg(not(windows))]
 mod pthread_mtx {
+    #[cfg(feature = "alloc")]
+    use core::alloc::AllocError;
     use core::{
-        alloc::AllocError,
         cell::UnsafeCell,
         marker::PhantomPinned,
         mem::MaybeUninit,
@@ -45,6 +46,8 @@ mod pthread_mtx {
             match e {}
         }
     }
+
+    #[cfg(feature = "alloc")]
     impl From<AllocError> for Error {
         fn from(_: AllocError) -> Self {
             Self::Alloc
@@ -129,7 +132,7 @@ mod pthread_mtx {
 
 #[cfg_attr(test, test)]
 fn main() {
-    #[cfg(not(windows))]
+    #[cfg(all(feature = "alloc", not(windows)))]
     {
         use core::pin::Pin;
         use pinned_init::*;
