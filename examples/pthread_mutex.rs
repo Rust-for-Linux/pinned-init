@@ -132,7 +132,7 @@ mod pthread_mtx {
 
 #[cfg_attr(test, test)]
 fn main() {
-    #[cfg(all(feature = "alloc", not(windows)))]
+    #[cfg(all(any(feature = "std", feature = "alloc"), not(windows)))]
     {
         use core::pin::Pin;
         use pinned_init::*;

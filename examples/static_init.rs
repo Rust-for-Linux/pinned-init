@@ -77,10 +77,10 @@ unsafe impl PinInit<CMutex<usize>> for CountInit {
 
 pub static COUNT: StaticInit<CMutex<usize>, CountInit> = StaticInit::new(CountInit);
 
-#[cfg(not(feature = "alloc"))]
+#[cfg(not(any(feature = "std", feature = "alloc")))]
 fn main() {}
 
-#[cfg(feature = "alloc")]
+#[cfg(any(feature = "std", feature = "alloc"))]
 fn main() {
     let mtx: Pin<Arc<CMutex<usize>>> = Arc::pin_init(CMutex::new(0)).unwrap();
     let mut handles = vec![];
