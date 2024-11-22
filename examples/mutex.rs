@@ -162,12 +162,12 @@ impl WaitEntry {
     }
 }
 
-#[cfg(not(feature = "alloc"))]
+#[cfg(not(any(feature = "std", feature = "alloc")))]
 fn main() {}
 
 #[allow(dead_code)]
 #[cfg_attr(test, test)]
-#[cfg(feature = "alloc")]
+#[cfg(any(feature = "std", feature = "alloc"))]
 fn main() {
     let mtx: Pin<Arc<CMutex<usize>>> = Arc::pin_init(CMutex::new(0)).unwrap();
     let mut handles = vec![];

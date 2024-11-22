@@ -192,7 +192,7 @@ fn even_stack() {
     assert_eq!(val, Err(()));
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(any(feature = "std", feature = "alloc"))]
 #[test]
 fn even_failing() {
     assert!(matches!(Box::try_pin_init(EvenU64::new2(3)), Err(Error)));
@@ -243,7 +243,7 @@ struct BigStruct {
     oth: MaybeUninit<u8>,
 }
 
-#[cfg(all(feature = "alloc", not(miri)))]
+#[cfg(all(any(feature = "std", feature = "alloc"), not(miri)))]
 #[test]
 fn big_struct() {
     let x = Arc::init(init!(BigStruct {
@@ -258,7 +258,7 @@ fn big_struct() {
     println!("{x:?}");
 }
 
-#[cfg(all(feature = "alloc", not(miri)))]
+#[cfg(all(any(feature = "std", feature = "alloc"), not(miri)))]
 #[test]
 fn with_big_struct() {
     let buf = Arc::pin_init(CMutex::new(RingBuffer::<BigStruct, 64>::new())).unwrap();
