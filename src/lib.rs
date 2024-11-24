@@ -18,12 +18,12 @@
 //!
 //! This library allows you to do in-place initialization safely.
 //!
-//! ## Nightly Needed for `alloc` and `std` features
+//! ## Nightly Needed for `alloc` feature
 //!
-//! This library requires the `allocator_api` unstable feature when the `alloc` or `std` features
-//! are enabled and thus can only be used with a nightly compiler.
+//! This library requires the `allocator_api` unstable feature when the `alloc` feature
+//! are enabled and thus this feature can only be used with a nightly compiler.
 //!
-//! When enabling the `alloc` or `std` feature, the user will be required to activate `allocator_api`
+//! When enabling the `alloc` feature, the user will be required to activate `allocator_api`
 //! as well.
 //!
 //! # Overview
@@ -1207,7 +1207,14 @@ impl<T> InPlaceInit<T> for Box<T> {
     where
         E: From<AllocError>,
     {
-        Box::try_new_uninit()?.write_pin_init(init)
+        #[cfg(feature = "alloc")]
+        {
+            Box::try_new_uninit()?.write_pin_init(init)
+        }
+        #[cfg(not(feature = "alloc"))]
+        {
+            Box::new_uninit().write_pin_init(init)
+        }
     }
 
     #[inline]
@@ -1215,7 +1222,14 @@ impl<T> InPlaceInit<T> for Box<T> {
     where
         E: From<AllocError>,
     {
-        Box::try_new_uninit()?.write_init(init)
+        #[cfg(feature = "alloc")]
+        {
+            Box::try_new_uninit()?.write_init(init)
+        }
+        #[cfg(not(feature = "alloc"))]
+        {
+            Box::new_uninit().write_init(init)
+        }
     }
 }
 
@@ -1226,7 +1240,14 @@ impl<T> InPlaceInit<T> for Arc<T> {
     where
         E: From<AllocError>,
     {
-        Arc::try_new_uninit()?.write_pin_init(init)
+        #[cfg(feature = "alloc")]
+        {
+            Arc::try_new_uninit()?.write_pin_init(init)
+        }
+        #[cfg(not(feature = "alloc"))]
+        {
+            Arc::new_uninit().write_pin_init(init)
+        }
     }
 
     #[inline]
@@ -1234,7 +1255,14 @@ impl<T> InPlaceInit<T> for Arc<T> {
     where
         E: From<AllocError>,
     {
-        Arc::try_new_uninit()?.write_init(init)
+        #[cfg(feature = "alloc")]
+        {
+            Arc::try_new_uninit()?.write_init(init)
+        }
+        #[cfg(not(feature = "alloc"))]
+        {
+            Arc::new_uninit().write_init(init)
+        }
     }
 }
 
