@@ -20,13 +20,11 @@
 //!
 //! ## Nightly Needed for `alloc` and `std` features
 //!
-//! This library requires unstable features when the `alloc` or `std` features are enabled and thus
-//! can only be used with a nightly compiler. The internally used features are:
-//! - `allocator_api`
-//! - `get_mut_unchecked`
+//! This library requires the `allocator_api` unstable feature when the `alloc` or `std` features
+//! are enabled and thus can only be used with a nightly compiler.
 //!
-//! When enabling the `alloc` or `std` feature, the user will be required to activate these features:
-//! - `allocator_api`
+//! When enabling the `alloc` or `std` feature, the user will be required to activate `allocator_api`
+//! as well.
 //!
 //! # Overview
 //!
@@ -236,7 +234,6 @@
 #![forbid(missing_docs, unsafe_op_in_unsafe_fn)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
-#![cfg_attr(feature = "alloc", feature(get_mut_unchecked))]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -1226,7 +1223,10 @@ impl<T> InPlaceInit<T> for Arc<T> {
         E: From<AllocError>,
     {
         let mut this = Arc::try_new_uninit()?;
-        let slot = unsafe { Arc::get_mut_unchecked(&mut this) };
+        let Some(slot) = Arc::get_mut(&mut this) else {
+            // SAFETY: the Arc has just been created and has no external referecnes
+            unsafe { core::hint::unreachable_unchecked() }
+        };
         let slot = slot.as_mut_ptr();
         // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
         // slot is valid and will not be moved, because we pin it later.
@@ -1241,7 +1241,10 @@ impl<T> InPlaceInit<T> for Arc<T> {
         E: From<AllocError>,
     {
         let mut this = Arc::try_new_uninit()?;
-        let slot = unsafe { Arc::get_mut_unchecked(&mut this) };
+        let Some(slot) = Arc::get_mut(&mut this) else {
+            // SAFETY: the Arc has just been created and has no external referecnes
+            unsafe { core::hint::unreachable_unchecked() }
+        };
         let slot = slot.as_mut_ptr();
         // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
         // slot is valid.
