@@ -20,13 +20,11 @@
 //!
 //! ## Nightly Needed for `alloc` and `std` features
 //!
-//! This library requires unstable features when the `alloc` or `std` features are enabled and thus
-//! can only be used with a nightly compiler. The internally used features are:
-//! - `allocator_api`
-//! - `get_mut_unchecked`
+//! This library requires the `allocator_api` unstable feature when the `alloc` or `std` features
+//! are enabled and thus can only be used with a nightly compiler.
 //!
-//! When enabling the `alloc` or `std` feature, the user will be required to activate these features:
-//! - `allocator_api`
+//! When enabling the `alloc` or `std` feature, the user will be required to activate `allocator_api`
+//! as well.
 //!
 //! # Overview
 //!
@@ -236,7 +234,6 @@
 #![forbid(missing_docs, unsafe_op_in_unsafe_fn)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
-#![cfg_attr(feature = "alloc", feature(get_mut_unchecked))]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -1277,11 +1274,16 @@ impl<T> InPlaceWrite<T> for Box<MaybeUninit<T>> {
 }
 
 #[cfg(feature = "alloc")]
+/// # Panic
+///
+/// The `write_init` and `write_pin_init` functions panic if the `Arc` has more than one
+/// reference.  This is because another clone of the same `Arc<MaybeUninit<T>>` could
+/// be used to re-initialize the underlying memory, which is a safety violation.
 impl<T> InPlaceWrite<T> for Arc<MaybeUninit<T>> {
     type Initialized = Arc<T>;
 
     fn write_init<E>(mut self, init: impl Init<T, E>) -> Result<Self::Initialized, E> {
-        let slot = unsafe { Arc::get_mut_unchecked(&mut self) };
+        let slot = Arc::get_mut(&mut self).unwrap();
         let slot = slot.as_mut_ptr();
         // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
         // slot is valid.
@@ -1291,7 +1293,7 @@ impl<T> InPlaceWrite<T> for Arc<MaybeUninit<T>> {
     }
 
     fn write_pin_init<E>(mut self, init: impl PinInit<T, E>) -> Result<Pin<Self::Initialized>, E> {
-        let slot = unsafe { Arc::get_mut_unchecked(&mut self) };
+        let slot = Arc::get_mut(&mut self).unwrap();
         let slot = slot.as_mut_ptr();
         // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
         // slot is valid and will not be moved, because we pin it later.
