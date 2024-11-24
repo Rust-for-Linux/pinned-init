@@ -1,4 +1,4 @@
-#![feature(allocator_api)]
+#![cfg_attr(feature = "alloc", feature(allocator_api))]
 
 use core::{
     cell::{Cell, UnsafeCell},
@@ -77,6 +77,10 @@ unsafe impl PinInit<CMutex<usize>> for CountInit {
 
 pub static COUNT: StaticInit<CMutex<usize>, CountInit> = StaticInit::new(CountInit);
 
+#[cfg(not(HAVE_ALLOCATION))]
+fn main() {}
+
+#[cfg(HAVE_ALLOCATION)]
 fn main() {
     let mtx: Pin<Arc<CMutex<usize>>> = Arc::pin_init(CMutex::new(0)).unwrap();
     let mut handles = vec![];

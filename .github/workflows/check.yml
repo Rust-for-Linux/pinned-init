@@ -84,22 +84,23 @@ jobs:
         run: cargo install cargo-rdme
       - name: cargo rdme --check
         run: cargo rdme --check
-# disable msrv, since we are nightly only
-# msrv:
-#   runs-on: ubuntu-latest
-#   # we use a matrix here just because env can't be used in job names
-#   # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-#   strategy:
-#     matrix:
-#       msrv: [1.61.0] # `impl Trait` requires this
-#   name: ubuntu / ${{ matrix.msrv }}
-#   steps:
-#     - uses: actions/checkout@v4
-#       with:
-#         submodules: true
-#     - name: Install ${{ matrix.msrv }}
-#       uses: dtolnay/rust-toolchain@master
-#       with:
-#         toolchain: ${{ matrix.msrv }}
-#     - name: cargo +${{ matrix.msrv }} check
-#       run: cargo check
+  msrv:
+    runs-on: ubuntu-latest
+    # we use a matrix here just because env can't be used in job names
+    # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
+    strategy:
+      matrix:
+        msrv: [1.82.0] # new_uninit requires this
+    name: ubuntu / ${{ matrix.msrv }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install ${{ matrix.msrv }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.msrv }}
+      - name: cargo install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+      - name: cargo hack
+        run: cargo +${{ matrix.msrv }} hack --feature-powerset --exclude-features alloc,default check
