@@ -26,13 +26,17 @@ it into it's final memory location.
 
 This library allows you to do in-place initialization safely.
 
-### Nightly Needed for `alloc` and `std` features
+### Nightly Needed for `alloc` feature
 
-This library requires the `allocator_api` unstable feature when the `alloc` or `std` features
-are enabled and thus can only be used with a nightly compiler.
+This library requires the `allocator_api` unstable feature when the `alloc` feature
+is enabled and thus this feature can only be used with a nightly compiler.
+When enabling the `alloc` feature, the user will be required to activate
+`allocator_api` as well.
 
-When enabling the `alloc` or `std` feature, the user will be required to activate `allocator_api`
-as well.
+The feature is enabled by default, thus by default `pinned-init` will require a
+nightly compiler. However, using the crate on stable compilers is possible by
+disabling `alloc`. In practice this will require the `std` feature, because
+stable compilers have neither `Box` nor `Arc` in no-std mode.
 
 ## Overview
 

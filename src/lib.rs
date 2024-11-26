@@ -18,13 +18,17 @@
 //!
 //! This library allows you to do in-place initialization safely.
 //!
-//! ## Nightly Needed for `alloc` and `std` features
+//! ## Nightly Needed for `alloc` feature
 //!
-//! This library requires the `allocator_api` unstable feature when the `alloc` or `std` features
-//! are enabled and thus can only be used with a nightly compiler.
+//! This library requires the `allocator_api` unstable feature when the `alloc` feature
+//! is enabled and thus this feature can only be used with a nightly compiler.
+//! When enabling the `alloc` feature, the user will be required to activate
+//! `allocator_api` as well.
 //!
-//! When enabling the `alloc` or `std` feature, the user will be required to activate `allocator_api`
-//! as well.
+//! The feature is enabled by default, thus by default `pinned-init` will require a
+//! nightly compiler. However, using the crate on stable compilers is possible by
+//! disabling `alloc`. In practice this will require the `std` feature, because
+//! stable compilers have neither `Box` nor `Arc` in no-std mode.
 //!
 //! # Overview
 //!
@@ -239,9 +243,9 @@
 extern crate alloc;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::boxed::Box;
-#[cfg(feature = "alloc")]
-use alloc::sync::Arc;
+use alloc::{boxed::Box, sync::Arc};
+#[cfg(feature = "std")]
+use std::sync::Arc;
 
 use core::{
     cell::UnsafeCell,
@@ -1201,13 +1205,26 @@ pub trait InPlaceInit<T>: Sized {
 }
 
 #[cfg(feature = "alloc")]
+macro_rules! try_new_uninit {
+    ($type:ident) => {
+        $type::try_new_uninit()?
+    };
+}
+#[cfg(all(feature = "std", not(feature = "alloc")))]
+macro_rules! try_new_uninit {
+    ($type:ident) => {
+        $type::new_uninit()
+    };
+}
+
+#[cfg(any(feature = "std", feature = "alloc"))]
 impl<T> InPlaceInit<T> for Box<T> {
     #[inline]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
     where
         E: From<AllocError>,
     {
-        Box::try_new_uninit()?.write_pin_init(init)
+        try_new_uninit!(Box).write_pin_init(init)
     }
 
     #[inline]
@@ -1215,18 +1232,18 @@ impl<T> InPlaceInit<T> for Box<T> {
     where
         E: From<AllocError>,
     {
-        Box::try_new_uninit()?.write_init(init)
+        try_new_uninit!(Box).write_init(init)
     }
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(any(feature = "std", feature = "alloc"))]
 impl<T> InPlaceInit<T> for Arc<T> {
     #[inline]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
     where
         E: From<AllocError>,
     {
-        let mut this = Arc::try_new_uninit()?;
+        let mut this = try_new_uninit!(Arc);
         let Some(slot) = Arc::get_mut(&mut this) else {
             // SAFETY: the Arc has just been created and has no external referecnes
             unsafe { core::hint::unreachable_unchecked() }
@@ -1244,7 +1261,7 @@ impl<T> InPlaceInit<T> for Arc<T> {
     where
         E: From<AllocError>,
     {
-        let mut this = Arc::try_new_uninit()?;
+        let mut this = try_new_uninit!(Arc);
         let Some(slot) = Arc::get_mut(&mut this) else {
             // SAFETY: the Arc has just been created and has no external referecnes
             unsafe { core::hint::unreachable_unchecked() }
