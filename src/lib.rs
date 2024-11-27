@@ -18,15 +18,17 @@
 //!
 //! This library allows you to do in-place initialization safely.
 //!
-//! ## Nightly Needed for `alloc` and `std` features
+//! ## Nightly Needed for `alloc` feature
 //!
-//! This library requires unstable features when the `alloc` or `std` features are enabled and thus
-//! can only be used with a nightly compiler. The internally used features are:
-//! - `allocator_api`
-//! - `get_mut_unchecked`
+//! This library requires the `allocator_api` unstable feature when the `alloc` feature
+//! is enabled and thus this feature can only be used with a nightly compiler.
+//! When enabling the `alloc` feature, the user will be required to activate
+//! `allocator_api` as well.
 //!
-//! When enabling the `alloc` or `std` feature, the user will be required to activate these features:
-//! - `allocator_api`
+//! The feature is enabled by default, thus by default `pinned-init` will require a
+//! nightly compiler. However, using the crate on stable compilers is possible by
+//! disabling `alloc`. In practice this will require the `std` feature, because
+//! stable compilers have neither `Box` nor `Arc` in no-std mode.
 //!
 //! # Overview
 //!
@@ -236,15 +238,14 @@
 #![forbid(missing_docs, unsafe_op_in_unsafe_fn)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
-#![cfg_attr(feature = "alloc", feature(get_mut_unchecked))]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::boxed::Box;
-#[cfg(feature = "alloc")]
-use alloc::sync::Arc;
+use alloc::{boxed::Box, sync::Arc};
+#[cfg(feature = "std")]
+use std::sync::Arc;
 
 use core::{
     cell::UnsafeCell,
@@ -258,6 +259,11 @@ use core::{
 
 #[cfg(feature = "alloc")]
 use core::alloc::AllocError;
+
+// Allocations are infallible without the allocator API.  In that case, just
+// require From<Infallible> for the trait that is passed to the try_* macros,
+#[cfg(not(feature = "alloc"))]
+type AllocError = Infallible;
 
 #[doc(hidden)]
 pub mod __internal;
@@ -1156,7 +1162,6 @@ unsafe impl<T, E> PinInit<T, E> for T {
 }
 
 /// Smart pointer that can initialize memory in-place.
-#[cfg(feature = "alloc")]
 pub trait InPlaceInit<T>: Sized {
     /// Use the given pin-initializer to pin-initialize a `T` inside of a new smart pointer of this
     /// type.
@@ -1200,13 +1205,26 @@ pub trait InPlaceInit<T>: Sized {
 }
 
 #[cfg(feature = "alloc")]
+macro_rules! try_new_uninit {
+    ($type:ident) => {
+        $type::try_new_uninit()?
+    };
+}
+#[cfg(all(feature = "std", not(feature = "alloc")))]
+macro_rules! try_new_uninit {
+    ($type:ident) => {
+        $type::new_uninit()
+    };
+}
+
+#[cfg(any(feature = "std", feature = "alloc"))]
 impl<T> InPlaceInit<T> for Box<T> {
     #[inline]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
     where
         E: From<AllocError>,
     {
-        Box::try_new_uninit()?.write_pin_init(init)
+        try_new_uninit!(Box).write_pin_init(init)
     }
 
     #[inline]
@@ -1214,18 +1232,28 @@ impl<T> InPlaceInit<T> for Box<T> {
     where
         E: From<AllocError>,
     {
-        Box::try_new_uninit()?.write_init(init)
+        try_new_uninit!(Box).write_init(init)
     }
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(any(feature = "std", feature = "alloc"))]
 impl<T> InPlaceInit<T> for Arc<T> {
     #[inline]
     fn try_pin_init<E>(init: impl PinInit<T, E>) -> Result<Pin<Self>, E>
     where
         E: From<AllocError>,
     {
-        Arc::try_new_uninit()?.write_pin_init(init)
+        let mut this = try_new_uninit!(Arc);
+        let Some(slot) = Arc::get_mut(&mut this) else {
+            // SAFETY: the Arc has just been created and has no external referecnes
+            unsafe { core::hint::unreachable_unchecked() }
+        };
+        let slot = slot.as_mut_ptr();
+        // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
+        // slot is valid and will not be moved, because we pin it later.
+        unsafe { init.__pinned_init(slot)? };
+        // SAFETY: All fields have been initialized and this is the only `Arc` to that data.
+        Ok(unsafe { Pin::new_unchecked(this.assume_init()) })
     }
 
     #[inline]
@@ -1233,7 +1261,17 @@ impl<T> InPlaceInit<T> for Arc<T> {
     where
         E: From<AllocError>,
     {
-        Arc::try_new_uninit()?.write_init(init)
+        let mut this = try_new_uninit!(Arc);
+        let Some(slot) = Arc::get_mut(&mut this) else {
+            // SAFETY: the Arc has just been created and has no external referecnes
+            unsafe { core::hint::unreachable_unchecked() }
+        };
+        let slot = slot.as_mut_ptr();
+        // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
+        // slot is valid.
+        unsafe { init.__init(slot)? };
+        // SAFETY: All fields have been initialized.
+        Ok(unsafe { this.assume_init() })
     }
 }
 
@@ -1253,7 +1291,7 @@ pub trait InPlaceWrite<T> {
     fn write_pin_init<E>(self, init: impl PinInit<T, E>) -> Result<Pin<Self::Initialized>, E>;
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(any(feature = "std", feature = "alloc"))]
 impl<T> InPlaceWrite<T> for Box<MaybeUninit<T>> {
     type Initialized = Box<T>;
 
@@ -1273,31 +1311,6 @@ impl<T> InPlaceWrite<T> for Box<MaybeUninit<T>> {
         unsafe { init.__pinned_init(slot)? };
         // SAFETY: All fields have been initialized.
         Ok(unsafe { self.assume_init() }.into())
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl<T> InPlaceWrite<T> for Arc<MaybeUninit<T>> {
-    type Initialized = Arc<T>;
-
-    fn write_init<E>(mut self, init: impl Init<T, E>) -> Result<Self::Initialized, E> {
-        let slot = unsafe { Arc::get_mut_unchecked(&mut self) };
-        let slot = slot.as_mut_ptr();
-        // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
-        // slot is valid.
-        unsafe { init.__init(slot)? };
-        // SAFETY: All fields have been initialized.
-        Ok(unsafe { self.assume_init() })
-    }
-
-    fn write_pin_init<E>(mut self, init: impl PinInit<T, E>) -> Result<Pin<Self::Initialized>, E> {
-        let slot = unsafe { Arc::get_mut_unchecked(&mut self) };
-        let slot = slot.as_mut_ptr();
-        // SAFETY: When init errors/panics, slot will get deallocated but not dropped,
-        // slot is valid and will not be moved, because we pin it later.
-        unsafe { init.__pinned_init(slot)? };
-        // SAFETY: All fields have been initialized and this is the only `Arc` to that data.
-        Ok(unsafe { Pin::new_unchecked(self.assume_init()) })
     }
 }
 
@@ -1409,7 +1422,7 @@ impl_zeroable! {
     //
     // In this case we are allowed to use `T: ?Sized`, since all zeros is the `None` variant.
     {<T: ?Sized>} Option<NonNull<T>>,
-    #[cfg(feature = "alloc")]
+    #[cfg(any(feature = "std", feature = "alloc"))]
     {<T: ?Sized>} Option<Box<T>>,
 
     // SAFETY: `null` pointer is valid.
