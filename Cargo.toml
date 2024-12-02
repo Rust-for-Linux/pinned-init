@@ -34,6 +34,7 @@ non_ascii_idents = "deny"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(NO_UI_TESTS)', 'cfg(NO_ALLOC_FAIL_TESTS)'] }
 unsafe_op_in_unsafe_fn = "deny"
 unused_attributes = "deny"
+warnings = "deny"
 
 [lints.rustdoc]
 missing_crate_level_docs = "deny"
