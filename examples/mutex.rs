@@ -40,6 +40,7 @@ impl SpinLock {
     }
 
     #[inline]
+    #[allow(clippy::new_without_default)]
     pub const fn new() -> Self {
         Self {
             inner: AtomicBool::new(false),
@@ -90,6 +91,8 @@ impl<T> CMutex<T> {
                 park();
                 sguard = self.spin_lock.acquire();
             }
+            // This does have an effect, as the ListHead inside wait_entry implements Drop!
+            #[expect(clippy::drop_non_drop)]
             drop(wait_entry);
         }
         self.locked.set(true);
@@ -101,6 +104,7 @@ impl<T> CMutex<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_data_mut(self: Pin<&mut Self>) -> &mut T {
         // SAFETY: we have an exclusive reference and thus nobody has access to data.
         unsafe { &mut *self.data.get() }
@@ -115,7 +119,7 @@ pub struct CMutexGuard<'a, T> {
     _pin: PhantomPinned,
 }
 
-impl<'a, T> Drop for CMutexGuard<'a, T> {
+impl<T> Drop for CMutexGuard<'_, T> {
     #[inline]
     fn drop(&mut self) {
         let sguard = self.mtx.spin_lock.acquire();
@@ -128,7 +132,7 @@ impl<'a, T> Drop for CMutexGuard<'a, T> {
     }
 }
 
-impl<'a, T> Deref for CMutexGuard<'a, T> {
+impl<T> Deref for CMutexGuard<'_, T> {
     type Target = T;
 
     #[inline]
@@ -137,7 +141,7 @@ impl<'a, T> Deref for CMutexGuard<'a, T> {
     }
 }
 
-impl<'a, T> DerefMut for CMutexGuard<'a, T> {
+impl<T> DerefMut for CMutexGuard<'_, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *self.mtx.data.get() }
