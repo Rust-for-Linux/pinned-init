@@ -35,3 +35,7 @@ unused_attributes = "deny"
 
 [lints.rustdoc]
 unescaped_backticks = "deny"
+
+[lints.clippy]
+# allow this until the modules in examples/ and tests/ are cleaned up
+duplicate_mod = "allow"

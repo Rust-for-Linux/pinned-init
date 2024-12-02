@@ -3,7 +3,6 @@
 #[cfg(feature = "alloc")]
 use core::alloc::AllocError;
 
-use core::convert::Infallible;
 use pinned_init::*;
 use std::sync::Arc;
 

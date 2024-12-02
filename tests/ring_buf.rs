@@ -109,7 +109,8 @@ impl<T, const SIZE: usize> RingBuffer<T, SIZE> {
     ///
     /// TODO
     unsafe fn advance(&mut self, ptr: *mut T) -> *mut T {
-        let ptr = ptr.add(1);
+        // SAFETY: ptr's offset from buffer is < SIZE
+        let ptr = unsafe { ptr.add(1) };
         let origin: *mut _ = addr_of_mut!(self.buffer);
         let origin = origin.cast::<T>();
         let offset = unsafe { ptr.offset_from(origin) };
@@ -124,7 +125,7 @@ impl<T, const SIZE: usize> RingBuffer<T, SIZE> {
 #[test]
 fn on_stack() -> Result<(), Infallible> {
     stack_pin_init!(let buf = RingBuffer::<u8, 64>::new());
-    while let Some(elem) = buf.as_mut().pop() {
+    if let Some(elem) = buf.as_mut().pop() {
         panic!("found in empty buffer!: {elem}");
     }
     assert!(buf.as_mut().push(10));
@@ -286,6 +287,6 @@ fn with_big_struct() {
         Ok(false)
     );
     for _ in 0..63 {
-        assert!(matches!(buf.as_mut().pop_no_stack(), Some(_)));
+        assert!(buf.as_mut().pop_no_stack().is_some());
     }
 }
