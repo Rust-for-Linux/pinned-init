@@ -125,6 +125,7 @@
 //! # #![allow(clippy::disallowed_names)]
 //! # #![feature(allocator_api)]
 //! # use pinned_init::*;
+//! # #[path = "../examples/error.rs"] mod error; use error::Error;
 //! # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 //! #[pin_data]
 //! struct DriverData {
@@ -331,6 +332,7 @@ macro_rules! stack_pin_init {
 /// ```rust
 /// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
+/// # #[path = "../examples/error.rs"] mod error; use error::Error;
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// #[pin_data]
@@ -357,6 +359,7 @@ macro_rules! stack_pin_init {
 /// ```rust
 /// # #![allow(clippy::disallowed_names)]
 /// # #![feature(allocator_api)]
+/// # #[path = "../examples/error.rs"] mod error; use error::Error;
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// # use pinned_init::*;
 /// #[pin_data]
@@ -671,6 +674,7 @@ macro_rules! try_pin_init {
 ///
 /// ```rust
 /// # #![feature(allocator_api)]
+/// # #[path = "../examples/error.rs"] mod error; use error::Error;
 /// # #[path = "../examples/mutex.rs"] mod mutex; use mutex::*;
 /// use pinned_init::*;
 /// struct BigBuf {

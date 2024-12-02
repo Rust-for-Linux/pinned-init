@@ -10,7 +10,7 @@ use core::{
 
 use pinned_init::*;
 mod error;
-pub use error::Error;
+use error::Error;
 
 #[pin_data(PinnedDrop)]
 #[repr(C)]
