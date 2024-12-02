@@ -12,11 +12,6 @@ use pinned_init::*;
 use std::sync::Arc;
 
 #[expect(unused_attributes)]
-#[path = "../examples/mutex.rs"]
-mod mutex;
-use mutex::*;
-
-#[expect(unused_attributes)]
 #[path = "../examples/error.rs"]
 mod error;
 use error::Error;
@@ -244,6 +239,7 @@ fn with_failing_inner() {
     assert_eq!(buf.as_mut().pop(), None);
 }
 
+#[cfg_attr(miri, allow(dead_code))]
 #[derive(Debug)]
 struct BigStruct {
     buf: [u8; 1024 * 1024],
@@ -268,6 +264,11 @@ fn big_struct() {
 #[cfg(all(any(feature = "std", feature = "alloc"), not(miri)))]
 #[test]
 fn with_big_struct() {
+    #[expect(unused_attributes)]
+    #[path = "../examples/mutex.rs"]
+    mod mutex;
+    use mutex::*;
+
     let buf = Arc::pin_init(CMutex::new(RingBuffer::<BigStruct, 64>::new())).unwrap();
     let mut buf = buf.lock();
     for _ in 0..63 {
@@ -289,4 +290,26 @@ fn with_big_struct() {
     for _ in 0..63 {
         assert!(buf.as_mut().pop_no_stack().is_some());
     }
+}
+
+#[cfg(all(
+    feature = "alloc",
+    not(miri),
+    not(NO_ALLOC_FAIL_TESTS),
+    not(target_os = "macos")
+))]
+#[test]
+fn too_big_pinned() {
+    use core::alloc::AllocError;
+
+    // should be too big with current hardware.
+    assert!(matches!(
+        Box::pin_init(RingBuffer::<u8, { 1024 * 1024 * 1024 * 1024 }>::new()),
+        Err(AllocError)
+    ));
+    // should be too big with current hardware.
+    assert!(matches!(
+        Arc::pin_init(RingBuffer::<u8, { 1024 * 1024 * 1024 * 1024 }>::new()),
+        Err(AllocError)
+    ));
 }
