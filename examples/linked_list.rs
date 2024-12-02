@@ -1,3 +1,4 @@
+#![allow(clippy::undocumented_unsafe_blocks)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
 
 use core::{

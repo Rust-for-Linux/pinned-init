@@ -22,6 +22,7 @@ where
     T: Bar<'b, 1>,
 {
     fn drop(self: Pin<&mut Self>) {
+        // SAFETY: we do not move out of `self`
         let me = unsafe { Pin::get_unchecked_mut(self) };
         for t in &mut *me.r {
             Bar::<'a, 1>::bar(*t);
