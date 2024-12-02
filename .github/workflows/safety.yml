@@ -37,6 +37,15 @@ jobs:
           RUSTFLAGS: "--cfg NO_UI_TESTS --cfg NO_ALLOC_FAIL_TESTS -Z sanitizer=leak"
   miri:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        flags: [
+          "",
+          "-Zmiri-tree-borrows",
+          "-Zmiri-strict-provenance",
+          "-Zmiri-tree-borrows -Zmiri-strict-provenance"
+        ]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,10 +57,10 @@ jobs:
         with:
           toolchain: ${{ env.NIGHTLY }}
           components: miri
-      - name: cargo miri test
+      - name: ${{ matrix.flags }} cargo miri test
         run: cargo miri test
         env:
-          MIRIFLAGS: ""
+          MIRIFLAGS: ${{ matrix.flags }}
 # loom:
 #   runs-on: ubuntu-latest
 #   steps:
