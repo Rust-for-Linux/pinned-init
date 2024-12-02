@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.9] - 2024-12-02
+
+### Added
+
+- `InPlaceWrite` trait to re-initialize already existing allocations,
+- `assert_pinned!` macro to check if a field is marked with `#[pin]`,
+- compatibility with stable Rust, thanks a lot to @bonzini! #24 and #23:
+  - the `alloc` feature enables support for `allocator_api` and reflects the old behavior, if it is
+    disabled, then infallible allocations are assumed (just like the standard library does).
+
+### Fixed
+
+- guard hygiene wrt constants in `[try_][pin_]init!`
+
 ## [0.0.8] - 2024-07-07
 
 ### Changed
@@ -51,7 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.6] - 2023-04-08
 
-[unreleased]: https://github.com/Rust-for-Linux/pinned-init/compare/v0.0.7...HEAD
+[unreleased]: https://github.com/Rust-for-Linux/pinned-init/compare/v0.0.9...HEAD
+[0.0.8]: https://github.com/Rust-for-Linux/pinned-init/compare/v0.0.8...v0.0.9
 [0.0.8]: https://github.com/Rust-for-Linux/pinned-init/compare/v0.0.7...v0.0.8
 [0.0.7]: https://github.com/Rust-for-Linux/pinned-init/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/Rust-for-Linux/pinned-init/releases/tag/v0.0.6
