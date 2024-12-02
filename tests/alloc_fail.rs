@@ -7,6 +7,7 @@ use core::convert::Infallible;
 use pinned_init::*;
 use std::sync::Arc;
 
+#[expect(unused_attributes)]
 #[path = "./ring_buf.rs"]
 mod ring_buf;
 use ring_buf::*;

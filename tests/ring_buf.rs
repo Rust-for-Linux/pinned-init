@@ -10,10 +10,12 @@ use core::{
 use pinned_init::*;
 use std::sync::Arc;
 
+#[expect(unused_attributes)]
 #[path = "../examples/mutex.rs"]
 mod mutex;
 use mutex::*;
 
+#[expect(unused_attributes)]
 #[path = "../examples/error.rs"]
 mod error;
 use error::Error;

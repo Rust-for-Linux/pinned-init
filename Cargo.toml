@@ -31,6 +31,7 @@ prettyplease = { version = "0.2", features = ["verbatim"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(NO_UI_TESTS)', 'cfg(NO_ALLOC_FAIL_TESTS)'] }
+unused_attributes = "deny"
 
 [lints.rustdoc]
 unescaped_backticks = "deny"

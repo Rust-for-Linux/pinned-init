@@ -13,6 +13,7 @@ use std::{
     thread::{sleep, Builder},
 };
 
+#[expect(unused_attributes)]
 mod mutex;
 use mutex::*;
 
