@@ -14,7 +14,7 @@ use std::{
 };
 
 use pinned_init::*;
-#[allow(unused_attributes)]
+#[expect(unused_attributes)]
 #[path = "./linked_list.rs"]
 pub mod linked_list;
 use linked_list::*;

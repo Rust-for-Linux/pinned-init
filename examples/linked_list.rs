@@ -9,6 +9,8 @@ use core::{
 };
 
 use pinned_init::*;
+
+#[expect(unused_attributes)]
 mod error;
 use error::Error;
 
