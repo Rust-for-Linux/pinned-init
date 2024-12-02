@@ -65,7 +65,7 @@ impl<T, const SIZE: usize> RingBuffer<T, SIZE> {
         // SAFETY: We do not move `this`.
         let this = unsafe { self.get_unchecked_mut() };
         let next_head = unsafe { this.advance(this.head) };
-        // SAFETY: `head` and `tail` point into the same buffer.
+        // `head` and `tail` point into the same buffer.
         if ptr::eq(next_head, this.tail) {
             // We cannot advance `head`, since `next_head` would point to the same slot as `tail`,
             // which is currently live.
@@ -105,6 +105,9 @@ impl<T, const SIZE: usize> RingBuffer<T, SIZE> {
         Some(unsafe { init_from_closure(remove_init) })
     }
 
+    /// # Safety
+    ///
+    /// TODO
     unsafe fn advance(&mut self, ptr: *mut T) -> *mut T {
         let ptr = ptr.add(1);
         let origin: *mut _ = addr_of_mut!(self.buffer);
