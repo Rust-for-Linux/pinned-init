@@ -30,12 +30,24 @@ macrotest = "1.0"
 prettyplease = { version = "0.2", features = ["verbatim"] }
 
 [lints.rust]
+non_ascii_idents = "deny"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(NO_UI_TESTS)', 'cfg(NO_ALLOC_FAIL_TESTS)'] }
+unsafe_op_in_unsafe_fn = "deny"
 unused_attributes = "deny"
 
 [lints.rustdoc]
+missing_crate_level_docs = "deny"
 unescaped_backticks = "deny"
 
 [lints.clippy]
 # allow this until the modules in examples/ and tests/ are cleaned up
 duplicate_mod = "allow"
+
+ignored_unit_patterns = "deny"
+mut_mut = "deny"
+needless_bitwise_bool = "deny"
+needless_continue = "deny"
+needless_lifetimes = "deny"
+no_mangle_with_rust_abi = "deny"
+unnecessary_safety_comment = "deny"
+unnecessary_safety_doc = "deny"
