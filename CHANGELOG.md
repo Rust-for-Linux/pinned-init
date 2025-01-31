@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `InPlaceInit` now only exists when the `alloc` or `std` features are enabled
+
 ## [0.0.9] - 2024-12-02
 
 ### Added
