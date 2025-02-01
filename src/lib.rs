@@ -1088,14 +1088,11 @@ where
             let ptr = unsafe { slot.add(i) };
             // SAFETY: The pointer is derived from `slot` and thus satisfies the `__init`
             // requirements.
-            match unsafe { init.__init(ptr) } {
-                Ok(()) => {}
-                Err(e) => {
-                    // SAFETY: The loop has initialized the elements `slot[0..i]` and since we
-                    // return `Err` below, `slot` will be considered uninitialized memory.
-                    unsafe { ptr::drop_in_place(ptr::slice_from_raw_parts_mut(slot, i)) };
-                    return Err(e);
-                }
+            if let Err(e) = unsafe { init.__init(ptr) } {
+                // SAFETY: The loop has initialized the elements `slot[0..i]` and since we return
+                // `Err` below, `slot` will be considered uninitialized memory.
+                unsafe { ptr::drop_in_place(ptr::slice_from_raw_parts_mut(slot, i)) };
+                return Err(e);
             }
         }
         Ok(())
@@ -1134,14 +1131,11 @@ where
             let ptr = unsafe { slot.add(i) };
             // SAFETY: The pointer is derived from `slot` and thus satisfies the `__init`
             // requirements.
-            match unsafe { init.__pinned_init(ptr) } {
-                Ok(()) => {}
-                Err(e) => {
-                    // SAFETY: The loop has initialized the elements `slot[0..i]` and since we
-                    // return `Err` below, `slot` will be considered uninitialized memory.
-                    unsafe { ptr::drop_in_place(ptr::slice_from_raw_parts_mut(slot, i)) };
-                    return Err(e);
-                }
+            if let Err(e) = unsafe { init.__pinned_init(ptr) } {
+                // SAFETY: The loop has initialized the elements `slot[0..i]` and since we return
+                // `Err` below, `slot` will be considered uninitialized memory.
+                unsafe { ptr::drop_in_place(ptr::slice_from_raw_parts_mut(slot, i)) };
+                return Err(e);
             }
         }
         Ok(())
