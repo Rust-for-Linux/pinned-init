@@ -160,7 +160,13 @@
 //! ```rust
 //! # #![feature(extern_types)]
 //! use pinned_init::*;
-//! use core::{ptr::addr_of_mut, marker::PhantomPinned, cell::UnsafeCell, pin::Pin};
+//! use core::{
+//!     ptr::addr_of_mut,
+//!     marker::PhantomPinned,
+//!     cell::UnsafeCell,
+//!     pin::Pin,
+//!     mem::MaybeUninit,
+//! };
 //! mod bindings {
 //!     extern "C" {
 //!         pub type foo;
@@ -179,7 +185,7 @@
 //!     #[pin]
 //!     _p: PhantomPinned,
 //!     #[pin]
-//!     foo: UnsafeCell<bindings::foo>,
+//!     foo: UnsafeCell<MaybeUninit<bindings::foo>>,
 //! }
 //!
 //! impl RawFoo {
@@ -192,15 +198,16 @@
 //!             pin_init_from_closure(move |slot: *mut Self| {
 //!                 // `slot` contains uninit memory, avoid creating a reference.
 //!                 let foo = addr_of_mut!((*slot).foo);
+//!                 let foo = UnsafeCell::raw_get(foo).cast::<bindings::foo>();
 //!
 //!                 // Initialize the `foo`
-//!                 bindings::init_foo(UnsafeCell::raw_get(foo));
+//!                 bindings::init_foo(foo);
 //!
 //!                 // Try to enable it.
-//!                 let err = bindings::enable_foo(UnsafeCell::raw_get(foo), flags);
+//!                 let err = bindings::enable_foo(foo, flags);
 //!                 if err != 0 {
 //!                     // Enabling has failed, first clean up the foo and then return the error.
-//!                     bindings::destroy_foo(UnsafeCell::raw_get(foo));
+//!                     bindings::destroy_foo(foo);
 //!                     Err(err)
 //!                 } else {
 //!                     // All fields of `RawFoo` have been initialized, since `_p` is a ZST.
@@ -215,7 +222,7 @@
 //! impl PinnedDrop for RawFoo {
 //!     fn drop(self: Pin<&mut Self>) {
 //!         // SAFETY: Since `foo` is initialized, destroying is safe.
-//!         unsafe { bindings::destroy_foo(self.foo.get()) };
+//!         unsafe { bindings::destroy_foo(self.foo.get().cast::<bindings::foo>()) };
 //!     }
 //! }
 //! ```
