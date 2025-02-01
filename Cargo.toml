@@ -15,7 +15,7 @@ categories = ["no-std", "rust-patterns", "embedded"]
 
 [dependencies]
 paste = "1.0"
-pinned-init-macro = { path = "./pinned-init-macro", version = "=0.0.5" }
+pinned-init-macro = { path = "./internal", version = "=0.0.5" }
 
 [features]
 default = ["std", "alloc"]
