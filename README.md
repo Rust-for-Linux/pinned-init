@@ -43,7 +43,7 @@ stable compilers have neither `Box` nor `Arc` in no-std mode.
 To initialize a `struct` with an in-place constructor you will need two things:
 - an in-place constructor,
 - a memory location that can hold your `struct` (this can be the [stack], an [`Arc<T>`],
-  [`Box<T>`] or any other smart pointer that implements [`InPlaceInit`]).
+  [`Box<T>`] or any other smart pointer that supports this library).
 
 To get an in-place constructor there are generally three options:
 - directly creating an in-place constructor using the [`pin_init!`] macro,
@@ -51,15 +51,15 @@ To get an in-place constructor there are generally three options:
 - using the unsafe function [`pin_init_from_closure()`] to manually create an initializer.
 
 Aside from pinned initialization, this library also supports in-place construction without pinning,
-the macros/types/functions are generally named like the pinned variants without the `pin`
+the macros/types/functions are generally named like the pinned variants without the `pin_`
 prefix.
 
 ## Examples
 
-Throughout some examples we will make use of the `CMutex` type which can be found in
-`../examples/mutex.rs`. It is essentially a rebuild of the `mutex` from the Linux kernel in userland. So
-it also uses a wait list and a basic spinlock. Importantly it needs to be pinned to be locked
-and thus is a prime candidate for using this library.
+Throughout the examples we will often make use of the `CMutex` type which can be found in
+`../examples/mutex.rs`. It is essentially a userland rebuild of the `struct mutex` type from
+the Linux kernel. It also uses a wait list and a basic spinlock. Importantly the wait list
+requires it to be pinned to be locked and thus is a prime candidate for using this library.
 
 ### Using the [`pin_init!`] macro
 
@@ -70,7 +70,8 @@ If you want to use [`PinInit`], then you will have to annotate your `struct` wit
 that you need to write `<-` instead of `:` for fields that you want to initialize in-place.
 
 ```rust
-use pinned_init::*;
+use pinned_init::{pin_data, pin_init, InPlaceInit};
+
 #[pin_data]
 struct Foo {
     #[pin]
@@ -88,7 +89,7 @@ let foo = pin_init!(Foo {
 (or just the stack) to actually initialize a `Foo`:
 
 ```rust
-let foo: Result<Pin<Box<Foo>>, _> = Box::pin_init(foo);
+let foo: Result<Pin<Box<Foo>>, AllocError> = Box::pin_init(foo);
 ```
 
 For more information see the [`pin_init!`] macro.
@@ -137,7 +138,7 @@ actually does the initialization in the correct way. Here are the things to look
   `slot` gets called.
 
 ```rust
-use pinned_init::*;
+use pinned_init::{pin_data, pinned_drop, PinInit, PinnedDrop, pin_init_from_closure};
 use core::{
     ptr::addr_of_mut,
     marker::PhantomPinned,
@@ -146,8 +147,11 @@ use core::{
     mem::MaybeUninit,
 };
 mod bindings {
+    #[repr(C)]
+    pub struct foo {
+        /* fields from C ... */
+    }
     extern "C" {
-        pub type foo;
         pub fn init_foo(ptr: *mut foo);
         pub fn destroy_foo(ptr: *mut foo);
         #[must_use = "you must check the error return code"]
@@ -208,7 +212,7 @@ impl PinnedDrop for RawFoo {
 For more information on how to use [`pin_init_from_closure()`], take a look at the uses inside
 the `kernel` crate. The [`sync`] module is a good starting point.
 
-[`sync`]: https://github.com/Rust-for-Linux/linux/tree/rust-next/rust/kernel/sync
+[`sync`]: https://rust.docs.kernel.org/kernel/sync/index.html
 [pinning]: https://doc.rust-lang.org/std/pin/index.html
 [structurally pinned fields]: https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
 [stack]: https://docs.rs/pinned-init/latest/pinned_init/macro.stack_pin_init.html
