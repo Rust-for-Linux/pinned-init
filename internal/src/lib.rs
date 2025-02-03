@@ -48,7 +48,7 @@ use proc_macro::TokenStream;
 /// }
 /// ```
 ///
-/// [`pin_init!`]: ../pinned_init/macro.pin_init.html
+/// [`pin_init!`]: ../pin_init/macro.pin_init.html
 //  ^ cannot use direct link, since `kernel` is not a dependency of `macros`
 #[proc_macro_attribute]
 pub fn pin_data(inner: TokenStream, item: TokenStream) -> TokenStream {

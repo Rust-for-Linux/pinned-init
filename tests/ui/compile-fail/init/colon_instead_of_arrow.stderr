@@ -11,7 +11,7 @@ error[E0308]: mismatched types
    |         arguments to this function are incorrect
    |
    = note:   expected struct `Bar`
-           found opaque type `impl pinned_init::PinInit<Bar>`
+           found opaque type `impl pin_init::PinInit<Bar>`
 note: function defined here
   --> $RUST/core/src/ptr/mod.rs
    |

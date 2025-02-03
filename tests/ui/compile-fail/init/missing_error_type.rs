@@ -1,4 +1,4 @@
-use pinned_init::*;
+use pin_init::*;
 
 struct Foo {
     x: Box<usize>,

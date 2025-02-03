@@ -1,4 +1,4 @@
-use pinned_init::*;
+use pin_init::*;
 use std::marker::{self, PhantomPinned};
 
 #[pin_data]

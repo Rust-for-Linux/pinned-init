@@ -10,7 +10,7 @@ use core::{
     pin::Pin,
     time::Duration,
 };
-use pinned_init::*;
+use pin_init::*;
 use std::{
     sync::Arc,
     thread::{sleep, Builder},

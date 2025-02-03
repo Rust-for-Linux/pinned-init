@@ -1,5 +1,5 @@
 [package]
-name = "pinned-init"
+name = "pin-init"
 version = "0.0.9"
 edition = "2021"
 
@@ -8,14 +8,14 @@ license = "MIT OR Apache-2.0"
 description = "Library to facilitate safe pinned initialization"
 readme = "README.md"
 
-documentation = "https://docs.rs/pinned-init"
-repository = "https://github.com/Rust-for-Linux/pinned-init"
+documentation = "https://docs.rs/pin-init"
+repository = "https://github.com/Rust-for-Linux/pin-init"
 keywords = ["safe", "pin", "init", "no-std", "rust-patterns"]
 categories = ["no-std", "rust-patterns", "embedded"]
 
 [dependencies]
 paste = "1.0"
-pinned-init-macro = { path = "./internal", version = "=0.0.5" }
+pin-init-internal = { path = "./internal", version = "=0.0.5" }
 
 [features]
 default = ["std", "alloc"]

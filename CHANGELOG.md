@@ -69,8 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.6] - 2023-04-08
 
-[unreleased]: https://github.com/Rust-for-Linux/pinned-init/compare/v0.0.9...HEAD
-[0.0.9]: https://github.com/Rust-for-Linux/pinned-init/compare/v0.0.8...v0.0.9
-[0.0.8]: https://github.com/Rust-for-Linux/pinned-init/compare/v0.0.7...v0.0.8
-[0.0.7]: https://github.com/Rust-for-Linux/pinned-init/compare/v0.0.6...v0.0.7
-[0.0.6]: https://github.com/Rust-for-Linux/pinned-init/releases/tag/v0.0.6
+[unreleased]: https://github.com/Rust-for-Linux/pin-init/compare/v0.0.9...HEAD
+[0.0.9]: https://github.com/Rust-for-Linux/pin-init/compare/v0.0.8...v0.0.9
+[0.0.8]: https://github.com/Rust-for-Linux/pin-init/compare/v0.0.7...v0.0.8
+[0.0.7]: https://github.com/Rust-for-Linux/pin-init/compare/v0.0.6...v0.0.7
+[0.0.6]: https://github.com/Rust-for-Linux/pin-init/releases/tag/v0.0.6

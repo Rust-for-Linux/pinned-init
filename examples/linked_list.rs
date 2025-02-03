@@ -11,7 +11,7 @@ use core::{
     ptr::{self, NonNull},
 };
 
-use pinned_init::*;
+use pin_init::*;
 
 #[expect(unused_attributes)]
 mod error;

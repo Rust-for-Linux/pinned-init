@@ -124,7 +124,7 @@ pub(crate) fn pin_data(
 ) -> proc_macro::TokenStream {
     let args: TokenStream = args.into();
     // This proc-macro only does some pre-parsing and then delegates the actual parsing to
-    // `pinned_init::__pin_data!`.
+    // `pin_init::__pin_data!`.
 
     let (
         Generics {
@@ -190,7 +190,7 @@ pub(crate) fn pin_data(
         .collect::<Vec<_>>();
     // This should be the body of the struct `{...}`.
     let last = rest.pop();
-    let mut quoted = quote!(::pinned_init::__pin_data! {
+    let mut quoted = quote!(::pin_init::__pin_data! {
         parse_input:
         @args(#args),
         @sig(#(#rest)*),

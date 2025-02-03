@@ -98,20 +98,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 
 [[package]]
-name = "pinned-init"
+name = "pin-init"
 version = "0.0.9"
 dependencies = [
  "libc",
  "macrotest",
  "paste",
- "pinned-init-macro",
+ "pin-init-internal",
  "prettyplease",
  "rustc_version",
  "trybuild",
 ]
 
 [[package]]
-name = "pinned-init-macro"
+name = "pin-init-internal"
 version = "0.0.5"
 dependencies = [
  "proc-macro2",

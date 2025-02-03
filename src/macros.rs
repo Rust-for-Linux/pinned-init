@@ -121,22 +121,22 @@
 //!             self,
 //!             slot: *mut T,
 //!             // Since `t` is `#[pin]`, this is `PinInit`.
-//!             init: impl ::pinned_init::PinInit<T, E>,
+//!             init: impl ::pin_init::PinInit<T, E>,
 //!         ) -> ::core::result::Result<(), E> {
-//!             unsafe { ::pinned_init::PinInit::__pinned_init(init, slot) }
+//!             unsafe { ::pin_init::PinInit::__pinned_init(init, slot) }
 //!         }
 //!         pub unsafe fn x<E>(
 //!             self,
 //!             slot: *mut usize,
 //!             // Since `x` is not `#[pin]`, this is `Init`.
-//!             init: impl ::pinned_init::Init<usize, E>,
+//!             init: impl ::pin_init::Init<usize, E>,
 //!         ) -> ::core::result::Result<(), E> {
-//!             unsafe { ::pinned_init::Init::__init(init, slot) }
+//!             unsafe { ::pin_init::Init::__init(init, slot) }
 //!         }
 //!     }
 //!     // Implement the internal `HasPinData` trait that associates `Bar` with the pin-data struct
 //!     // that we constructed above.
-//!     unsafe impl<T> ::pinned_init::__internal::HasPinData for Bar<T> {
+//!     unsafe impl<T> ::pin_init::__internal::HasPinData for Bar<T> {
 //!         type PinData = __ThePinData<T>;
 //!         unsafe fn __pin_data() -> Self::PinData {
 //!             __ThePinData {
@@ -147,7 +147,7 @@
 //!     // Implement the internal `PinData` trait that marks the pin-data struct as a pin-data
 //!     // struct. This is important to ensure that no user can implement a rogue `__pin_data`
 //!     // function without using `unsafe`.
-//!     unsafe impl<T> ::pinned_init::__internal::PinData for __ThePinData<T> {
+//!     unsafe impl<T> ::pin_init::__internal::PinData for __ThePinData<T> {
 //!         type Datee = Bar<T>;
 //!     }
 //!     // Now we only want to implement `Unpin` for `Bar` when every structurally pinned field is
@@ -191,7 +191,7 @@
 //!     #[expect(non_camel_case_types)]
 //!     trait UselessPinnedDropImpl_you_need_to_specify_PinnedDrop {}
 //!     impl<
-//!         T: ::pinned_init::PinnedDrop,
+//!         T: ::pin_init::PinnedDrop,
 //!     > UselessPinnedDropImpl_you_need_to_specify_PinnedDrop for T {}
 //!     impl<T> UselessPinnedDropImpl_you_need_to_specify_PinnedDrop for Bar<T> {}
 //! };
@@ -227,11 +227,11 @@
 //!             // - we `use` the `HasPinData` trait in the block, it is only available in that
 //!             //   scope.
 //!             let data = unsafe {
-//!                 use ::pinned_init::__internal::HasPinData;
+//!                 use ::pin_init::__internal::HasPinData;
 //!                 Self::__pin_data()
 //!             };
 //!             // Ensure that `data` really is of type `PinData` and help with type inference:
-//!             let init = ::pinned_init::__internal::PinData::make_closure::<
+//!             let init = ::pin_init::__internal::PinData::make_closure::<
 //!                 _,
 //!                 __InitOk,
 //!                 ::core::convert::Infallible,
@@ -251,7 +251,7 @@
 //!                     // is an error later. This `DropGuard` will drop the field when it gets
 //!                     // dropped and has not yet been forgotten.
 //!                     let __t_guard = unsafe {
-//!                         ::pinned_init::__internal::DropGuard::new(::core::addr_of_mut!((*slot).t))
+//!                         ::pin_init::__internal::DropGuard::new(::core::addr_of_mut!((*slot).t))
 //!                     };
 //!                     // Expansion of `x: 0,`:
 //!                     // Since this can be an arbitrary expression we cannot place it inside
@@ -262,7 +262,7 @@
 //!                     }
 //!                     // We again create a `DropGuard`.
 //!                     let __x_guard = unsafe {
-//!                         ::pinned_init::__internal::DropGuard::new(::core::addr_of_mut!((*slot).x))
+//!                         ::pin_init::__internal::DropGuard::new(::core::addr_of_mut!((*slot).x))
 //!                     };
 //!                     // Since initialization has successfully completed, we can now forget
 //!                     // the guards. This is not `mem::forget`, since we only have
@@ -303,7 +303,7 @@
 //!             };
 //!             // Construct the initializer.
 //!             let init = unsafe {
-//!                 ::pinned_init::pin_init_from_closure::<
+//!                 ::pin_init::pin_init_from_closure::<
 //!                     _,
 //!                     ::core::convert::Infallible,
 //!                 >(init)
@@ -350,19 +350,19 @@
 //!         unsafe fn b<E>(
 //!             self,
 //!             slot: *mut Bar<u32>,
-//!             init: impl ::pinned_init::PinInit<Bar<u32>, E>,
+//!             init: impl ::pin_init::PinInit<Bar<u32>, E>,
 //!         ) -> ::core::result::Result<(), E> {
-//!             unsafe { ::pinned_init::PinInit::__pinned_init(init, slot) }
+//!             unsafe { ::pin_init::PinInit::__pinned_init(init, slot) }
 //!         }
 //!         unsafe fn a<E>(
 //!             self,
 //!             slot: *mut usize,
-//!             init: impl ::pinned_init::Init<usize, E>,
+//!             init: impl ::pin_init::Init<usize, E>,
 //!         ) -> ::core::result::Result<(), E> {
-//!             unsafe { ::pinned_init::Init::__init(init, slot) }
+//!             unsafe { ::pin_init::Init::__init(init, slot) }
 //!         }
 //!     }
-//!     unsafe impl ::pinned_init::__internal::HasPinData for Foo {
+//!     unsafe impl ::pin_init::__internal::HasPinData for Foo {
 //!         type PinData = __ThePinData;
 //!         unsafe fn __pin_data() -> Self::PinData {
 //!             __ThePinData {
@@ -370,7 +370,7 @@
 //!             }
 //!         }
 //!     }
-//!     unsafe impl ::pinned_init::__internal::PinData for __ThePinData {
+//!     unsafe impl ::pin_init::__internal::PinData for __ThePinData {
 //!         type Datee = Foo;
 //!     }
 //!     #[allow(dead_code)]
@@ -394,8 +394,8 @@
 //!             let pinned = unsafe { ::core::pin::Pin::new_unchecked(self) };
 //!             // Create the unsafe token that proves that we are inside of a destructor, this
 //!             // type is only allowed to be created in a destructor.
-//!             let token = unsafe { ::pinned_init::__internal::OnlyCallFromDrop::new() };
-//!             ::pinned_init::PinnedDrop::drop(pinned, token);
+//!             let token = unsafe { ::pin_init::__internal::OnlyCallFromDrop::new() };
+//!             ::pin_init::PinnedDrop::drop(pinned, token);
 //!         }
 //!     }
 //! };
@@ -421,8 +421,8 @@
 //!
 //! ```rust,ignore
 //! // `unsafe`, full path and the token parameter are added, everything else stays the same.
-//! unsafe impl ::pinned_init::PinnedDrop for Foo {
-//!     fn drop(self: Pin<&mut Self>, _: ::pinned_init::__internal::OnlyCallFromDrop) {
+//! unsafe impl ::pin_init::PinnedDrop for Foo {
+//!     fn drop(self: Pin<&mut Self>, _: ::pin_init::__internal::OnlyCallFromDrop) {
 //!         println!("{self:p} is getting dropped.");
 //!     }
 //! }
@@ -448,10 +448,10 @@
 //! let initializer = {
 //!     struct __InitOk;
 //!     let data = unsafe {
-//!         use ::pinned_init::__internal::HasPinData;
+//!         use ::pin_init::__internal::HasPinData;
 //!         Foo::__pin_data()
 //!     };
-//!     let init = ::pinned_init::__internal::PinData::make_closure::<
+//!     let init = ::pin_init::__internal::PinData::make_closure::<
 //!         _,
 //!         __InitOk,
 //!         ::core::convert::Infallible,
@@ -462,12 +462,12 @@
 //!                 unsafe { ::core::ptr::write(::core::addr_of_mut!((*slot).a), a) };
 //!             }
 //!             let __a_guard = unsafe {
-//!                 ::pinned_init::__internal::DropGuard::new(::core::addr_of_mut!((*slot).a))
+//!                 ::pin_init::__internal::DropGuard::new(::core::addr_of_mut!((*slot).a))
 //!             };
 //!             let init = Bar::new(36);
 //!             unsafe { data.b(::core::addr_of_mut!((*slot).b), b)? };
 //!             let __b_guard = unsafe {
-//!                 ::pinned_init::__internal::DropGuard::new(::core::addr_of_mut!((*slot).b))
+//!                 ::pin_init::__internal::DropGuard::new(::core::addr_of_mut!((*slot).b))
 //!             };
 //!             ::core::mem::forget(__b_guard);
 //!             ::core::mem::forget(__a_guard);
@@ -492,7 +492,7 @@
 //!         init(slot).map(|__InitOk| ())
 //!     };
 //!     let init = unsafe {
-//!         ::pinned_init::pin_init_from_closure::<_, ::core::convert::Infallible>(init)
+//!         ::pin_init::pin_init_from_closure::<_, ::core::convert::Infallible>(init)
 //!     };
 //!     init
 //! };

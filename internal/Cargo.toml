@@ -1,13 +1,13 @@
 [package]
-name = "pinned-init-macro"
+name = "pin-init-internal"
 version = "0.0.5"
 edition = "2021"
 
 authors = ["y86-dev"]
 license = "MIT OR Apache-2.0"
-description = "Proc macros for the pinned-init crate."
+description = "Proc macros for the pin-init crate."
 
-repository = "https://github.com/Rust-for-Linux/pinned-init"
+repository = "https://github.com/Rust-for-Linux/pin-init"
 
 [lib]
 proc-macro = true

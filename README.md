@@ -1,9 +1,9 @@
-[![Crates.io](https://img.shields.io/crates/v/pinned-init.svg)](https://crates.io/crates/pinned-init)
-[![Documentation](https://docs.rs/pinned-init/badge.svg)](https://docs.rs/pinned-init/)
-[![Dependency status](https://deps.rs/repo/github/Rust-for-Linux/pinned-init/status.svg)](https://deps.rs/repo/github/Rust-for-Linux/pinned-init)
-![License](https://img.shields.io/crates/l/pinned-init)
+[![Crates.io](https://img.shields.io/crates/v/pin-init.svg)](https://crates.io/crates/pin-init)
+[![Documentation](https://docs.rs/pin-init/badge.svg)](https://docs.rs/pin-init/)
+[![Dependency status](https://deps.rs/repo/github/Rust-for-Linux/pin-init/status.svg)](https://deps.rs/repo/github/Rust-for-Linux/pin-init)
+![License](https://img.shields.io/crates/l/pin-init)
 [![Toolchain](https://img.shields.io/badge/toolchain-nightly-red)](#nightly-only)
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Rust-for-Linux/pinned-init/test.yml)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Rust-for-Linux/pin-init/test.yml)
 # Pinned-init
 
 <!-- cargo-rdme start -->
@@ -33,10 +33,10 @@ is enabled and thus this feature can only be used with a nightly compiler.
 When enabling the `alloc` feature, the user will be required to activate
 `allocator_api` as well.
 
-The feature is enabled by default, thus by default `pinned-init` will require a
-nightly compiler. However, using the crate on stable compilers is possible by
-disabling `alloc`. In practice this will require the `std` feature, because
-stable compilers have neither `Box` nor `Arc` in no-std mode.
+The feature is enabled by default, thus by default `pin-init` will require a nightly compiler.
+However, using the crate on stable compilers is possible by disabling `alloc`. In practice this
+will require the `std` feature, because stable compilers have neither `Box` nor `Arc` in no-std
+mode.
 
 ## Overview
 
@@ -70,7 +70,7 @@ If you want to use [`PinInit`], then you will have to annotate your `struct` wit
 that you need to write `<-` instead of `:` for fields that you want to initialize in-place.
 
 ```rust
-use pinned_init::{pin_data, pin_init, InPlaceInit};
+use pin_init::{pin_data, pin_init, InPlaceInit};
 
 #[pin_data]
 struct Foo {
@@ -117,7 +117,7 @@ impl DriverData {
     fn new() -> impl PinInit<Self, Error> {
         try_pin_init!(Self {
             status <- CMutex::new(0),
-            buffer: Box::init(pinned_init::zeroed())?,
+            buffer: Box::init(pin_init::zeroed())?,
         }? Error)
     }
 }
@@ -138,7 +138,7 @@ actually does the initialization in the correct way. Here are the things to look
   `slot` gets called.
 
 ```rust
-use pinned_init::{pin_data, pinned_drop, PinInit, PinnedDrop, pin_init_from_closure};
+use pin_init::{pin_data, pinned_drop, PinInit, PinnedDrop, pin_init_from_closure};
 use core::{
     ptr::addr_of_mut,
     marker::PhantomPinned,
@@ -215,12 +215,12 @@ the `kernel` crate. The [`sync`] module is a good starting point.
 [`sync`]: https://rust.docs.kernel.org/kernel/sync/index.html
 [pinning]: https://doc.rust-lang.org/std/pin/index.html
 [structurally pinned fields]: https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
-[stack]: https://docs.rs/pinned-init/latest/pinned_init/macro.stack_pin_init.html
+[stack]: https://docs.rs/pin-init/latest/pin_init/macro.stack_pin_init.html
 [`Arc<T>`]: https://doc.rust-lang.org/stable/alloc/sync/struct.Arc.html
 [`Box<T>`]: https://doc.rust-lang.org/stable/alloc/boxed/struct.Box.html
-[`impl PinInit<Foo>`]: https://docs.rs/pinned-init/latest/pinned_init/trait.PinInit.html
-[`impl PinInit<T, E>`]: https://docs.rs/pinned-init/latest/pinned_init/trait.PinInit.html
-[`impl Init<T, E>`]: https://docs.rs/pinned-init/latest/pinned_init/trait.Init.html
+[`impl PinInit<Foo>`]: https://docs.rs/pin-init/latest/pin_init/trait.PinInit.html
+[`impl PinInit<T, E>`]: https://docs.rs/pin-init/latest/pin_init/trait.PinInit.html
+[`impl Init<T, E>`]: https://docs.rs/pin-init/latest/pin_init/trait.Init.html
 [Rust-for-Linux]: https://rust-for-linux.com/
 
 <!-- cargo-rdme end -->

@@ -17,7 +17,7 @@ use std::{
     time::Duration,
 };
 
-use pinned_init::*;
+use pin_init::*;
 #[expect(unused_attributes)]
 #[path = "./linked_list.rs"]
 pub mod linked_list;
