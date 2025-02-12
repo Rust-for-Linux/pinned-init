@@ -7,12 +7,12 @@ struct Foo<'a, 'b: 'a, T: Bar<'b> + ?Sized + 'a, const SIZE: usize = 0>
 where
     T: Bar<'a, 1>,
 {
-    array: [u8; 1024 * 1024],
+    _array: [u8; 1024 * 1024],
     r: &'b mut [&'a mut T; SIZE],
     _pin: PhantomPinned,
 }
 const _: () = {
-    struct __ThePinData<'a, 'b: 'a, T: Bar<'b> + ?Sized + 'a, const SIZE: usize>
+    struct __ThePinData<'a, 'b: 'a, T: Bar<'b> + ?Sized + 'a, const SIZE: usize = 0>
     where
         T: Bar<'a, 1>,
     {
@@ -52,7 +52,7 @@ const _: () = {
         ) -> ::core::result::Result<(), E> {
             unsafe { ::pin_init::PinInit::__pinned_init(init, slot) }
         }
-        unsafe fn array<E>(
+        unsafe fn _array<E>(
             self,
             slot: *mut [u8; 1024 * 1024],
             init: impl ::pin_init::Init<[u8; 1024 * 1024], E>,
@@ -95,7 +95,7 @@ const _: () = {
         type Datee = Foo<'a, 'b, T, SIZE>;
     }
     #[allow(dead_code)]
-    struct __Unpin<'__pin, 'a, 'b: 'a, T: Bar<'b> + ?Sized + 'a, const SIZE: usize>
+    struct __Unpin<'__pin, 'a, 'b: 'a, T: Bar<'b> + ?Sized + 'a, const SIZE: usize = 0>
     where
         T: Bar<'a, 1>,
     {

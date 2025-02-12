@@ -5,3 +5,5 @@ struct Foo {
     a: Box<Foo>
     b: Box<Foo>
 }
+
+fn main() {}
