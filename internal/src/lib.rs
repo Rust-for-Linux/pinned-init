@@ -29,10 +29,14 @@ extern crate quote;
 
 mod helpers;
 mod pin_data;
+#[cfg(kernel)]
 mod pinned_drop;
 #[cfg(kernel)]
 mod zeroable;
 
+#[cfg(not(kernel))]
+#[path = "syn_pinned_drop.rs"]
+mod pinned_drop;
 #[cfg(not(kernel))]
 #[path = "syn_zeroable.rs"]
 mod zeroable;
