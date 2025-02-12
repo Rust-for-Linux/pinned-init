@@ -1,5 +1,5 @@
 error[E0277]: `?` couldn't convert the error to `std::alloc::AllocError`
-  --> tests/ui/compile-fail/init/no_error_coercion.rs:16:9
+  --> tests/ui/compile-fail/init/no_error_coercion.rs:19:22
    |
 16 | /         try_init!(Self {
 17 | |             a: Box::new(42),
@@ -7,8 +7,8 @@ error[E0277]: `?` couldn't convert the error to `std::alloc::AllocError`
 19 | |         }? AllocError)
    | |                      ^
    | |                      |
-   | |______________________this can't be annotated with `?` because it has type `Result<_, Infallible>`
-   |                        the trait `From<Infallible>` is not implemented for `std::alloc::AllocError`
+   | |______________________the trait `From<Infallible>` is not implemented for `std::alloc::AllocError`
+   |                        this can't be annotated with `?` because it has type `Result<_, Infallible>`
    |
    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
-   = note: this error originates in the macro `$crate::__init_internal` which comes from the expansion of the macro `try_init` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the macro `try_init` (in Nightly builds, run with -Z macro-backtrace for more info)

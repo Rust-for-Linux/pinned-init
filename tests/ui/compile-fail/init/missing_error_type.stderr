@@ -1,11 +1,7 @@
-error: unexpected end of macro invocation
- --> tests/ui/compile-fail/init/missing_error_type.rs:8:47
+error: unexpected end of input, expected one of: `for`, parentheses, `fn`, `unsafe`, `extern`, identifier, `::`, `<`, `dyn`, square brackets, `*`, `&`, `!`, `impl`, `_`, lifetime
+ --> tests/ui/compile-fail/init/missing_error_type.rs:8:13
   |
 8 |     let _ = try_init!(Foo { x: Box::new(0)? }?);
-  |                                               ^ missing tokens in macro arguments
+  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
-note: while trying to match meta-variable `$err:ty`
- --> src/lib.rs
-  |
-  |     }? $err:ty) => {
-  |        ^^^^^^^
+  = note: this error originates in the macro `try_init` (in Nightly builds, run with -Z macro-backtrace for more info)

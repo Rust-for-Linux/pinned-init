@@ -33,6 +33,8 @@ mod pinned_drop;
 mod zeroable;
 
 #[cfg(not(kernel))]
+mod init;
+#[cfg(not(kernel))]
 #[path = "syn_pin_data.rs"]
 mod pin_data;
 #[cfg(not(kernel))]
@@ -55,4 +57,80 @@ pub fn pinned_drop(args: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Zeroable)]
 pub fn derive_zeroable(input: TokenStream) -> TokenStream {
     zeroable::derive(input.into()).into()
+}
+
+#[cfg(kernel)]
+#[proc_macro]
+pub fn pin_init(input: TokenStream) -> TokenStream {
+    quote!(::pin_init::__internal_pin_init!(#input))
+}
+
+#[cfg(not(kernel))]
+#[proc_macro]
+pub fn pin_init(input: TokenStream) -> TokenStream {
+    use syn::parse_macro_input;
+    init::init(
+        parse_macro_input!(input as init::InPlaceInitializer),
+        true,
+        true,
+    )
+    .unwrap_or_else(|e| e.into_compile_error())
+    .into()
+}
+
+#[cfg(kernel)]
+#[proc_macro]
+pub fn init(input: TokenStream) -> TokenStream {
+    quote!(::pin_init::__internal_init!(#input))
+}
+
+#[cfg(not(kernel))]
+#[proc_macro]
+pub fn init(input: TokenStream) -> TokenStream {
+    use syn::parse_macro_input;
+    init::init(
+        parse_macro_input!(input as init::InPlaceInitializer),
+        true,
+        false,
+    )
+    .unwrap_or_else(|e| e.into_compile_error())
+    .into()
+}
+
+#[cfg(kernel)]
+#[proc_macro]
+pub fn try_pin_init(input: TokenStream) -> TokenStream {
+    quote!(::pin_init::__internal_try_pin_init!(#input))
+}
+
+#[cfg(not(kernel))]
+#[proc_macro]
+pub fn try_pin_init(input: TokenStream) -> TokenStream {
+    use syn::parse_macro_input;
+    init::init(
+        parse_macro_input!(input as init::InPlaceInitializer),
+        false,
+        true,
+    )
+    .unwrap_or_else(|e| e.into_compile_error())
+    .into()
+}
+
+#[cfg(kernel)]
+#[proc_macro]
+pub fn try_init(input: TokenStream) -> TokenStream {
+    quote!(::pin_init::__internal_try_init!(#input))
+}
+
+#[cfg(not(kernel))]
+#[proc_macro]
+pub fn try_init(input: TokenStream) -> TokenStream {
+    use syn::parse_macro_input;
+    init::init(
+        parse_macro_input!(input as init::InPlaceInitializer),
+        false,
+        false,
+    )
+    .unwrap_or_else(|e| e.into_compile_error())
+    .into()
 }
