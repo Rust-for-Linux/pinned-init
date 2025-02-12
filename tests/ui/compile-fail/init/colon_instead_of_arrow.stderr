@@ -1,14 +1,13 @@
 error[E0308]: mismatched types
-  --> tests/ui/compile-fail/init/colon_instead_of_arrow.rs:21:9
+  --> tests/ui/compile-fail/init/colon_instead_of_arrow.rs:21:31
    |
 14 |     fn new() -> impl PinInit<Self> {
    |                 ------------------ the found opaque type
 ...
 21 |         pin_init!(Self { bar: Bar::new() })
-   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |         |
-   |         expected `Bar`, found opaque type
-   |         arguments to this function are incorrect
+   |                          ---  ^^^^^^^^^^ expected `Bar`, found opaque type
+   |                          |
+   |                          arguments to this function are incorrect
    |
    = note:   expected struct `Bar`
            found opaque type `impl pin_init::PinInit<Bar>`
@@ -17,4 +16,3 @@ note: function defined here
    |
    | pub const unsafe fn write<T>(dst: *mut T, src: T) {
    |                     ^^^^^
-   = note: this error originates in the macro `$crate::__init_internal` which comes from the expansion of the macro `pin_init` (in Nightly builds, run with -Z macro-backtrace for more info)

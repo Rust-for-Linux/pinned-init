@@ -1,4 +1,3 @@
-extern crate pin_init;
 use pin_init::*;
 
 #[derive(Zeroable)]

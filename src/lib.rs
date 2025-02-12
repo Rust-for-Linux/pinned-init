@@ -723,11 +723,22 @@ macro_rules! stack_try_pin_init {
 macro_rules! pin_init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
-    }) => {
-        $crate::try_pin_init!($(&$this in)? $t $(::<$($generics),*>)? {
-            $($fields)*
-        }? ::core::convert::Infallible)
-    };
+    }) => {{
+        let tmp;
+        #[cfg(kernel)]
+        {
+            tmp = $crate::try_pin_init!($(&$this in)? $t $(::<$($generics),*>)? {
+                $($fields)*
+            }? ::core::convert::Infallible);
+        }
+        #[cfg(not(kernel))]
+        {
+            tmp = $crate::__internal::pin_init!($(&$this in)? $t $(::<$($generics),*>)? {
+                $($fields)*
+            });
+        }
+        tmp
+    }};
 }
 
 /// Construct an in-place, fallible pinned initializer for `struct`s.
@@ -774,18 +785,29 @@ macro_rules! pin_init {
 macro_rules! try_pin_init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
-    }? $err:ty) => {
-        $crate::__init_internal!(
-            @this($($this)?),
-            @typ($t $(::<$($generics),*>)? ),
-            @fields($($fields)*),
-            @error($err),
-            @data(PinData, use_data),
-            @has_data(HasPinData, __pin_data),
-            @construct_closure(pin_init_from_closure),
-            @munch_fields($($fields)*),
-        )
-    }
+    }? $err:ty) => {{
+        let tmp;
+        #[cfg(kernel)]
+        {
+            tmp = $crate::__init_internal!(
+                @this($($this)?),
+                @typ($t $(::<$($generics),*>)? ),
+                @fields($($fields)*),
+                @error($err),
+                @data(PinData, use_data),
+                @has_data(HasPinData, __pin_data),
+                @construct_closure(pin_init_from_closure),
+                @munch_fields($($fields)*),
+            );
+        }
+        #[cfg(not(kernel))]
+        {
+            tmp = $crate::__internal::try_pin_init!($(&$this in)? $t $(::<$($generics),*>)? {
+                $($fields)*
+            }? $err);
+        }
+        tmp
+    }}
 }
 
 /// Construct an in-place initializer for `struct`s.
@@ -830,11 +852,22 @@ macro_rules! try_pin_init {
 macro_rules! init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
-    }) => {
-        $crate::try_init!($(&$this in)? $t $(::<$($generics),*>)? {
-            $($fields)*
-        }? ::core::convert::Infallible)
-    }
+    }) => {{
+        let tmp;
+        #[cfg(kernel)]
+        {
+            tmp = $crate::try_init!($(&$this in)? $t $(::<$($generics),*>)? {
+                $($fields)*
+            }? ::core::convert::Infallible);
+        }
+        #[cfg(not(kernel))]
+        {
+            tmp = $crate::__internal::init!($(&$this in)? $t $(::<$($generics),*>)? {
+                $($fields)*
+            });
+        }
+        tmp
+    }}
 }
 
 /// Construct an in-place fallible initializer for `struct`s.
@@ -879,18 +912,29 @@ macro_rules! init {
 macro_rules! try_init {
     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
         $($fields:tt)*
-    }? $err:ty) => {
-        $crate::__init_internal!(
-            @this($($this)?),
-            @typ($t $(::<$($generics),*>)?),
-            @fields($($fields)*),
-            @error($err),
-            @data(InitData, /*no use_data*/),
-            @has_data(HasInitData, __init_data),
-            @construct_closure(init_from_closure),
-            @munch_fields($($fields)*),
-        )
-    }
+    }? $err:ty) => {{
+        let tmp;
+        #[cfg(kernel)]
+        {
+            tmp = $crate::__init_internal!(
+                @this($($this)?),
+                @typ($t $(::<$($generics),*>)?),
+                @fields($($fields)*),
+                @error($err),
+                @data(InitData, /*no use_data*/),
+                @has_data(HasInitData, __init_data),
+                @construct_closure(init_from_closure),
+                @munch_fields($($fields)*),
+            )
+        }
+        #[cfg(not(kernel))]
+        {
+            tmp = $crate::__internal::try_init!($(&$this in)? $t $(::<$($generics),*>)? {
+                $($fields)*
+            }? $err);
+        }
+        tmp
+    }}
 }
 
 /// Asserts that a field on a struct using `#[pin_data]` is marked with `#[pin]` ie. that it is

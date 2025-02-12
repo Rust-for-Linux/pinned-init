@@ -287,3 +287,12 @@ unsafe impl<T: ?Sized> PinInit<T, ()> for AlwaysFail<T> {
         Err(())
     }
 }
+
+#[cfg(not(kernel))]
+pub use ::pin_init_internal::init;
+#[cfg(not(kernel))]
+pub use ::pin_init_internal::pin_init;
+#[cfg(not(kernel))]
+pub use ::pin_init_internal::try_init;
+#[cfg(not(kernel))]
+pub use ::pin_init_internal::try_pin_init;
