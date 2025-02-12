@@ -30,6 +30,11 @@ extern crate quote;
 mod helpers;
 mod pin_data;
 mod pinned_drop;
+#[cfg(kernel)]
+mod zeroable;
+
+#[cfg(not(kernel))]
+#[path = "syn_zeroable.rs"]
 mod zeroable;
 
 #[proc_macro_attribute]
