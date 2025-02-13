@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/crates/l/pin-init)
 [![Toolchain](https://img.shields.io/badge/toolchain-nightly-red)](#nightly-only)
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Rust-for-Linux/pin-init/test.yml)
-# Pinned-init
+# `pin-init`
 
 <!-- cargo-rdme start -->
 

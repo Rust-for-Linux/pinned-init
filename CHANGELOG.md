@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `PinInit` is now a supertrait of `Init` (before there was a blanket impl) 
+- `PinInit` is now a supertrait of `Init` (before there was a blanket impl)
 
 ### Removed
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-//! This module provides the macros that actually implement the proc-macros `pin_data`,
-//! `pinned_drop` and the derive macro for zeroable. It also contains `__init_internal` the
-//! implementation of the `{try_}{pin_}init!` macros.
+//! This module provides the macros that actually implement the proc-macros `pin_data` and
+//! `pinned_drop`. It also contains `__init_internal`, the implementation of the
+//! `{try_}{pin_}init!` macros.
 //!
 //! These macros should never be called directly, since they expect their input to be
 //! in a certain format which is internal. If used incorrectly, these macros can lead to UB even in
@@ -497,6 +497,11 @@
 //!     init
 //! };
 //! ```
+
+#[cfg(kernel)]
+pub use ::macros::paste;
+#[cfg(not(kernel))]
+pub use ::paste::paste;
 
 /// Creates a `unsafe impl<...> PinnedDrop for $type` block.
 ///
@@ -994,6 +999,7 @@ macro_rules! __pin_data {
         where $($whr)*
         {
             $(
+                $(#[$($p_attr)*])*
                 $pvis unsafe fn $p_field<E>(
                     self,
                     slot: *mut $p_type,
@@ -1004,6 +1010,7 @@ macro_rules! __pin_data {
                 }
             )*
             $(
+                $(#[$($attr)*])*
                 $fvis unsafe fn $field<E>(
                     self,
                     slot: *mut $type,
@@ -1016,8 +1023,6 @@ macro_rules! __pin_data {
         }
     };
 }
-
-pub use paste::paste;
 
 /// The internal init macro. Do not call manually!
 ///

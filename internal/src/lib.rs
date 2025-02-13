@@ -1,101 +1,47 @@
-#![cfg_attr(not(RUSTC_LINT_REASONS_IS_STABLE), feature(lint_reasons))]
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 
+// When fixdep scans this, it will find this string `CONFIG_RUSTC_VERSION_TEXT`
+// and thus add a dependency on `include/config/RUSTC_VERSION_TEXT`, which is
+// touched by Kconfig when the version string from the compiler changes.
+
+//! `pin-init` proc macros.
+
+#![cfg_attr(not(RUSTC_LINT_REASONS_IS_STABLE), feature(lint_reasons))]
+// Allow `.into()` to convert
+// - `proc_macro2::TokenStream` into `proc_macro::TokenStream` in the user-space version.
+// - `proc_macro::TokenStream` into `proc_macro::TokenStream` in the kernel version.
+//   Clippy warns on this conversion, but it's required by the user-space version.
+//
+// Remove once we have `proc_macro2` in the kernel.
+#![allow(clippy::useless_conversion)]
+// Documentation is done in the pin-init crate instead.
+#![allow(missing_docs)]
+
+use proc_macro::TokenStream;
+
+#[cfg(kernel)]
+#[path = "../../../macros/quote.rs"]
+#[macro_use]
+mod quote;
+#[cfg(not(kernel))]
+#[macro_use]
+extern crate quote;
+
+mod helpers;
 mod pin_data;
 mod pinned_drop;
 mod zeroable;
 
-use proc_macro::TokenStream;
-
-/// Used to specify the pinning information of the fields of a struct.
-///
-/// This is somewhat similar in purpose as
-/// [pin-project-lite](https://crates.io/crates/pin-project-lite).
-/// Place this macro on a struct definition and then `#[pin]` in front of the attributes of each
-/// field you want to have structurally pinned.
-///
-/// This macro enables the use of the [`pin_init!`] macro. When pinned-initializing a `struct`,
-/// then `#[pin]` directs the type of initializer that is required.
-///
-/// If your `struct` implements `Drop`, then you need to add `PinnedDrop` as arguments to this
-/// macro, and change your `Drop` implementation to `PinnedDrop` annotated with
-/// `#[`[`macro@pinned_drop`]`]`, since dropping pinned values requires extra care.
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// #[pin_data]
-/// struct DriverData {
-///     #[pin]
-///     queue: Mutex<Vec<Command>>,
-///     buf: Box<[u8; 1024 * 1024]>,
-/// }
-/// ```
-///
-/// ```rust,ignore
-/// #[pin_data(PinnedDrop)]
-/// struct DriverData {
-///     #[pin]
-///     queue: Mutex<Vec<Command>>,
-///     buf: Box<[u8; 1024 * 1024]>,
-///     raw_info: *mut Info,
-/// }
-///
-/// #[pinned_drop]
-/// impl PinnedDrop for DriverData {
-///     fn drop(self: Pin<&mut Self>) {
-///         unsafe { bindings::destroy_info(self.raw_info) };
-///     }
-/// }
-/// ```
-///
-/// [`pin_init!`]: ../pin_init/macro.pin_init.html
-//  ^ cannot use direct link, since `kernel` is not a dependency of `macros`
 #[proc_macro_attribute]
 pub fn pin_data(inner: TokenStream, item: TokenStream) -> TokenStream {
-    pin_data::pin_data(inner, item)
+    pin_data::pin_data(inner.into(), item.into()).into()
 }
 
-/// Used to implement `PinnedDrop` safely.
-///
-/// Only works on structs that are annotated via `#[`[`macro@pin_data`]`]`.
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// #[pin_data(PinnedDrop)]
-/// struct DriverData {
-///     #[pin]
-///     queue: Mutex<Vec<Command>>,
-///     buf: Box<[u8; 1024 * 1024]>,
-///     raw_info: *mut Info,
-/// }
-///
-/// #[pinned_drop]
-/// impl PinnedDrop for DriverData {
-///     fn drop(self: Pin<&mut Self>) {
-///         unsafe { bindings::destroy_info(self.raw_info) };
-///     }
-/// }
-/// ```
 #[proc_macro_attribute]
 pub fn pinned_drop(args: TokenStream, input: TokenStream) -> TokenStream {
-    pinned_drop::pinned_drop(args, input)
+    pinned_drop::pinned_drop(args.into(), input.into()).into()
 }
 
-/// Derives the [`Zeroable`] trait for the given struct.
-///
-/// This can only be used for structs where every field implements the [`Zeroable`] trait.
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// #[derive(Zeroable)]
-/// pub struct DriverData {
-///     id: i64,
-///     buf_ptr: *mut u8,
-///     len: usize,
-/// }
-/// ```
 #[proc_macro_derive(Zeroable)]
 pub fn derive_zeroable(input: TokenStream) -> TokenStream {
     zeroable::derive(input.into()).into()

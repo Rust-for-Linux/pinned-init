@@ -78,7 +78,9 @@ impl<T> CMutex<T> {
             spin_lock: SpinLock::new(),
             locked: Cell::new(false),
             data <- unsafe {
-                pin_init_from_closure(|slot: *mut UnsafeCell<T>| val.__pinned_init(slot.cast::<T>()))
+                pin_init_from_closure(|slot: *mut UnsafeCell<T>| {
+                    val.__pinned_init(slot.cast::<T>())
+                })
             },
         })
     }

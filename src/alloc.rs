@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::{boxed::Box, sync::Arc};
 #[cfg(feature = "alloc")]
@@ -9,10 +11,17 @@ use std::sync::Arc;
 #[cfg(not(feature = "alloc"))]
 type AllocError = core::convert::Infallible;
 
-use crate::{init_from_closure, pin_init_from_closure, InPlaceWrite, Init, PinInit};
+use crate::{
+    init_from_closure, pin_init_from_closure, InPlaceWrite, Init, PinInit, ZeroableOption,
+};
 
-#[cfg(feature = "alloc")]
-extern crate alloc;
+pub extern crate alloc;
+
+// SAFETY: All zeros is equivalent to `None` (option layout optimization guarantee).
+//
+// In this case we are allowed to use `T: ?Sized`, since all zeros is the `None` variant and there
+// is no problem with a VTABLE pointer being null.
+unsafe impl<T: ?Sized> ZeroableOption for Box<T> {}
 
 /// Smart pointer that can initialize memory in-place.
 pub trait InPlaceInit<T>: Sized {

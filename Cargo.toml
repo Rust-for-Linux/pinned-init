@@ -34,7 +34,7 @@ prettyplease = { version = "0.2", features = ["verbatim"] }
 
 [lints.rust]
 non_ascii_idents = "deny"
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(NO_UI_TESTS)', 'cfg(NO_ALLOC_FAIL_TESTS)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(NO_UI_TESTS)', 'cfg(NO_ALLOC_FAIL_TESTS)', 'cfg(kernel)'] }
 unsafe_op_in_unsafe_fn = "deny"
 unused_attributes = "deny"
 warnings = "deny"

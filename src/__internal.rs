@@ -2,18 +2,8 @@
 
 //! This module contains library internal items.
 //!
-//! These items must not be used outside of these files in the case of the kernel repository:
-//! - `../kernel/init.rs`
-//! - `./lib.rs`
-//! - `./macros.rs`
-//! - `../macros/pin_data.rs`
-//! - `../macros/pinned_drop.rs`
-//!
-//! And in the case of the `pinned-init` repository:
-//! - `./lib.rs`
-//! - `./macros.rs`
-//! - `../pinned-init-macro/src/pinned_drop.rs`
-//! - `../pinned-init-macro/src/pin_data.rs`
+//! These items must not be used outside of this crate and the pin-init-internal crate located at
+//! `../internal`.
 
 use super::*;
 
@@ -113,7 +103,7 @@ pub unsafe trait InitData: Copy {
     }
 }
 
-pub struct AllData<T: ?Sized>(PhantomData<fn(*const T) -> *const T>);
+pub struct AllData<T: ?Sized>(Invariant<T>);
 
 impl<T: ?Sized> Clone for AllData<T> {
     fn clone(&self) -> Self {
@@ -196,7 +186,9 @@ impl<T> StackInit<T> {
 
 #[test]
 fn stack_init_reuse() {
+    use ::std::{borrow::ToOwned, println, string::String};
     use core::pin::pin;
+
     #[derive(Debug)]
     struct Foo {
         a: usize,
