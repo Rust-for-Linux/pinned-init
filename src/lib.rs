@@ -282,6 +282,9 @@ mod alloc;
 #[cfg(any(feature = "std", feature = "alloc"))]
 pub use alloc::InPlaceInit;
 
+#[allow(unused_extern_crates)]
+extern crate self as pin_init;
+
 /// Used to specify the pinning information of the fields of a struct.
 ///
 /// This is somewhat similar in purpose as
