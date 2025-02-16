@@ -14,5 +14,6 @@ error[E0599]: no associated item named `__pin_data` found for struct `Foo` in th
 help: there is an associated function `__init_data` with a similar name
  --> src/lib.rs
   |
-  |             @has_data(HasPinData, __init_data),
-  |                                   ~~~~~~~~~~~
+  -             @has_data(HasPinData, __pin_data),
+  +             @has_data(HasPinData, __init_data),
+  |

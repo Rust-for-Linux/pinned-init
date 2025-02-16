@@ -8,5 +8,6 @@ error[E0053]: method `drop` has an incompatible type for trait
              found signature `fn(&mut Foo, OnlyCallFromDrop)`
 help: change the self-receiver type to match the trait
   |
-8 |     fn drop(self: Pin<&mut Foo>) {}
-  |             ~~~~~~~~~~~~~~~~~~~
+8 -     fn drop(&mut self) {}
+8 +     fn drop(self: Pin<&mut Foo>) {}
+  |
