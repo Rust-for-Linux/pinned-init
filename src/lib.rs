@@ -14,16 +14,18 @@
 //! and moving it from the stack is not an option, because it is bigger than the stack itself.
 //! Another reason would be that you need the address of the object to initialize it. This stands
 //! in direct conflict with Rust's normal process of first initializing an object and then moving
-//! it into it's final memory location.
+//! it into it's final memory location. For more information, see
+//! <https://rust-for-linux.com/the-safe-pinned-initialization-problem>.
 //!
 //! This library allows you to do in-place initialization safely.
 //!
 //! ## Nightly Needed for `alloc` feature
 //!
-//! This library requires the `allocator_api` unstable feature when the `alloc` feature
-//! is enabled and thus this feature can only be used with a nightly compiler.
-//! When enabling the `alloc` feature, the user will be required to activate
-//! `allocator_api` as well.
+//! This library requires the [`allocator_api` unstable feature] when the `alloc` feature is
+//! enabled and thus this feature can only be used with a nightly compiler. When enabling the
+//! `alloc` feature, the user will be required to activate `allocator_api` as well.
+//!
+//! [`allocator_api` unstable feature]: https://doc.rust-lang.org/nightly/unstable-book/library-features/allocator-api.html
 //!
 //! The feature is enabled by default, thus by default `pin-init` will require a nightly compiler.
 //! However, using the crate on stable compilers is possible by disabling `alloc`. In practice this
