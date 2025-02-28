@@ -56,7 +56,7 @@ prefix.
 
 ## Examples
 
-Throught some examples we will make use of the `CMutex` type which can be found in
+Throughout some examples we will make use of the `CMutex` type which can be found in
 `../examples/mutex.rs`. It is essentially a rebuild of the `mutex` from the Linux kernel in userland. So
 it also uses a wait list and a basic spinlock. Importantly it needs to be pinned to be locked
 and thus is a prime candidate for using this library.
