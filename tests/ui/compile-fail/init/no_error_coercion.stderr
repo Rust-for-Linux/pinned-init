@@ -11,6 +11,4 @@ error[E0277]: `?` couldn't convert the error to `std::alloc::AllocError`
    |                        the trait `From<Infallible>` is not implemented for `std::alloc::AllocError`
    |
    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
-   = help: the trait `FromResidual<Result<Infallible, E>>` is implemented for `Result<T, F>`
-   = note: required for `Result<Foo::new::__InitOk, std::alloc::AllocError>` to implement `FromResidual<Result<Infallible, Infallible>>`
    = note: this error originates in the macro `$crate::__init_internal` which comes from the expansion of the macro `try_init` (in Nightly builds, run with -Z macro-backtrace for more info)
