@@ -12,7 +12,7 @@ use proc_macro::TokenStream;
 /// field you want to have structurally pinned.
 ///
 /// This macro enables the use of the [`pin_init!`] macro. When pinned-initializing a `struct`,
-/// then `#[pin]` directs the type of intializer that is required.
+/// then `#[pin]` directs the type of initializer that is required.
 ///
 /// If your `struct` implements `Drop`, then you need to add `PinnedDrop` as arguments to this
 /// macro, and change your `Drop` implementation to `PinnedDrop` annotated with
