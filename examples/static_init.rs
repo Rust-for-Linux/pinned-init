@@ -113,7 +113,7 @@ fn main() {
         );
     }
     for h in handles {
-        h.join().expect("thread paniced");
+        h.join().expect("thread panicked");
     }
     println!("{:?}, {:?}", &*mtx.lock(), &*COUNT.lock());
     assert_eq!(*mtx.lock(), workload * thread_count * 2);

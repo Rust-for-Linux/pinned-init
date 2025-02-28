@@ -1248,7 +1248,7 @@ impl<T> InPlaceInit<T> for Arc<T> {
     {
         let mut this = try_new_uninit!(Arc);
         let Some(slot) = Arc::get_mut(&mut this) else {
-            // SAFETY: the Arc has just been created and has no external referecnes
+            // SAFETY: the Arc has just been created and has no external references
             unsafe { core::hint::unreachable_unchecked() }
         };
         let slot = slot.as_mut_ptr();
@@ -1266,7 +1266,7 @@ impl<T> InPlaceInit<T> for Arc<T> {
     {
         let mut this = try_new_uninit!(Arc);
         let Some(slot) = Arc::get_mut(&mut this) else {
-            // SAFETY: the Arc has just been created and has no external referecnes
+            // SAFETY: the Arc has just been created and has no external references
             unsafe { core::hint::unreachable_unchecked() }
         };
         let slot = slot.as_mut_ptr();
