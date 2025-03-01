@@ -236,6 +236,13 @@
 //! [Rust-for-Linux]: https://rust-for-linux.com/
 
 #![cfg_attr(not(RUSTC_LINT_REASONS_IS_STABLE), feature(lint_reasons))]
+#![cfg_attr(
+    all(
+        any(feature = "alloc", feature = "std"),
+        not(RUSTC_NEW_UNINIT_IS_STABLE)
+    ),
+    feature(new_uninit)
+)]
 #![forbid(missing_docs, unsafe_op_in_unsafe_fn)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
