@@ -84,14 +84,14 @@ jobs:
         run: cargo install cargo-rdme
       - name: cargo rdme --check
         run: cargo rdme --check
-  msrv:
+  stable-msrv:
     runs-on: ubuntu-latest
     # we use a matrix here just because env can't be used in job names
     # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
     strategy:
       matrix:
         msrv: [1.82.0] # new_uninit requires this
-    name: ubuntu / ${{ matrix.msrv }}
+    name: stable-msrv / ${{ matrix.msrv }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -104,3 +104,35 @@ jobs:
         uses: taiki-e/install-action@cargo-hack
       - name: cargo hack
         run: cargo +${{ matrix.msrv }} hack --feature-powerset --exclude-features alloc,default check
+  nightly-msrv:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        msrv: [
+          # cannot use stable versions due to unstable features, so use nightly from the day that
+          # stable was branched off of master.
+          nightly-2024-03-15, # 1.78.0
+          nightly-2024-04-26, # 1.79.0
+          nightly-2024-06-07, # 1.80.0
+          nightly-2024-07-19, # 1.81.0
+          # ignored due to buggy unreachable pattern lint with uninhabited types.
+          # nightly-2024-08-30, # 1.82.0
+          nightly-2024-10-11, # 1.83.0
+          nightly-2024-11-22, # 1.84.0
+          nightly-2025-01-03, # 1.85.0
+          nightly-2025-02-14, # 1.86.0
+        ]
+      fail-fast: false
+    name: nightly-msrv / ${{ matrix.msrv }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install ${{ matrix.msrv }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.msrv }}
+      - name: cargo install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+      - name: cargo hack
+        run: cargo +${{ matrix.msrv }} hack --feature-powerset check
