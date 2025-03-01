@@ -1,3 +1,5 @@
+#![cfg_attr(not(RUSTC_LINT_REASONS_IS_STABLE), feature(lint_reasons))]
+
 mod pin_data;
 mod pinned_drop;
 mod zeroable;
