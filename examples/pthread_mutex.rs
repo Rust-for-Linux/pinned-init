@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 // inspired by https://github.com/nbdd0121/pin-init/blob/trunk/examples/pthread_mutex.rs
 #![allow(clippy::undocumented_unsafe_blocks)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
@@ -12,7 +14,7 @@ mod pthread_mtx {
         ops::{Deref, DerefMut},
         pin::Pin,
     };
-    use pinned_init::*;
+    use pin_init::*;
     use std::convert::Infallible;
 
     #[pin_data(PinnedDrop)]
@@ -137,7 +139,7 @@ fn main() {
     #[cfg(all(any(feature = "std", feature = "alloc"), not(windows)))]
     {
         use core::pin::Pin;
-        use pinned_init::*;
+        use pin_init::*;
         use pthread_mtx::*;
         use std::{
             sync::Arc,

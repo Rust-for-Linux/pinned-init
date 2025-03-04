@@ -1,23 +1,5 @@
-error: no rules expected `c`
+error: expected `,`
   --> tests/ui/compile-fail/init/missing_comma.rs:16:9
    |
 16 |         c: Bar,
-   |         ^ no rules expected this token in macro call
-   |
-note: while trying to match `,`
-  --> src/macros.rs
-   |
-   |         @munch_fields($field:ident $(: $val:expr)?, $($rest:tt)*),
-   |                                                   ^
-
-error: no rules expected `c`
-  --> tests/ui/compile-fail/init/missing_comma.rs:16:9
-   |
-16 |         c: Bar,
-   |         ^ no rules expected this token in macro call
-   |
-note: while trying to match `,`
-  --> src/macros.rs
-   |
-   |         @munch_fields($field:ident $(: $val:expr)?, $($rest:tt)*),
-   |                                                   ^
+   |         ^

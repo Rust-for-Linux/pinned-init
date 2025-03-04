@@ -1,4 +1,4 @@
-use pinned_init::*;
+use pin_init::*;
 
 #[pin_data]
 #[pin_data]

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 #![allow(clippy::undocumented_unsafe_blocks)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
 #![allow(clippy::missing_safety_doc)]
@@ -15,7 +17,7 @@ use std::{
     time::Duration,
 };
 
-use pinned_init::*;
+use pin_init::*;
 #[expect(unused_attributes)]
 #[path = "./linked_list.rs"]
 pub mod linked_list;
@@ -76,7 +78,9 @@ impl<T> CMutex<T> {
             spin_lock: SpinLock::new(),
             locked: Cell::new(false),
             data <- unsafe {
-                pin_init_from_closure(|slot: *mut UnsafeCell<T>| val.__pinned_init(slot.cast::<T>()))
+                pin_init_from_closure(|slot: *mut UnsafeCell<T>| {
+                    val.__pinned_init(slot.cast::<T>())
+                })
             },
         })
     }

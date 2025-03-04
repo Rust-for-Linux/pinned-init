@@ -8,7 +8,7 @@ use core::{
     pin::Pin,
     ptr::{self, addr_of_mut},
 };
-use pinned_init::*;
+use pin_init::*;
 use std::sync::Arc;
 
 #[expect(unused_attributes)]

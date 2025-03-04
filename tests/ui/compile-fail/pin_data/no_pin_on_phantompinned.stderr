@@ -1,39 +1,31 @@
-error: The field `pin1` of type `PhantomPinned` only has an effect, if it has the `#[pin]` attribute.
+error: The field `pin1` of type `PhantomPinned` only has an effect, if it has the `#[pin]` attribute
  --> tests/ui/compile-fail/pin_data/no_pin_on_phantompinned.rs:4:1
   |
 4 | #[pin_data]
   | ^^^^^^^^^^^
   |
-  = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
+  = note: this error originates in the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: The field `pin2` of type `PhantomPinned` only has an effect, if it has the `#[pin]` attribute.
+error: The field `pin2` of type `PhantomPinned` only has an effect, if it has the `#[pin]` attribute
  --> tests/ui/compile-fail/pin_data/no_pin_on_phantompinned.rs:4:1
   |
 4 | #[pin_data]
   | ^^^^^^^^^^^
   |
-  = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
+  = note: this error originates in the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: The field `pin3` of type `PhantomPinned` only has an effect, if it has the `#[pin]` attribute.
+error: The field `pin3` of type `PhantomPinned` only has an effect, if it has the `#[pin]` attribute
  --> tests/ui/compile-fail/pin_data/no_pin_on_phantompinned.rs:4:1
   |
 4 | #[pin_data]
   | ^^^^^^^^^^^
   |
-  = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
+  = note: this error originates in the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: The field `pin4` of type `PhantomPinned` only has an effect, if it has the `#[pin]` attribute.
+error: The field `pin4` of type `PhantomPinned` only has an effect, if it has the `#[pin]` attribute
  --> tests/ui/compile-fail/pin_data/no_pin_on_phantompinned.rs:4:1
   |
 4 | #[pin_data]
   | ^^^^^^^^^^^
   |
-  = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-warning: unused imports: `PhantomPinned` and `self`
- --> tests/ui/compile-fail/pin_data/no_pin_on_phantompinned.rs:2:19
-  |
-2 | use std::marker::{self, PhantomPinned};
-  |                   ^^^^  ^^^^^^^^^^^^^
-  |
-  = note: `#[warn(unused_imports)]` on by default
+  = note: this error originates in the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)

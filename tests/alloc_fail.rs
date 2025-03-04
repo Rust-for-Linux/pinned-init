@@ -11,7 +11,7 @@ fn too_big_in_place() {
     #[cfg(feature = "alloc")]
     use core::alloc::AllocError;
 
-    use pinned_init::*;
+    use pin_init::*;
     use std::sync::Arc;
 
     // should be too big with current hardware.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
 
 use core::convert::Infallible;

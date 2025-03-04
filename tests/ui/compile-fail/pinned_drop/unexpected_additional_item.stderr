@@ -1,22 +1,16 @@
-error: no rules expected keyword `const`
+error[E0438]: const `BAZ` is not a member of trait `pin_init::PinnedDrop`
   --> tests/ui/compile-fail/pinned_drop/unexpected_additional_item.rs:10:5
    |
 10 |     const BAZ: usize = 0;
-   |     ^^^^^ no rules expected this token in macro call
-   |
-note: while trying to match `)`
-  --> src/macros.rs
-   |
-   |         ),
-   |         ^
+   |     ^^^^^^^^^^^^^^^^^^^^^ not a member of trait `pin_init::PinnedDrop`
 
-error[E0277]: the trait bound `Foo: PinnedDrop` is not satisfied
- --> tests/ui/compile-fail/pinned_drop/unexpected_additional_item.rs:3:1
+error[E0412]: cannot find type `Pin` in this scope
+ --> tests/ui/compile-fail/pinned_drop/unexpected_additional_item.rs:8:19
   |
-3 | #[pin_data(PinnedDrop)]
-  | ^^^^^^^^^^^^^^^^^^^^^^^
-  | |
-  | the trait `PinnedDrop` is not implemented for `Foo`
-  | required by a bound introduced by this call
+8 |     fn drop(self: Pin<&mut Self>) {}
+  |                   ^^^ not found in this scope
   |
-  = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider importing this struct
+  |
+1 + use std::pin::Pin;
+  |

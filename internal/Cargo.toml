@@ -1,0 +1,24 @@
+[package]
+name = "pin-init-internal"
+version = "0.0.5"
+edition = "2021"
+
+authors = ["y86-dev"]
+license = "MIT OR Apache-2.0"
+description = "Proc macros for the pin-init crate."
+
+repository = "https://github.com/Rust-for-Linux/pin-init"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0"
+proc-macro2 = "1.0"
+syn = { version = "2.0.98", features = ["full", "visit", "visit-mut"] }
+
+[build-dependencies]
+rustc_version = "0.4"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kernel)'] }

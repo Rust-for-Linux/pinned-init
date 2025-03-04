@@ -7,4 +7,4 @@ error[E0119]: conflicting implementations of trait `MustNotImplDrop` for type `F
   | first implementation here
   | conflicting implementation for `Foo`
   |
-  = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
+  = note: this error originates in the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
