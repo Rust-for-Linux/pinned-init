@@ -1,13 +1,13 @@
-use pinned_init::*;
+use pin_init::*;
 struct Foo {}
 fn main() {
     let _ = {
         struct __InitOk;
         let data = unsafe {
-            use ::pinned_init::__internal::HasInitData;
+            use ::pin_init::__internal::HasInitData;
             Foo::__init_data()
         };
-        let init = ::pinned_init::__internal::InitData::make_closure::<
+        let init = ::pin_init::__internal::InitData::make_closure::<
             _,
             __InitOk,
             ::core::convert::Infallible,
@@ -32,7 +32,7 @@ fn main() {
             init(slot).map(|__InitOk| ())
         };
         let init = unsafe {
-            ::pinned_init::init_from_closure::<_, ::core::convert::Infallible>(init)
+            ::pin_init::init_from_closure::<_, ::core::convert::Infallible>(init)
         };
         init
     };

@@ -1,6 +1,6 @@
 use std::{marker::PhantomPinned, ptr::addr_of_mut};
 
-use pinned_init::*;
+use pin_init::*;
 
 const MARKS: usize = 64;
 

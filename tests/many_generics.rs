@@ -1,5 +1,5 @@
 use core::{marker::PhantomPinned, pin::Pin};
-use pinned_init::*;
+use pin_init::*;
 
 trait Bar<'a, const ID: usize = 0> {
     fn bar(&mut self);

@@ -12,7 +12,7 @@ help: you might have forgotten to add the struct literal inside the block
  --> src/macros.rs
   |
   ~                 ::core::ptr::write($slot, $t { SomeStruct {
-  |4                    $($acc)*
+  |9                    $($acc)*
   ~                 } });
   |
 
