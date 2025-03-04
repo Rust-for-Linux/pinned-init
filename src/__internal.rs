@@ -2,18 +2,8 @@
 
 //! This module contains library internal items.
 //!
-//! These items must not be used outside of these files in the case of the kernel repository:
-//! - `../kernel/init.rs`
-//! - `./lib.rs`
-//! - `./macros.rs`
-//! - `../macros/pin_data.rs`
-//! - `../macros/pinned_drop.rs`
-//!
-//! And in the case of the `pinned-init` repository:
-//! - `./lib.rs`
-//! - `./macros.rs`
-//! - `../pinned-init-macro/src/pinned_drop.rs`
-//! - `../pinned-init-macro/src/pin_data.rs`
+//! These items must not be used outside of this crate and the pin-init-internal crate located at
+//! `../internal`.
 
 use super::*;
 
@@ -113,7 +103,7 @@ pub unsafe trait InitData: Copy {
     }
 }
 
-pub struct AllData<T: ?Sized>(PhantomData<fn(*const T) -> *const T>);
+pub struct AllData<T: ?Sized>(Invariant<T>);
 
 impl<T: ?Sized> Clone for AllData<T> {
     fn clone(&self) -> Self {
@@ -196,7 +186,9 @@ impl<T> StackInit<T> {
 
 #[test]
 fn stack_init_reuse() {
+    use ::std::{borrow::ToOwned, println, string::String};
     use core::pin::pin;
+
     #[derive(Debug)]
     struct Foo {
         a: usize,
@@ -294,4 +286,66 @@ unsafe impl<T: ?Sized> PinInit<T, ()> for AlwaysFail<T> {
     unsafe fn __pinned_init(self, _slot: *mut T) -> Result<(), ()> {
         Err(())
     }
+}
+
+#[cfg(kernel)]
+#[macro_export]
+macro_rules! __internal_init {
+    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+        $($fields:tt)*
+    }) => {
+        $crate::try_init!($(&$this in)? $t $(::<$($generics),*>)? {
+            $($fields)*
+        }? ::core::convert::Infallible)
+    };
+}
+
+#[cfg(kernel)]
+#[macro_export]
+macro_rules! __internal_pin_init {
+    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+        $($fields:tt)*
+    }) => {
+        $crate::try_pin_init!($(&$this in)? $t $(::<$($generics),*>)? {
+            $($fields)*
+        }? ::core::convert::Infallible)
+    };
+}
+
+#[cfg(kernel)]
+#[macro_export]
+macro_rules! __internal_try_init {
+    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+        $($fields:tt)*
+    }? $err:ty) => {
+        $crate::__init_internal!(
+            @this($($this)?),
+            @typ($t $(::<$($generics),*>)?),
+            @fields($($fields)*),
+            @error($err),
+            @data(InitData, /*no use_data*/),
+            @has_data(HasInitData, __init_data),
+            @construct_closure(init_from_closure),
+            @munch_fields($($fields)*),
+        )
+    };
+}
+
+#[cfg(kernel)]
+#[macro_export]
+macro_rules! __internal_try_pin_init {
+    ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
+        $($fields:tt)*
+    }? $err:ty) => {
+        $crate::__init_internal!(
+            @this($($this)?),
+            @typ($t $(::<$($generics),*>)? ),
+            @fields($($fields)*),
+            @error($err),
+            @data(PinData, use_data),
+            @has_data(HasPinData, __pin_data),
+            @construct_closure(pin_init_from_closure),
+            @munch_fields($($fields)*),
+        )
+    };
 }

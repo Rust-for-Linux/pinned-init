@@ -1,5 +1,5 @@
 #![feature(allocator_api)]
-use pinned_init::*;
+use pin_init::*;
 use std::alloc::AllocError;
 
 struct Foo {

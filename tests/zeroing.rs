@@ -1,6 +1,6 @@
 use std::{marker::PhantomPinned, ptr::addr_of_mut};
 
-use pinned_init::*;
+use pin_init::*;
 
 const MARKS: usize = 64;
 
@@ -9,7 +9,7 @@ const MARKS: usize = 64;
 pub struct Foo {
     buf: [u8; 1024 * 1024],
     marks: [*mut u8; MARKS],
-    pos: usize,
+    _pos: usize,
     #[pin]
     _pin: PhantomPinned,
 }

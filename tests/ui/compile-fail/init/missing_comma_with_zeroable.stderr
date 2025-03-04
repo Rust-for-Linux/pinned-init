@@ -10,16 +10,12 @@ help: you can add the `dyn` keyword if you want a trait object
    |               ++++         +
 
 error[E0308]: mismatched types
-  --> tests/ui/compile-fail/init/missing_comma_with_zeroable.rs:11:13
+  --> tests/ui/compile-fail/init/missing_comma_with_zeroable.rs:12:12
    |
-11 |       let _ = init!(Foo {
-   |  _____________^
-12 | |         a: 0..Zeroable::zeroed()
-13 | |     });
-   | |      ^
-   | |      |
-   | |______expected `usize`, found `Range<{integer}>`
-   |        arguments to this function are incorrect
+12 |         a: 0..Zeroable::zeroed()
+   |         -  ^^^^^^^^^^^^^^^^^^^^^ expected `usize`, found `Range<{integer}>`
+   |         |
+   |         arguments to this function are incorrect
    |
    = note: expected type `usize`
             found struct `std::ops::Range<{integer}>`
@@ -28,7 +24,6 @@ note: function defined here
    |
    | pub const unsafe fn write<T>(dst: *mut T, src: T) {
    |                     ^^^^^
-   = note: this error originates in the macro `$crate::__init_internal` which comes from the expansion of the macro `init` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0063]: missing field `b` in initializer of `Foo`
   --> tests/ui/compile-fail/init/missing_comma_with_zeroable.rs:11:19

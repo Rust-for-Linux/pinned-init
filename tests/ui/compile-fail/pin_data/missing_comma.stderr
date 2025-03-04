@@ -4,11 +4,8 @@ error: expected `,`, or `}`, found `b`
 5 |     a: Box<Foo>
   |                ^ help: try adding a comma: `,`
 
-error: recursion limit reached while expanding `$crate::__pin_data!`
- --> tests/ui/compile-fail/pin_data/missing_comma.rs:3:1
+error: expected `,`
+ --> tests/ui/compile-fail/pin_data/missing_comma.rs:6:5
   |
-3 | #[pin_data]
-  | ^^^^^^^^^^^
-  |
-  = help: consider increasing the recursion limit by adding a `#![recursion_limit = "256"]` attribute to your crate (`$CRATE`)
-  = note: this error originates in the macro `$crate::__pin_data` which comes from the expansion of the attribute macro `pin_data` (in Nightly builds, run with -Z macro-backtrace for more info)
+6 |     b: Box<Foo>
+  |     ^

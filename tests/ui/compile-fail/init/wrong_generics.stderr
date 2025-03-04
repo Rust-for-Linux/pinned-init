@@ -1,11 +1,19 @@
-error: no rules expected `<`
+error: comparison operators cannot be chained
  --> tests/ui/compile-fail/init/wrong_generics.rs:7:22
   |
 7 |     let _ = init!(Foo<()> {
-  |                      ^ no rules expected this token in macro call
+  |                      ^  ^
   |
-note: while trying to match `{`
- --> src/lib.rs
+help: use `::<...>` instead of `<...>` to specify lifetime, type, or const arguments
   |
-  |     ($(&$this:ident in)? $t:ident $(::<$($generics:ty),* $(,)?>)? {
-  |                                                                   ^
+7 |     let _ = init!(Foo::<()> {
+  |                      ++
+
+error: comparison operators cannot be chained
+ --> tests/ui/compile-fail/init/wrong_generics.rs:7:22
+  |
+7 |     let _ = init!(Foo<()> {
+  |                      ^  ^
+  |
+  = help: use `::<...>` instead of `<...>` to specify lifetime, type, or const arguments
+  = help: or use `(...)` if you meant to specify fn arguments

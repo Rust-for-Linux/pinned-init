@@ -1,5 +1,5 @@
 use core::{marker::PhantomPinned, pin::Pin};
-use pinned_init::*;
+use pin_init::*;
 
 trait Bar<'a, const ID: usize = 0> {
     fn bar(&mut self);
@@ -10,7 +10,7 @@ struct Foo<'a, 'b: 'a, T: Bar<'b> + ?Sized + 'a, const SIZE: usize = 0>
 where
     T: Bar<'a, 1>,
 {
-    array: [u8; 1024 * 1024],
+    _array: [u8; 1024 * 1024],
     r: &'b mut [&'a mut T; SIZE],
     #[pin]
     _pin: PhantomPinned,
