@@ -9,6 +9,9 @@ use super::*;
 
 /// See the [nomicon] for what subtyping is. See also [this table].
 ///
+/// The reason for not using `PhantomData<*mut T>` is that that type never implements [`Send`] and
+/// [`Sync`]. Hence `fn(*mut T) -> *mut T` is used, as that type always implements them.
+///
 /// [nomicon]: https://doc.rust-lang.org/nomicon/subtyping.html
 /// [this table]: https://doc.rust-lang.org/nomicon/phantom-data.html#table-of-phantomdata-patterns
 pub(crate) type Invariant<T> = PhantomData<fn(*mut T) -> *mut T>;
