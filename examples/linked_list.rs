@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 #![allow(clippy::undocumented_unsafe_blocks)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
 
@@ -9,7 +11,7 @@ use core::{
     ptr::{self, NonNull},
 };
 
-use pinned_init::*;
+use pin_init::*;
 
 #[expect(unused_attributes)]
 mod error;

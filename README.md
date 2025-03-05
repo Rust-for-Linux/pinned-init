@@ -1,10 +1,10 @@
-[![Crates.io](https://img.shields.io/crates/v/pinned-init.svg)](https://crates.io/crates/pinned-init)
-[![Documentation](https://docs.rs/pinned-init/badge.svg)](https://docs.rs/pinned-init/)
-[![Dependency status](https://deps.rs/repo/github/Rust-for-Linux/pinned-init/status.svg)](https://deps.rs/repo/github/Rust-for-Linux/pinned-init)
-![License](https://img.shields.io/crates/l/pinned-init)
+[![Crates.io](https://img.shields.io/crates/v/pin-init.svg)](https://crates.io/crates/pin-init)
+[![Documentation](https://docs.rs/pin-init/badge.svg)](https://docs.rs/pin-init/)
+[![Dependency status](https://deps.rs/repo/github/Rust-for-Linux/pin-init/status.svg)](https://deps.rs/repo/github/Rust-for-Linux/pin-init)
+![License](https://img.shields.io/crates/l/pin-init)
 [![Toolchain](https://img.shields.io/badge/toolchain-nightly-red)](#nightly-only)
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Rust-for-Linux/pinned-init/test.yml)
-# Pinned-init
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Rust-for-Linux/pin-init/test.yml)
+# `pin-init`
 
 <!-- cargo-rdme start -->
 
@@ -22,44 +22,46 @@ There are cases when you want to in-place initialize a struct. For example when 
 and moving it from the stack is not an option, because it is bigger than the stack itself.
 Another reason would be that you need the address of the object to initialize it. This stands
 in direct conflict with Rust's normal process of first initializing an object and then moving
-it into it's final memory location.
+it into it's final memory location. For more information, see
+<https://rust-for-linux.com/the-safe-pinned-initialization-problem>.
 
 This library allows you to do in-place initialization safely.
 
 ### Nightly Needed for `alloc` feature
 
-This library requires the `allocator_api` unstable feature when the `alloc` feature
-is enabled and thus this feature can only be used with a nightly compiler.
-When enabling the `alloc` feature, the user will be required to activate
-`allocator_api` as well.
+This library requires the [`allocator_api` unstable feature] when the `alloc` feature is
+enabled and thus this feature can only be used with a nightly compiler. When enabling the
+`alloc` feature, the user will be required to activate `allocator_api` as well.
 
-The feature is enabled by default, thus by default `pinned-init` will require a
-nightly compiler. However, using the crate on stable compilers is possible by
-disabling `alloc`. In practice this will require the `std` feature, because
-stable compilers have neither `Box` nor `Arc` in no-std mode.
+[`allocator_api` unstable feature]: https://doc.rust-lang.org/nightly/unstable-book/library-features/allocator-api.html
+
+The feature is enabled by default, thus by default `pin-init` will require a nightly compiler.
+However, using the crate on stable compilers is possible by disabling `alloc`. In practice this
+will require the `std` feature, because stable compilers have neither `Box` nor `Arc` in no-std
+mode.
 
 ## Overview
 
 To initialize a `struct` with an in-place constructor you will need two things:
 - an in-place constructor,
 - a memory location that can hold your `struct` (this can be the [stack], an [`Arc<T>`],
-  [`Box<T>`] or any other smart pointer that implements [`InPlaceInit`]).
+  [`Box<T>`] or any other smart pointer that supports this library).
 
 To get an in-place constructor there are generally three options:
 - directly creating an in-place constructor using the [`pin_init!`] macro,
 - a custom function/macro returning an in-place constructor provided by someone else,
 - using the unsafe function [`pin_init_from_closure()`] to manually create an initializer.
 
-Aside from pinned initialization, this library also supports in-place construction without pinning,
-the macros/types/functions are generally named like the pinned variants without the `pin`
-prefix.
+Aside from pinned initialization, this library also supports in-place construction without
+pinning, the macros/types/functions are generally named like the pinned variants without the
+`pin_` prefix.
 
 ## Examples
 
-Throughout some examples we will make use of the `CMutex` type which can be found in
-`../examples/mutex.rs`. It is essentially a rebuild of the `mutex` from the Linux kernel in userland. So
-it also uses a wait list and a basic spinlock. Importantly it needs to be pinned to be locked
-and thus is a prime candidate for using this library.
+Throughout the examples we will often make use of the `CMutex` type which can be found in
+`../examples/mutex.rs`. It is essentially a userland rebuild of the `struct mutex` type from
+the Linux kernel. It also uses a wait list and a basic spinlock. Importantly the wait list
+requires it to be pinned to be locked and thus is a prime candidate for using this library.
 
 ### Using the [`pin_init!`] macro
 
@@ -70,7 +72,8 @@ If you want to use [`PinInit`], then you will have to annotate your `struct` wit
 that you need to write `<-` instead of `:` for fields that you want to initialize in-place.
 
 ```rust
-use pinned_init::*;
+use pin_init::{pin_data, pin_init, InPlaceInit};
+
 #[pin_data]
 struct Foo {
     #[pin]
@@ -88,7 +91,7 @@ let foo = pin_init!(Foo {
 (or just the stack) to actually initialize a `Foo`:
 
 ```rust
-let foo: Result<Pin<Box<Foo>>, _> = Box::pin_init(foo);
+let foo: Result<Pin<Box<Foo>>, AllocError> = Box::pin_init(foo);
 ```
 
 For more information see the [`pin_init!`] macro.
@@ -116,7 +119,7 @@ impl DriverData {
     fn new() -> impl PinInit<Self, Error> {
         try_pin_init!(Self {
             status <- CMutex::new(0),
-            buffer: Box::init(pinned_init::zeroed())?,
+            buffer: Box::init(pin_init::zeroed())?,
         }? Error)
     }
 }
@@ -137,11 +140,20 @@ actually does the initialization in the correct way. Here are the things to look
   `slot` gets called.
 
 ```rust
-use pinned_init::*;
-use core::{ptr::addr_of_mut, marker::PhantomPinned, cell::UnsafeCell, pin::Pin};
+use pin_init::{pin_data, pinned_drop, PinInit, PinnedDrop, pin_init_from_closure};
+use core::{
+    ptr::addr_of_mut,
+    marker::PhantomPinned,
+    cell::UnsafeCell,
+    pin::Pin,
+    mem::MaybeUninit,
+};
 mod bindings {
+    #[repr(C)]
+    pub struct foo {
+        /* fields from C ... */
+    }
     extern "C" {
-        pub type foo;
         pub fn init_foo(ptr: *mut foo);
         pub fn destroy_foo(ptr: *mut foo);
         #[must_use = "you must check the error return code"]
@@ -157,7 +169,7 @@ pub struct RawFoo {
     #[pin]
     _p: PhantomPinned,
     #[pin]
-    foo: UnsafeCell<bindings::foo>,
+    foo: UnsafeCell<MaybeUninit<bindings::foo>>,
 }
 
 impl RawFoo {
@@ -170,15 +182,16 @@ impl RawFoo {
             pin_init_from_closure(move |slot: *mut Self| {
                 // `slot` contains uninit memory, avoid creating a reference.
                 let foo = addr_of_mut!((*slot).foo);
+                let foo = UnsafeCell::raw_get(foo).cast::<bindings::foo>();
 
                 // Initialize the `foo`
-                bindings::init_foo(UnsafeCell::raw_get(foo));
+                bindings::init_foo(foo);
 
                 // Try to enable it.
-                let err = bindings::enable_foo(UnsafeCell::raw_get(foo), flags);
+                let err = bindings::enable_foo(foo, flags);
                 if err != 0 {
                     // Enabling has failed, first clean up the foo and then return the error.
-                    bindings::destroy_foo(UnsafeCell::raw_get(foo));
+                    bindings::destroy_foo(foo);
                     Err(err)
                 } else {
                     // All fields of `RawFoo` have been initialized, since `_p` is a ZST.
@@ -193,7 +206,7 @@ impl RawFoo {
 impl PinnedDrop for RawFoo {
     fn drop(self: Pin<&mut Self>) {
         // SAFETY: Since `foo` is initialized, destroying is safe.
-        unsafe { bindings::destroy_foo(self.foo.get()) };
+        unsafe { bindings::destroy_foo(self.foo.get().cast::<bindings::foo>()) };
     }
 }
 ```
@@ -201,15 +214,15 @@ impl PinnedDrop for RawFoo {
 For more information on how to use [`pin_init_from_closure()`], take a look at the uses inside
 the `kernel` crate. The [`sync`] module is a good starting point.
 
-[`sync`]: https://github.com/Rust-for-Linux/linux/tree/rust-next/rust/kernel/sync
+[`sync`]: https://rust.docs.kernel.org/kernel/sync/index.html
 [pinning]: https://doc.rust-lang.org/std/pin/index.html
 [structurally pinned fields]: https://doc.rust-lang.org/std/pin/index.html#pinning-is-structural-for-field
-[stack]: https://docs.rs/pinned-init/latest/pinned_init/macro.stack_pin_init.html
+[stack]: https://docs.rs/pin-init/latest/pin_init/macro.stack_pin_init.html
 [`Arc<T>`]: https://doc.rust-lang.org/stable/alloc/sync/struct.Arc.html
 [`Box<T>`]: https://doc.rust-lang.org/stable/alloc/boxed/struct.Box.html
-[`impl PinInit<Foo>`]: https://docs.rs/pinned-init/latest/pinned_init/trait.PinInit.html
-[`impl PinInit<T, E>`]: https://docs.rs/pinned-init/latest/pinned_init/trait.PinInit.html
-[`impl Init<T, E>`]: https://docs.rs/pinned-init/latest/pinned_init/trait.Init.html
+[`impl PinInit<Foo>`]: https://docs.rs/pin-init/latest/pin_init/trait.PinInit.html
+[`impl PinInit<T, E>`]: https://docs.rs/pin-init/latest/pin_init/trait.PinInit.html
+[`impl Init<T, E>`]: https://docs.rs/pin-init/latest/pin_init/trait.Init.html
 [Rust-for-Linux]: https://rust-for-linux.com/
 
 <!-- cargo-rdme end -->
